@@ -41,8 +41,9 @@ gen_A <- function(X, beta_A, flavor_A = "logit") {
   # gamma cdf link
   if(flavor_A == "beta") {
     xb <-(as.matrix(cbind(1,X))%*%beta_A)
-    A <- rbinom(n, 1, pgamma(xb^2, shape = 0.5, scale = 1)) 
+    A <- rbinom(n, 1, pgamma(xb^2, shape = 1.35, scale = 2)) 
   }
+  A
 }
 
 
@@ -62,6 +63,7 @@ gen_Y <- function(gamma, X, A, beta_Y, flavor_Y = "expo") {
   if(flavor_Y == "square"){
     Y <- (as.matrix(cbind(1,X))%*%beta_Y + gamma * A)^2 + abs(rnorm(n, 0, 0.01))
   }
+  Y
 }
 
 
@@ -145,7 +147,7 @@ one_sim <- function(n=n, p=3, Xmu, beta_A, beta_Y, gamma, Y_fun, A_flavor, Y_fla
   A <- gen_A(X=X, beta=beta_A, flavor_A=A_flavor)
   Y <- gen_Y(X=X, A=A, beta_Y=beta_Y, gamma=gamma, flavor_Y=Y_flavor)
   stopifnot(Y>0)
-  print(paste0("   P(A)=", mean(A)))
+  print(paste0("  P(A)=", mean(A)))
 
   true_est <- 
     mean(Y_fun(as.matrix(cbind(1,X)) %*% as.matrix(beta_Y) + gamma)) - 
@@ -153,7 +155,7 @@ one_sim <- function(n=n, p=3, Xmu, beta_A, beta_Y, gamma, Y_fun, A_flavor, Y_fla
   print(paste0("  True diff means = ", round(true_est, 3)))
   dat <- cbind(Y,A,X) 
   
-  # Estimating propensity (A) model
+  # Estimating A (propensity model)
   H_logit <- glm(as.formula(amod_formula_os), family=binomial(link="logit"), data=dat)
   pscores_logit <- predict(H_logit, type = "response")
   H_nn <- A_model_nn(a_func=amod_formula_os, dat=dat, 
@@ -162,7 +164,7 @@ one_sim <- function(n=n, p=3, Xmu, beta_A, beta_Y, gamma, Y_fun, A_flavor, Y_fla
   #toc <- toc(quiet=TRUE)
   #print(paste0("  A nn time:", round((toc$toc[[1]]-toc$tic[[1]])/60,2), " mins"))
   
-  # Estimating the outcome (Y) model
+  # Estimating Y (outcome model)
   fit_expo <- estimate_Y_expo(dat, pi_hat=pscores_logit, ymod_formula=ymod_formula_os)
   fit_nn <- estimate_Y_nn(dat, pi_hat=pscores_nn, ymod_formula=ymod_formula_os,
                              hidunits=nn_hidunits, eps=nn_eps, penals=nn_penals)
@@ -178,6 +180,7 @@ one_sim <- function(n=n, p=3, Xmu, beta_A, beta_Y, gamma, Y_fun, A_flavor, Y_fla
   expo_model_est <- fit_expo$muhat_1 - fit_expo$muhat_0
   nn_model_est <- fit_nn$muhat_1 - fit_nn$muhat_0
   myrow <- tibble(
+    "prob_A" = mean(A),
     "true_diff" = true_est,
     "naive_est" = naive_est,
     "expo_model_est" = expo_model_est,

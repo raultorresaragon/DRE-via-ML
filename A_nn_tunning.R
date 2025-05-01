@@ -7,7 +7,6 @@
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 library(tidymodels)
 library(future)
-#library(doParallel)
 
 A_model_nn <- function(dat, a_func, hidunits, eps, penals, cvs=8) {
 
@@ -50,8 +49,6 @@ A_model_nn <- function(dat, a_func, hidunits, eps, penals, cvs=8) {
   tune_metric <- metric_set(roc_auc)
   
   # tune model
-  #cl <- makeCluster(4)
-  #registerDoParallel(cl)
   plan(multisession, workers = 4) #<-turn on parallel processing
   nn_tune <- 
     nn_wflow %>%
@@ -60,7 +57,6 @@ A_model_nn <- function(dat, a_func, hidunits, eps, penals, cvs=8) {
               param_info = nn_param,
               metrics = tune_metric,
               control = control_grid(parallel_over = "resamples", allow_par = TRUE))
-  #stopCluster(cl)
   plan(sequential) #<-restore sequential processing
   (show_best(nn_tune, metric = "roc_auc") %>% select(-.estimator, -.config))
   
