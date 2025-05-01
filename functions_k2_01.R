@@ -4,13 +4,17 @@
 # Date: 2025-04-17
 # Note: This script creates functions needed for 
 #       simulating DRE for k=2 version 01
+#       We simulate A with logistic link
+#       and Y with exponential link
+#
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
+library(tictoc)
 source("A_nn_tunning.R")
 source("Y_nn_tunning.R")
 
-# Generate a design matrix
-# -------------------------------------
+# -------------------------
+# Generate design matrix X
+# -------------------------
 gen_X <- function(p=3, rho=0.6, mu, n) {
   Xnames <- paste0("X", 1:p) 
   Sigma <- outer(1:p, 1:p, function(i,j) rho^abs(i-j))
@@ -20,28 +24,51 @@ gen_X <- function(p=3, rho=0.6, mu, n) {
 }
 
 
-# Generate A (logit link):
-# -------------------------------------
-gen_A <- function(X, beta) {
-  expit <- function(x, b) {
-    1/(1 + exp(-1*(x%*%b)))
-  }
-  A <- rbinom(n, 1, expit(x=as.matrix(cbind(1,X)), b=beta)) 
-}
+# -----------
+# Generate A 
+# -----------
 
-
-# Generate Y (exponential link)
-# --------------------------------
-#gamma <- dplyr::if_else(X[,1]>0, 0.7, 0.1) #<-with trt heterogeneity
-gen_Y <- function(gamma = 0.8, X, A) {
-  lambda <- exp(1 + 0.1*X[,1] + 0.2*X[,2] + 0.3*X[,3] + gamma * A) 
-  Y <- rexp(n, rate = 1/lambda) + rnorm(n, 0, 0.001)
+gen_A <- function(X, beta_A, flavor_A = "logit") {
   
+  # logit link
+  if(flavor_A == "logit") {
+    expit <- function(x, b) {
+      1/(1 + exp(-1*(x%*%b)))
+    }
+    A <- rbinom(n, 1, expit(x=as.matrix(cbind(1,X)), b=beta_A)) 
+  }
+  
+  # gamma cdf link
+  if(flavor_A == "beta") {
+    xb <-(as.matrix(cbind(1,X))%*%beta_A)
+    A <- rbinom(n, 1, pgamma(xb^2, shape = 0.5, scale = 1)) 
+  }
 }
 
 
-# Estimating Y
-# --------------------------------
+# ------------
+# Generate Y 
+# ------------
+#gamma <- dplyr::if_else(X[,1]>0, 0.7, 0.1) #<-with trt heterogeneity
+gen_Y <- function(gamma, X, A, beta_Y, flavor_Y = "expo") {
+  
+  # exponential form
+  if(flavor_Y == "expo"){
+    lambda <- exp(as.matrix(cbind(1,X))%*%beta_Y + gamma * A) 
+    Y <- rexp(n, rate = 1/lambda) #+ rnorm(n, 0, 0.001)
+  }
+  
+  # square
+  if(flavor_Y == "square"){
+    Y <- (as.matrix(cbind(1,X))%*%beta_Y + gamma * A)^2 + abs(rnorm(n, 0, 0.01))
+  }
+}
+
+
+
+# -----------------------------
+# Estimate difference in means
+# -----------------------------
 get_diff <- function(ghat_1, delta_1, ghat_0, delta_0, pi_hat, Y) {
   muhat_1 <- mean(ghat_1 + (delta_1*(Y - ghat_1)/(pi_hat))/(mean(delta_1/pi_hat)))
   muhat_0 <- mean(ghat_0 + (delta_0*(Y - ghat_0)/(1-pi_hat))/(mean(delta_0/(1-pi_hat))))
@@ -49,8 +76,11 @@ get_diff <- function(ghat_1, delta_1, ghat_0, delta_0, pi_hat, Y) {
   o <-list(diff_means = diff_means, muhat_1 = muhat_1, muhat_0 = muhat_0)
 }
 
-outcome_model_nn <- function(dat, pi_hat, ymod_formula, ptype = "raw", 
-                             hidunits=c(5,25), eps=c(50,200), penals=c(0.001,0.01)) {
+# --------------
+# Estimating Y
+# --------------
+estimate_Y_nn <- function(dat, pi_hat, ymod_formula, 
+                          hidunits=c(5,25), eps=c(50,200), penals=c(0.001,0.01)) {
   
   Y <- dat$Y
   A <- dat$A
@@ -65,19 +95,17 @@ outcome_model_nn <- function(dat, pi_hat, ymod_formula, ptype = "raw",
                     hidunits=hidunits, eps=eps, penals=penals)
   ghat_0 <- predict(g_0, new_data = dat %>% select(-Y), type = "raw") |> as.vector()
   
-  #muhat_1 <- mean(ghat_1 + delta_1*(Y - ghat_1)/(pi_hat))
-  #muhat_0 <- mean(ghat_0 + delta_0*(Y - ghat_0)/(1-pi_hat))
   d <- get_diff(ghat_1, delta_1, ghat_0, delta_0, pi_hat, Y)
   
   print(paste0("  NN estimated diff means = ", round(d$diff_means, 3)))
-  o <- list("g_1" = g_1, "g_0" = g_0, "ptype" = ptype,
+  o <- list("g_1" = g_1, "g_0" = g_0, "ptype" = "raw",
             "ghat_1" = ghat_1, "ghat_0" = ghat_0, 
             "muhat_1" = d$muhat_1, "muhat_0" = d$muhat_0)
   o
   
 }
 
-outcome_model_expo <- function(dat, pi_hat, ymod_formula, ptype = "response") {
+estimate_Y_expo <- function(dat, pi_hat, ymod_formula) {
   
   Y <- dat$Y
   A <- dat$A
@@ -90,10 +118,16 @@ outcome_model_expo <- function(dat, pi_hat, ymod_formula, ptype = "response") {
   g_0 <- glm(as.formula(ymod_formula), family = gaussian(link="log"), data = dat[A==0,])
   ghat_0 <- predict(g_0, newdata = dat, type = "response")
   
+  
+  #g_1 <- lm(log(Y) ~ X1 + X2 + X3, data = dat[A==1,])
+  #ghat_1 <- predict(g_1, newdata = dat)
+  #g_0 <- lm(log(Y) ~ X1 + X2 + X3, data = dat[A==0,])
+  #ghat_0 <- predict(g_0, newdata = dat)
+  
   d <- get_diff(ghat_1, delta_1, ghat_0, delta_0, pi_hat, Y)
   
   print(paste0("  Exp estimated diff means = ", round(d$diff_means, 3)))
-  o <- list("g_1" = g_1, "g_0" = g_0, "ptype" = ptype,
+  o <- list("g_1" = g_1, "g_0" = g_0, "ptype" = "response",
             "ghat_1" = ghat_1, "ghat_0" = ghat_0, 
             "muhat_1" = d$muhat_1, "muhat_0" = d$muhat_0)
   o
@@ -102,51 +136,51 @@ outcome_model_expo <- function(dat, pi_hat, ymod_formula, ptype = "response") {
 
 # One Sim function
 # --------------------------------
-one_sim <- function(n=n, p=3, Xmu, beta, gamma, ymod_formula_os, amod_formula_os,
-                    hidunits_os, eps_os, penals_os) {
+one_sim <- function(n=n, p=3, Xmu, beta_A, beta_Y, gamma, Y_fun, A_flavor, Y_flavor,
+                    ymod_formula_os, amod_formula_os,
+                    nn_hidunits, nn_eps, nn_penals) {
   
+  tic()
   X <- gen_X(n=n, p=p, rho=rho, mu=Xmu)
-  A <- gen_A(X=X, beta=beta)
-  Y <- gen_Y(X=X, A=A, gamma=gamma)
-  
+  A <- gen_A(X=X, beta=beta_A, flavor_A=A_flavor)
+  Y <- gen_Y(X=X, A=A, beta_Y=beta_Y, gamma=gamma, flavor_Y=Y_flavor)
+  stopifnot(Y>0)
+  print(paste0("   P(A)=", mean(A)))
+
   true_est <- 
-    mean(exp(as.matrix(cbind(1,X)) %*% as.matrix(beta) + gamma)) - 
-    mean(exp(as.matrix(cbind(1,X)) %*% as.matrix(beta)))
+    mean(Y_fun(as.matrix(cbind(1,X)) %*% as.matrix(beta_Y) + gamma)) - 
+    mean(Y_fun(as.matrix(cbind(1,X)) %*% as.matrix(beta_Y)))
   print(paste0("  True diff means = ", round(true_est, 3)))
-  
-  # split data into two sets
-  # fulldat <- cbind(Y,A,X) 
-  # rand_i <- sample(1:n, ceiling(n*0.1))
-  # newdat <- fulldat[rand_i, ]
-  # dat <- fulldat[-rand_i, ]
   dat <- cbind(Y,A,X) 
   
   # Estimating propensity (A) model
-  tic()
   H_logit <- glm(as.formula(amod_formula_os), family=binomial(link="logit"), data=dat)
   pscores_logit <- predict(H_logit, type = "response")
   H_nn <- A_model_nn(a_func=amod_formula_os, dat=dat, 
-                     hidunits=hidunits_os, eps=eps_os, penals=penals_os) 
+                     hidunits=nn_hidunits, eps=nn_eps, penals=nn_penals) 
   pscores_nn <- predict(H_nn, new_data = dat %>% select(-A), type = "raw") |> as.vector()
-  toc <- toc(quiet=TRUE)
-  print(paste0("  A nn time:", round((toc$toc[[1]]-toc$tic[[1]])/60,2), " mins"))
+  #toc <- toc(quiet=TRUE)
+  #print(paste0("  A nn time:", round((toc$toc[[1]]-toc$tic[[1]])/60,2), " mins"))
   
   # Estimating the outcome (Y) model
-  tic()
-  fit_expo <- outcome_model_expo(dat, pi_hat=pscores_logit, ymod_formula=ymod_formula_os)
-  fit_nn <- outcome_model_nn(dat, pi_hat=pscores_nn, ymod_formula=ymod_formula_os,
-                             hidunits=hidunits_os, eps=eps_os, penals=penals_os)
+  fit_expo <- estimate_Y_expo(dat, pi_hat=pscores_logit, ymod_formula=ymod_formula_os)
+  fit_nn <- estimate_Y_nn(dat, pi_hat=pscores_nn, ymod_formula=ymod_formula_os,
+                             hidunits=nn_hidunits, eps=nn_eps, penals=nn_penals)
+  #toc <- toc(quiet=TRUE)
+  #print(paste0("  Y nn time:", round((toc$toc[[1]]-toc$tic[[1]])/60,2), " mins"))  
+  
   toc <- toc(quiet=TRUE)
-  print(paste0("  Y nn time:", round((toc$toc[[1]]-toc$tic[[1]])/60,2), " mins"))  
+  print(paste0("  ...run time: ", round((toc$toc[[1]]-toc$tic[[1]])/60,2), " mins"))  
+  
   
   # Packing results into a row
   naive_est <- mean(Y[A==1]) - mean(Y[A==0])
-  true_model_est <- fit_expo$muhat_1 - fit_expo$muhat_0
+  expo_model_est <- fit_expo$muhat_1 - fit_expo$muhat_0
   nn_model_est <- fit_nn$muhat_1 - fit_nn$muhat_0
   myrow <- tibble(
-    "true_model" = true_est,
+    "true_diff" = true_est,
     "naive_est" = naive_est,
-    "true_model_est" = true_model_est,
+    "expo_model_est" = expo_model_est,
     "nn_model_est" = nn_model_est
   )
   myrow

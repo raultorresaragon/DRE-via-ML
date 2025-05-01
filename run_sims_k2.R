@@ -5,47 +5,50 @@
 # Note: This script runs M simulations of
 #       k=2 treatment regime with DRE via NN
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+set.seed(1234)
 library(tictoc)
-
 rm(list = ls())
-M <- 25
+M <- 5
 n <- 1000
 source("functions_k2_01.R")
 
 amod_formula <- "A~X1+X2+X3"
 ymod_formula <- "Y~X1+X2+X3"
-p <- 3
-rho <- 0.6
-Xmu <- c(-2, 0.1, 1)
-beta = c(1, seq(from = 1*.1, to = p*.1, by = .1))
-gamma = 0.8
 hidunits = c(5,25)
 eps = c(50,200)
 penals = c(0.001,0.01)
-mytable <- tibble(true_model = numeric(),
+mytable <- tibble(true_diff = numeric(),
                   naive_est = numeric(),
-                  true_model_est = numeric(),
+                  expo_model_est = numeric(),
                   nn_model_est = numeric())
 
 tic("simulations")
+
 for(i in 1:M) {
   print(paste0("iteration ",i))
-  r <- one_sim(n=n, p=3, Xmu=Xmu, beta=beta, gamma=gamma, 
+  p <- 3
+  rho   <- runif(1, 0.3, 0.8)
+  Xmu   <- runif(3, -2, 2)
+  beta_A <- c(1, runif(3, 0.1, 0.8))
+  beta_Y <- c(1, runif(3, 0.1, 0.8))
+  gamma <- runif(1, 0.5, 0.9)
+  r <- one_sim(n=n, p=3, Xmu=Xmu, 
+               A_flavor = "beta", beta_A=beta_A, gamma=gamma, 
+               Y_flavor = "cos", Y_fun = function(x) x^2, beta_Y=beta_Y,
                ymod_formula_os=ymod_formula, amod_formula_os=amod_formula,
-               hidunits_os=hidunits, eps_os=eps, penals_os=penals)
+               nn_hidunits=hidunits, nn_eps=eps, nn_penals=penals)
   mytable <- rbind(mytable, r)
 }
 toc <- toc(quiet=TRUE)
-print(paste0("A time:", round((toc$toc[[1]]-toc$tic[[1]])/60,2), " mins"))
+cat(paste0("Total run time:", round((toc$toc[[1]]-toc$tic[[1]])/60,2), " mins"))
 
-mytable <- 
-  mytable |>
-  mutate(true_model_diff = (true_model - true_model_est),
-         nn_model_diff = (true_model - nn_model_est),
-         naive_model_diff = (true_model - naive_est))
+mytable
 
 mytable_long <- 
   mytable |>
+  mutate(expo_model_diff = (true_diff - expo_model_est),
+         nn_model_diff = (true_diff - nn_model_est),
+         naive_model_diff = (true_diff - naive_est)) |>
   dplyr::select(ends_with("diff")) |>
   pivot_longer(cols = everything(), names_to = "estimator", values_to = "diffs") |>
   mutate(estimator = stringr::str_replace(estimator,"_diff",""))
