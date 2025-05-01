@@ -50,7 +50,8 @@ for(i in 1:M) {
 toc <- toc(quiet=TRUE)
 cat(paste0("Total run time:", round((toc$toc[[1]]-toc$tic[[1]])/60,2), " mins"))
 mytable
-readr::write_csv(mytable, paste0("simk2_",flavor_ops[[1]],"_",flavor_ops[[2]], ".csv"))
+readr::write_csv(mytable, 
+                 paste0("tables/simk2_",flavor_ops[[1]],"_",flavor_ops[[2]], ".csv"))
 
 # Prepare output for display
 # --------------------------
@@ -72,7 +73,8 @@ ggplot2::ggplot(mytable_long, aes(x = estimator, y = diffs)) +
         axis.title.y = element_text(size = 14),
         axis.text = element_text(size = 14)) + 
   labs(title = mytitle, y = "diff", x="")
-
+ggsave(paste0("images/simk2_",flavor_ops[[1]],"_",flavor_ops[[2]], ".jpeg"),
+       width = 7.15, height = 4.95, dpi = 150)
 
 # Save R objects
 # --------------
