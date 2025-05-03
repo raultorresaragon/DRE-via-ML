@@ -8,7 +8,7 @@
 library(tidymodels)
 library(future)
 
-Y_model_nn <- function(dat, y_func, hidunits, eps, penals, cvs=8) {
+Y_model_nn <- function(dat, y_func, hidunits, eps, penals, cvs=6, verbose=FALSE) {
   
   
   
@@ -26,8 +26,8 @@ Y_model_nn <- function(dat, y_func, hidunits, eps, penals, cvs=8) {
     step_normalize(all_predictors())
   
   Y_model_nn <- 
-    mlp(hidden_units = tune(), penalty = tune(), epochs = tune()) %>% #epochs are iterations
-    set_engine("nnet", trace = 0) %>% #trace prevents extra logging of the training process
+    mlp(hidden_units = tune(), penalty = tune(), epochs = tune()) |> #epochs = iterations
+    set_engine("nnet", trace = 0) %>% #trace prevents extra logging
     set_mode("regression")
   
   nn_wflow <- 
@@ -49,16 +49,18 @@ Y_model_nn <- function(dat, y_func, hidunits, eps, penals, cvs=8) {
   tune_metric <- metric_set(rmse)
   
   # tune model
-  plan(multisession, workers = 4) #<-turn on parallel processing
+  plan(multisession, workers = 6) #<-turn on parallel processing
   nn_tune <- 
     nn_wflow %>%
     tune_grid(folds, 
               grid = nn_param %>% grid_random(size = 500),
               param_info = nn_param,
               metrics = tune_metric,
-              control = control_grid(parallel_over = "resamples"))
+              control = control_grid(parallel_over = "resamples", allow_par = TRUE))
   plan(sequential) #<-restore sequential processing
-  (show_best(nn_tune, metric = "rmse") %>% select(-.config, -.estimator))
+  if(verbose==TRUE){
+    print(show_best(nn_tune, metric = "rmse") %>% select(-.config, -.estimator))
+  }
 
   # fit final model with best parameter set
   

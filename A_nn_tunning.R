@@ -8,7 +8,7 @@
 library(tidymodels)
 library(future)
 
-A_model_nn <- function(dat, a_func, hidunits, eps, penals, cvs=8) {
+A_model_nn <- function(dat, a_func, hidunits, eps, penals, cvs=6, verbose=FALSE) {
 
   # dependent variable has to be factor for classification
   dat$A <- factor(dat$A)
@@ -26,8 +26,8 @@ A_model_nn <- function(dat, a_func, hidunits, eps, penals, cvs=8) {
     step_normalize(all_predictors())
   
   A_model_nn <- 
-    mlp(hidden_units = tune(), penalty = tune(), epochs = tune()) %>% #epochs are iterations
-    set_engine("nnet", trace = 0) %>% #trace prevents extra logging of the training process
+    mlp(hidden_units = tune(), penalty = tune(), epochs = tune()) |> #epochs = iterations
+    set_engine("nnet", trace = 0) %>% #trace prevents extra logging 
     set_mode("classification")
   
   nn_wflow <- 
@@ -49,7 +49,7 @@ A_model_nn <- function(dat, a_func, hidunits, eps, penals, cvs=8) {
   tune_metric <- metric_set(roc_auc)
   
   # tune model
-  plan(multisession, workers = 4) #<-turn on parallel processing
+  plan(multisession, workers = 6) #<-turn on parallel processing
   nn_tune <- 
     nn_wflow %>%
     tune_grid(folds, 
@@ -58,7 +58,9 @@ A_model_nn <- function(dat, a_func, hidunits, eps, penals, cvs=8) {
               metrics = tune_metric,
               control = control_grid(parallel_over = "resamples", allow_par = TRUE))
   plan(sequential) #<-restore sequential processing
-  (show_best(nn_tune, metric = "roc_auc") %>% select(-.estimator, -.config))
+  if(verbose==TRUE){
+    print(show_best(nn_tune, metric = "roc_auc") %>% select(-.estimator, -.config))
+  }
   
   # fit final model with best parameter set
   
@@ -77,6 +79,3 @@ A_model_nn <- function(dat, a_func, hidunits, eps, penals, cvs=8) {
   # count(res, A, Ahat)
   # pscores_nn
 }
-
-
-

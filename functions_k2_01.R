@@ -12,9 +12,9 @@ library(tictoc)
 source("A_nn_tunning.R")
 source("Y_nn_tunning.R")
 
-# -------------------------
-# Generate design matrix X
-# -------------------------
+# --------------------------
+# Generate X (design matrix)
+# --------------------------
 gen_X <- function(p=3, rho=0.6, mu, n) {
   Xnames <- paste0("X", 1:p) 
   Sigma <- outer(1:p, 1:p, function(i,j) rho^abs(i-j))
@@ -28,7 +28,7 @@ gen_X <- function(p=3, rho=0.6, mu, n) {
 # Generate A 
 # -----------
 
-gen_A <- function(X, beta_A, flavor_A = "logit") {
+gen_A <- function(X, beta_A, flavor_A) {
   
   # logit link
   if(flavor_A == "logit") {
@@ -41,7 +41,7 @@ gen_A <- function(X, beta_A, flavor_A = "logit") {
   # gamma cdf link
   if(flavor_A == "beta") {
     xb <-(as.matrix(cbind(1,X))%*%beta_A)
-    A <- rbinom(n, 1, pgamma(xb^2, shape = 1.35, scale = 2)) 
+    A <- rbinom(n, 1, pgamma(abs(xb), shape = 1.35, scale = 2)) 
   }
   A
 }
@@ -51,7 +51,7 @@ gen_A <- function(X, beta_A, flavor_A = "logit") {
 # Generate Y 
 # ------------
 #gamma <- dplyr::if_else(X[,1]>0, 0.7, 0.1) #<-with trt heterogeneity
-gen_Y <- function(gamma, X, A, beta_Y, flavor_Y = "expo") {
+gen_Y <- function(gamma, X, A, beta_Y, flavor_Y) {
   
   # exponential form
   if(flavor_Y == "expo"){
@@ -81,7 +81,7 @@ get_diff <- function(ghat_1, delta_1, ghat_0, delta_0, pi_hat, Y) {
 # --------------
 # Estimating Y
 # --------------
-estimate_Y_nn <- function(dat, pi_hat, ymod_formula, 
+estimate_Y_nn <- function(dat, pi_hat, ymod_formula, verbose=FALSE,
                           hidunits=c(5,25), eps=c(50,200), penals=c(0.001,0.01)) {
   
   Y <- dat$Y
@@ -90,16 +90,16 @@ estimate_Y_nn <- function(dat, pi_hat, ymod_formula,
   delta_0 <- as.numeric(A==0)
   
   g_1 <- Y_model_nn(dat=dat[A==1, ], y_func = ymod_formula, 
-                    hidunits=hidunits, eps=eps, penals=penals)
+                    hidunits=hidunits, eps=eps, penals=penals, verbose=verbose)
   ghat_1 <- predict(g_1, new_data = dat %>% select(-Y), type = "raw") |> as.vector()
   
   g_0 <- Y_model_nn(dat=dat[A==0, ], y_func = ymod_formula,
-                    hidunits=hidunits, eps=eps, penals=penals)
+                    hidunits=hidunits, eps=eps, penals=penals, verbose=verbose)
   ghat_0 <- predict(g_0, new_data = dat %>% select(-Y), type = "raw") |> as.vector()
   
   d <- get_diff(ghat_1, delta_1, ghat_0, delta_0, pi_hat, Y)
   
-  print(paste0("  NN estimated diff means = ", round(d$diff_means, 3)))
+  cat(paste0("\n  NN estimated diff means = ", round(d$diff_means, 3)))
   o <- list("g_1" = g_1, "g_0" = g_0, "ptype" = "raw",
             "ghat_1" = ghat_1, "ghat_0" = ghat_0, 
             "muhat_1" = d$muhat_1, "muhat_0" = d$muhat_0)
@@ -128,7 +128,7 @@ estimate_Y_expo <- function(dat, pi_hat, ymod_formula) {
   
   d <- get_diff(ghat_1, delta_1, ghat_0, delta_0, pi_hat, Y)
   
-  print(paste0("  Exp estimated diff means = ", round(d$diff_means, 3)))
+  cat(paste0("\n  Exp estimated diff means = ", round(d$diff_means, 3)))
   o <- list("g_1" = g_1, "g_0" = g_0, "ptype" = "response",
             "ghat_1" = ghat_1, "ghat_0" = ghat_0, 
             "muhat_1" = d$muhat_1, "muhat_0" = d$muhat_0)
@@ -140,26 +140,25 @@ estimate_Y_expo <- function(dat, pi_hat, ymod_formula) {
 # --------------------------------
 one_sim <- function(n=n, p=3, Xmu, beta_A, beta_Y, gamma, Y_fun, A_flavor, Y_flavor,
                     ymod_formula_os, amod_formula_os,
-                    nn_hidunits, nn_eps, nn_penals) {
+                    nn_hidunits, nn_eps, nn_penals, verbose = FALSE) {
   
-  tic()
   X <- gen_X(n=n, p=p, rho=rho, mu=Xmu)
   A <- gen_A(X=X, beta=beta_A, flavor_A=A_flavor)
   Y <- gen_Y(X=X, A=A, beta_Y=beta_Y, gamma=gamma, flavor_Y=Y_flavor)
   stopifnot(Y>0)
-  print(paste0("  P(A)=", mean(A)))
+  print(paste0("  P(A)=",mean(A)))
 
   true_est <- 
     mean(Y_fun(as.matrix(cbind(1,X)) %*% as.matrix(beta_Y) + gamma)) - 
     mean(Y_fun(as.matrix(cbind(1,X)) %*% as.matrix(beta_Y)))
-  print(paste0("  True diff means = ", round(true_est, 3)))
+  cat(paste0("\n  True diff means = ", round(true_est, 3)))
   dat <- cbind(Y,A,X) 
   
   # Estimating A (propensity model)
   H_logit <- glm(as.formula(amod_formula_os), family=binomial(link="logit"), data=dat)
   pscores_logit <- predict(H_logit, type = "response")
   H_nn <- A_model_nn(a_func=amod_formula_os, dat=dat, 
-                     hidunits=nn_hidunits, eps=nn_eps, penals=nn_penals) 
+                     hidunits=nn_hidunits, eps=nn_eps, penals=nn_penals, verbose=verbose) 
   pscores_nn <- predict(H_nn, new_data = dat %>% select(-A), type = "raw") |> as.vector()
   #toc <- toc(quiet=TRUE)
   #print(paste0("  A nn time:", round((toc$toc[[1]]-toc$tic[[1]])/60,2), " mins"))
@@ -167,12 +166,10 @@ one_sim <- function(n=n, p=3, Xmu, beta_A, beta_Y, gamma, Y_fun, A_flavor, Y_fla
   # Estimating Y (outcome model)
   fit_expo <- estimate_Y_expo(dat, pi_hat=pscores_logit, ymod_formula=ymod_formula_os)
   fit_nn <- estimate_Y_nn(dat, pi_hat=pscores_nn, ymod_formula=ymod_formula_os,
-                             hidunits=nn_hidunits, eps=nn_eps, penals=nn_penals)
+                          hidunits=nn_hidunits, eps=nn_eps, penals=nn_penals, 
+                          verbose=verbose)
   #toc <- toc(quiet=TRUE)
   #print(paste0("  Y nn time:", round((toc$toc[[1]]-toc$tic[[1]])/60,2), " mins"))  
-  
-  toc <- toc(quiet=TRUE)
-  print(paste0("  ...run time: ", round((toc$toc[[1]]-toc$tic[[1]])/60,2), " mins"))  
   
   
   # Packing results into a row
