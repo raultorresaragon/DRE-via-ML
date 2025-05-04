@@ -13,7 +13,7 @@ rm(list = ls())
 # Set parameters and load functions
 # ---------------------------------
 M <- 5
-n <- 1000
+n <- 500
 source("functions_k2_01.R")
 
 amod_formula <- "A~X1+X2+X3"
@@ -27,8 +27,10 @@ mytable <- tibble(prob_A = numeric(),
                   expo_model_est = numeric(),
                   nn_model_est = numeric())
 
-flavor_ops <- c("beta","square", function(x) x^2)
+#flavor_ops <- c("tanh","square", function(x) x^2)
 #flavor_ops <- c("logit","expo", exp)
+#flavor_ops <- c("tanh","sigmoid", function(x) 1/(1+exp(-x)) * 10)
+flavor_ops <- c("tanh","nonlin", function(x) (x^4) / (1 + abs(x)^3))
 
 # Run simulations
 # ---------------
@@ -44,7 +46,7 @@ for(i in 1:M) {
   cat(paste0("\nXmu = ", paste0(Xmu, collapse=",")))
   cat(paste0("\nbeta_A = ", paste0(beta_A, collapse=",")))
   cat(paste0("\nbeta_Y = ", paste0(beta_Y, collapse=",")))
-  cat(paste0("\nrho = ", rho, "\n"))
+  cat(paste0("\nrho = ", rho))
   tic("one_sim")
   r <- one_sim(n=n, p=3, Xmu=Xmu, 
                A_flavor = flavor_ops[[1]], beta_A=beta_A, gamma=gamma, 
@@ -52,13 +54,13 @@ for(i in 1:M) {
                ymod_formula_os=ymod_formula, amod_formula_os=amod_formula,
                nn_hidunits=hidunits, nn_eps=eps, nn_penals=penals, verbose=FALSE)
   toc <- toc(quiet=TRUE)
-  cat(paste0("  ...run time: ", round((toc$toc[[1]]-toc$tic[[1]])/60,2), " mins"))  
+  cat(paste0("\n  ...run time: ", round((toc$toc[[1]]-toc$tic[[1]])/60,2), " mins"))  
   mytable <- rbind(mytable, r)
 }
 toc <- toc(quiet=TRUE)
 cat(paste0("\nTotal run time:", round((toc$toc[[1]]-toc$tic[[1]])/60,2), " mins"))
 mytable
-readr::write_csv(mytable, 
+readr::write_csv(round(mytable, 3), 
                  paste0("tables/simk2_",flavor_ops[[1]],"_",flavor_ops[[2]], ".csv"))
 
 # Prepare output for display
@@ -72,14 +74,16 @@ mytable_long <-
   pivot_longer(cols = everything(), names_to = "estimator", values_to = "diffs") |>
   mutate(estimator = stringr::str_replace(estimator,"_diff","")) |>
   filter(estimator != "true") |>
-  filter(diffs < quantile(diffs, probs = 0.9) & diffs > quantile(diffs,.1))|>
+  #filter(diffs < quantile(diffs, probs = 0.9) & diffs > quantile(diffs,.1))|>
   mutate(estimator = factor(estimator, 
          levels = c("naive_model","expo_model","nn_model"),
          labels = c("naive", "logistic-expo", "neural network")))
 
-mytitle <- expression(paste("Errors between ", Delta, " and ", hat(Delta), " per model"))
+mytitle <- bquote(paste("Errors between ", Delta, " and ", hat(Delta), " per model.",
+                        "\n True model is ", .(flavor_ops[[1]]), "-", .(flavor_ops[[2]])))
 ggplot2::ggplot(mytable_long, aes(x = estimator, y = diffs)) +
-  geom_boxplot(fill = "skyblue") +
+  geom_boxplot(fill = "skyblue") + 
+  ylim(c(-1,1.2)) +
   theme_minimal() +
   theme(plot.title = element_text(hjust = 0.5, size = 14),
         axis.title.y = element_text(size = 14),

@@ -30,20 +30,14 @@ gen_X <- function(p=3, rho=0.6, mu, n) {
 
 gen_A <- function(X, beta_A, flavor_A) {
   
-  # logit link
-  if(flavor_A == "logit") {
-    expit <- function(x, b) {
-      1/(1 + exp(-1*(x%*%b)))
-    }
-    A <- rbinom(n, 1, expit(x=as.matrix(cbind(1,X)), b=beta_A)) 
-  }
+  xb <-(as.matrix(cbind(1,X))%*%beta_A) 
+  if(flavor_A == "logit")   {probs <- 1/(1 + exp(-1*(xb)))}
+  if(flavor_A == "pnorm")   {probs <- pnorm(xb)}
+  if(flavor_A == "gomertz") {probs <- exp(-exp(xb))}
+  if(flavor_A == "arctan")  {probs <- (atan(xb)/pi) + 0.5}
+  if(flavor_A == "tanh")    {probs <- 0.5* (tanh(xb)+1)}
   
-  # gamma cdf link
-  if(flavor_A == "beta") {
-    xb <-(as.matrix(cbind(1,X))%*%beta_A)
-    A <- rbinom(n, 1, pgamma(abs(xb), shape = 1.35, scale = 2)) 
-  }
-  A
+  A <- rbinom(n, 1, probs) 
 }
 
 
@@ -53,17 +47,17 @@ gen_A <- function(X, beta_A, flavor_A) {
 #gamma <- dplyr::if_else(X[,1]>0, 0.7, 0.1) #<-with trt heterogeneity
 gen_Y <- function(gamma, X, A, beta_Y, flavor_Y) {
   
-  # exponential form
-  if(flavor_Y == "expo"){
-    lambda <- exp(as.matrix(cbind(1,X))%*%beta_Y + gamma * A) 
-    Y <- rexp(n, rate = 1/lambda) #+ rnorm(n, 0, 0.001)
-  }
+  xb_gamma_a <- as.matrix(cbind(1,X))%*%beta_Y + gamma * A
   
-  # square
-  if(flavor_Y == "square"){
-    Y <- (as.matrix(cbind(1,X))%*%beta_Y + gamma * A)^2 + abs(rnorm(n, 0, 0.01))
-  }
-  Y
+  if(flavor_Y == "expo") { fun_Y = exp}
+  if(flavor_Y == "square") { fun_Y = function(x) x^2}
+  if(flavor_Y == "sigmoid"){ fun_Y = function(x) 1/(1+exp(-x)) * 10}
+  if(flavor_Y == "nonlin") { fun_Y = function(x) (x^4) / (1 + abs(x)^3)}
+  if(flavor_Y == "piece") { fun_Y = function(x) ifelse(x<0, log1p(x^2), 1/(1+exp(-x)))*6}
+  if(flavor_Y == "atan") { fun_Y = function(x) 6 * (atan(x) / pi + 0.5)}
+  
+  Y <- fun_Y(xb_gamma_a) + abs(rnorm(n, 0, 0.01))
+
 }
 
 
@@ -120,11 +114,12 @@ estimate_Y_expo <- function(dat, pi_hat, ymod_formula) {
   g_0 <- glm(as.formula(ymod_formula), family = gaussian(link="log"), data = dat[A==0,])
   ghat_0 <- predict(g_0, newdata = dat, type = "response")
   
-  
   #g_1 <- lm(log(Y) ~ X1 + X2 + X3, data = dat[A==1,])
   #ghat_1 <- predict(g_1, newdata = dat)
+  #
   #g_0 <- lm(log(Y) ~ X1 + X2 + X3, data = dat[A==0,])
   #ghat_0 <- predict(g_0, newdata = dat)
+  
   
   d <- get_diff(ghat_1, delta_1, ghat_0, delta_0, pi_hat, Y)
   
@@ -134,6 +129,11 @@ estimate_Y_expo <- function(dat, pi_hat, ymod_formula) {
             "muhat_1" = d$muhat_1, "muhat_0" = d$muhat_0)
   o
 }
+
+
+# Compute Vn
+# ----------
+# START HERE
 
 
 # One Sim function
@@ -146,7 +146,7 @@ one_sim <- function(n=n, p=3, Xmu, beta_A, beta_Y, gamma, Y_fun, A_flavor, Y_fla
   A <- gen_A(X=X, beta=beta_A, flavor_A=A_flavor)
   Y <- gen_Y(X=X, A=A, beta_Y=beta_Y, gamma=gamma, flavor_Y=Y_flavor)
   stopifnot(Y>0)
-  print(paste0("  P(A)=",mean(A)))
+  cat(paste0("\n  P(A)=",mean(A)))
 
   true_est <- 
     mean(Y_fun(as.matrix(cbind(1,X)) %*% as.matrix(beta_Y) + gamma)) - 
