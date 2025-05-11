@@ -55,6 +55,7 @@ gen_Y <- function(gamma, X, A, beta_Y, flavor_Y) {
   if(flavor_Y == "nonlin") { fun_Y = function(x) (x^4) / (1 + abs(x)^3)}
   if(flavor_Y == "piece") { fun_Y = function(x) ifelse(x<0, log1p(x^2), 1/(1+exp(-x)))*6}
   if(flavor_Y == "atan") { fun_Y = function(x) 6 * (atan(x) / pi + 0.5)}
+  if(flavor_Y == "expf") { fun_Y = function(x) rexp(length(x), rate = 1/x)}
   
   Y <- fun_Y(xb_gamma_a) + abs(rnorm(n, 0, 0.01))
 
@@ -133,7 +134,27 @@ estimate_Y_expo <- function(dat, pi_hat, ymod_formula) {
 
 # Compute Vn
 # ----------
-# START HERE
+get_Vn <- function(g_1, g_0, X_new) {
+  
+  V_1 <- predict(g_1, new_data = X_new, type = "raw")
+  V_0 <- predict(g_0, new_data = X_new, type = "raw")
+  r <- 
+    tibble(X_new) |> 
+    mutate(V_1 = V_1, 
+           V_0 = V_0,
+           Optimal_A = if_else(max(V_1, V_0) == V_1, 1, 0))
+
+}
+
+extract_nn_params <- function(fit_nn) {
+  x <- fit_nn |> parsnip::extract_spec_parsnip()
+  epochs <- rlang::quo_get_expr(x$args$epochs)
+  penalty <- rlang::quo_get_expr(x$args$penalty)
+  hidden_units <- rlang::quo_get_expr(x$args$hidden_units)
+  tibble(hidden_units = hidden_units,
+         penalty = penalty,
+         epochs = epochs)
+}
 
 
 # One Sim function
@@ -171,6 +192,9 @@ one_sim <- function(n=n, p=3, Xmu, beta_A, beta_Y, gamma, Y_fun, A_flavor, Y_fla
   #toc <- toc(quiet=TRUE)
   #print(paste0("  Y nn time:", round((toc$toc[[1]]-toc$tic[[1]])/60,2), " mins"))  
   
+  # Computing Vn
+  X_new <- gen_X(n=25, p=p, rho=rho, mu=Xmu)
+  Vn_df <- get_Vn(g_1 = fit_nn$g_1, g_0 = fit_nn$g_0, X_new = X_new[1,]) 
   
   # Packing results into a row
   naive_est <- mean(Y[A==1]) - mean(Y[A==0])
@@ -183,5 +207,5 @@ one_sim <- function(n=n, p=3, Xmu, beta_A, beta_Y, gamma, Y_fun, A_flavor, Y_fla
     "expo_model_est" = expo_model_est,
     "nn_model_est" = nn_model_est
   )
-  myrow
+  r <- list(myrow = myrow, Vn = Vn_df, g_1_nn = fit_nn$g_1, g_0_nn = fit_nn$g_0)
 }

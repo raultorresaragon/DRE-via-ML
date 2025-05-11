@@ -12,8 +12,8 @@ rm(list = ls())
 
 # Set parameters and load functions
 # ---------------------------------
-M <- 5
-n <- 500
+M <- 10
+n <- 300
 source("functions_k2_01.R")
 
 amod_formula <- "A~X1+X2+X3"
@@ -26,11 +26,10 @@ mytable <- tibble(prob_A = numeric(),
                   naive_est = numeric(),
                   expo_model_est = numeric(),
                   nn_model_est = numeric())
+#nn_params_list <- 
 
-#flavor_ops <- c("tanh","square", function(x) x^2)
 #flavor_ops <- c("logit","expo", exp)
-#flavor_ops <- c("tanh","sigmoid", function(x) 1/(1+exp(-x)) * 10)
-flavor_ops <- c("tanh","nonlin", function(x) (x^4) / (1 + abs(x)^3))
+flavor_ops <- c("tanh","sigmoid", function(x) 1/(1+exp(-x)) * 10)
 
 # Run simulations
 # ---------------
@@ -53,9 +52,16 @@ for(i in 1:M) {
                Y_flavor = flavor_ops[[2]], Y_fun = flavor_ops[[3]], beta_Y=beta_Y,
                ymod_formula_os=ymod_formula, amod_formula_os=amod_formula,
                nn_hidunits=hidunits, nn_eps=eps, nn_penals=penals, verbose=FALSE)
+  cat(paste0("\n V_1 = ", round(r$Vn$V_1,2), 
+             " ; V_0 = ", round(r$Vn$V_0), 
+             " ; OTR: A=", r$Vn$Optimal_A))
+  cat("\n g_0_nn: ")
+  r$g_0_nn |> extract_nn_params() |> print()
+  cat("\n g_1_nn: ")
+  r$g_1_nn |> extract_nn_params() |> print()
   toc <- toc(quiet=TRUE)
   cat(paste0("\n  ...run time: ", round((toc$toc[[1]]-toc$tic[[1]])/60,2), " mins"))  
-  mytable <- rbind(mytable, r)
+  mytable <- rbind(mytable, r$myrow)
 }
 toc <- toc(quiet=TRUE)
 cat(paste0("\nTotal run time:", round((toc$toc[[1]]-toc$tic[[1]])/60,2), " mins"))

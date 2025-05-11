@@ -49,11 +49,31 @@ gen_probs <- function(X, beta_A) {
 
 p <- gen_probs(X, beta_A)
 
-plot(y=p$probs_logit, x=(p$xb), col = "purple", ylim=c(0,1), xlim=c(-4,4))
+plot(y=p$probs_logit, x=(p$xb), col = "lightblue3", ylim=c(0,1), xlim=c(-4,4))
 points(y=p$probs_norm, x=(p$xb), col = "blue")
 points(y=p$probs_gompertz, x=(p$xb), col = "green3")
 points(y=p$probs_arctan, x=(p$xb), col = "orange2")
-points(y=p$probs_tanh, x=(p$xb), col = "red3")
+points(y=p$probs_tanh, x=(p$xb), col = "darkred")
+
+jpeg("images/logit_vs_tanh.jpeg", width = 1000, height = 750)
+par(mar = c(5, 6, 4, 2))
+curve(1/(1 + exp(-1*(x))), 
+      from=-4, to=4, 
+      lwd = 6,
+      col = "skyblue3",      
+      main = "Comparison of logit and tanh functions",
+      ylab = "P(A=1)",
+      xlab = expression(x[i]^T * beta),
+      cex.lab = 2, cex.main = 2.25, cex.axis = 1.75) 
+curve(0.5 * (tanh(x) + 1),
+      add = TRUE,
+      from=-4, to=4, 
+      lwd = 6,
+      col = "darkred",      
+      cex.lab = 2) 
+legend("bottomright", legend = c("logit", "tanh"), fill=c("skyblue3", "darkred"),
+       cex=2)
+dev.off()
 
 
 
@@ -68,17 +88,18 @@ gen_Y <- function(gamma, X, A, beta_Y, flavor_Y) {
   if(flavor_Y == "nonlin") { fun_Y = function(x) (x^4) / (1 + abs(x)^3)}
   if(flavor_Y == "piece") { fun_Y = function(x) ifelse(x<0, log1p(x^2), 1/(1+exp(-x)))*6}
   if(flavor_Y == "atan") { fun_Y = function(x) 6 * (atan(x) / pi + 0.5)}
-  
+
   Y <- fun_Y(xb_gamma_a) + abs(rnorm(n, 0, 0.01))
   
 }
 
 A <- rbinom(n, 1, p$probs_tanh)
 xb_gamma_a <- as.matrix(cbind(1,X))%*%beta_Y + gamma * A
-Y_sq <- gen_Y(gamma = 0.6, X=X,A=A,beta_Y, "square")
-Y_expo <- gen_Y(gamma = 0.6, X=X,A=A,beta_Y, "expo")
-Y_sig <- gen_Y(gamma = 0.6, X=X,A=A,beta_Y, "sigmoid")
-Y_atan <- gen_Y(gamma = 0.6, X=X,A=A,beta_Y, "atan")
+Y_sq <- gen_Y(gamma = 0.6, X=X, A=A, beta_Y, "square")
+Y_expo <- gen_Y(gamma = 0.6, X=X, A=A, beta_Y, "expo")
+Y_sig <- gen_Y(gamma = 0.6, X=X, A=A, beta_Y, "sigmoid")
+Y_atan <- gen_Y(gamma = 0.6, X=X, A=A, beta_Y, "atan")
+
 
 plot(y=Y_expo, x=xb_gamma_a, col = "black", xlim = c(-4,6), ylim = c(0,10))
 points(y=Y_sq, x=xb_gamma_a, col = "blue4")
@@ -86,3 +107,22 @@ points(y=Y_sig, x=xb_gamma_a, col = "red4")
 points(y=Y_atan, x=xb_gamma_a, col = "green4")
 
 
+jpeg("images/expo_vs_sigmoid.jpeg", width = 1000, height = 750)
+par(mar = c(5, 6, 4, 2))
+curve(exp(x), 
+      from=-4, to=4, 
+      lwd = 6,
+      col = "skyblue3",      
+      main = "Comparison of exponential and scaled logit functions",
+      ylab = "Y",
+      xlab = expression(x[i]^T * beta + gamma * A),
+      cex.lab = 2, cex.main = 2.25, cex.axis = 1.75) 
+curve(1/(1+exp(-x)) * 10,
+      add = TRUE,
+      from=-4, to=4, 
+      lwd = 6,
+      col = "darkred",      
+      cex.lab = 2) 
+legend("topleft", legend = c("exponential", "scaled logit"), fill=c("skyblue3", "darkred"),
+       cex=2)
+dev.off()
