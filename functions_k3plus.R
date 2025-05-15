@@ -1,11 +1,11 @@
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Author: Raul
-# File name: functions_k2.R
+# File name: functions_k3plus.R
 # Date: 2025-05-14
 # Note: This script creates functions needed for 
-#       simulating DRE for k=2 version 01
-#       We simulate A with logistic link
-#       and Y with exponential link
+#       simulating DRE for k=3+ where the differences
+#       in means are compared pairwise: combn(k,2)
+#       
 #
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 library(tictoc)
@@ -27,7 +27,6 @@ gen_X <- function(p=8, rho=0.6, mu, n) {
 # -----------
 # Generate A 
 # -----------
-
 gen_A <- function(X, beta_A, flavor_A, k) {
   
   xb <-(as.matrix(cbind(1,X))%*%beta_A) 
@@ -58,7 +57,36 @@ gen_Y <- function(gamma, X, A, beta_Y, flavor_Y) {
   if(flavor_Y == "expf") { fun_Y = function(x) rexp(length(x), rate = 1/x)}
   
   Y <- fun_Y(xb_gamma_a) + abs(rnorm(n, 0, 0.01))
+}
+
+
+# ----------------------------------
+# Estimate A: propensity score model
+# ----------------------------------
+estimate_A_nn <- function(X, dat, k, hidunits, eps, penals, verbose=FALSE) {
   
+  H_nns <- list()
+  pscores <- data.frame(prob = rep(0,n))
+  for(i in 1:k-1) {
+
+    dat_i <- dat |> mutate(A = if_else(A == i, 1, 0)) |> dplyr::select(-Y)
+    H_nn <- A_model_nn(a_func = "A~.",
+                       dat = dat_i,
+                       hidunits=hidunits, eps=eps, penals=penals, 
+                       verbose=verbose)
+    pscores_nn_i <- 
+      predict(H_nn, new_data = dat_i |> select(-A), type = "raw") |> 
+      as.vector()
+    
+    pscores <- pscores |> mutate(prob = pscores_nn_i)  
+    colnames(pscores)[stringr::str_detect(colnames(pscores),"prob")]<-paste0("pscores_",i)
+    rowsums <- rowSums(pscores)
+    scale <- function(x) x/rowsums
+    pscores <- pscores |> mutate_all(scale)
+    
+    #H_nns[i] <- H_nn
+  }
+  list(pscores = pscores, H_nns = H_nns)
 }
 
 
@@ -73,73 +101,13 @@ get_diff <- function(ghat_1, delta_1, ghat_0, delta_0, pi_hat, Y) {
 }
 
 
-# ----------------------------------
-# Estimate A: propensity score model
-# ----------------------------------
-estimate_A_nn <- function(X, dat, k, hidunits, eps, penals) {
-  
-  H_nns <-list()
-  pscores <- data.frame(prob = rep(0,n))
-  for(i in 1:k-1) {
-
-    dat_i <- dat |> mutate(A = if_else(A == i, 1, 0)) |> dplyr::select(-Y)
-    H_nn <- A_model_nn(a_func = "A~.",
-                       dat = dat_i,
-                       hidunits=hidunits, eps=eps, penals=penals, 
-                       verbose=TRUE)
-    pscores_nn_i <- 
-      predict(H_nn, new_data = dat_i |> select(-A), type = "raw") |> 
-      as.vector()
-    
-    pscores <- pscores |> mutate(prob = pscores_nn_i)  
-    colnames(pscores)[stringr::str_detect(colnames(pscores),"prob")]<-paste0("pscores_",i)
-    rowsums <- rowSums(pscores)
-    scale <- function(x) x/rowsums
-    pscores <- pscores |> mutate_all(scale)
-    
-    #H_nns[[i]] <- H_nn
-  }
-  list(pscores = pscores, H_nns = H_nns)
-}
-
 # --------------------------
 # Estimate Y: outcome  model
 # --------------------------
-
 estimate_Y_nn <- function(dat, pscores_df, verbose=FALSE,
                           hidunits=c(5,25), eps=c(50,200), penals=c(0.001,0.01)) {
   
   Y <- dat$Y
-  
-  # computes muhat_i vs muhat_noti
-  ### for(i in 1:k-1) {
-  ###   
-  ###   pi_hat_i <- pscores_df[,i+1] |> as.vector()
-  ###   A_i <- if_else(dat$A==i, 1, 0)
-  ###   delta_i <- as.numeric(A_i==1)
-  ###   delta_0 <- as.numeric(A_i==0)
-  ###   
-  ###   g_i <- Y_model_nn(dat=dat[A_i==1,] |> dplyr::select(-A), y_func = "Y~.", 
-  ###                     hidunits=hidunits, eps=eps, penals=penals, verbose=verbose)
-  ###   ghat_i <- predict(g_i, new_data = dat %>% select(-Y, -A), type = "raw") |> as.vector()
-  ###   
-  ###   g_0 <- Y_model_nn(dat=dat[A_i==0, ] |> dplyr::select(-A), y_func = "Y~.",
-  ###                     hidunits=hidunits, eps=eps, penals=penals, verbose=verbose)
-  ###   ghat_0 <- predict(g_0, new_data = dat %>% select(-Y, -A), type = "raw") |> as.vector()
-  ###   
-  ###   d <- get_diff(ghat_i, delta_i, ghat_0, delta_0, pi_hat_i, Y)
-  ###   
-  ###   muhat_i <- d$muhat_1
-  ###   
-  ###   cat(paste0("\n  NN est diff means [k=",i, " vs. k=~",i,"]=", round(d$diff_means, 3)))
-  ### 
-  ###   o_i<- list(muhat_i = muhat_i, g_i = g_i, diff_i = d$diff_means)
-  ###   
-  ###   names(o_i) <- c(paste0("muhat_", i), paste0("g_", i), paste0("diff_", i))
-  ###   
-  ###   o[[i+1]] <- o_i
-  ### }
-  ### o
   
   # compute muhat_0 vs muhat_1, muhat_0 vs muhat_2, muhat_1 vs muhat_2, ... combn(k,2)
   m <- combn(k, 2)-1
@@ -148,8 +116,8 @@ estimate_Y_nn <- function(dat, pscores_df, verbose=FALSE,
     j <- x[[1]] # this is g0 on iteration 1
     pi_hat_i <- pscores_df[,i] |> as.vector()
     A_i <- dat |> mutate(A_i = case_when(A==i~1, A==j~0, TRUE ~99)) |> pull("A_i")
-    delta_i <- as.numeric(A_i==1)
-    delta_j <- as.numeric(A_i==0)
+    delta_i <- as.numeric(A_i==1) # The 99s are retained so length = n
+    delta_j <- as.numeric(A_i==0) # The 99s are retained so length = n
 
     g_i <- Y_model_nn(dat=dat[A_i==1,] |> dplyr::select(-A), y_func = "Y~.", 
                       hidunits=hidunits, eps=eps, penals=penals, verbose=verbose)
@@ -180,106 +148,22 @@ estimate_Y_nn <- function(dat, pscores_df, verbose=FALSE,
 # ----------
 # Compute Vn
 # ----------
-get_Vn <- function(g_s, X_new) {
-  V_n <- tibble(V_ = NA)
-  i = -1
-  for(g in g_s) {
-    i = i + 1
-    V_n <- 
-      df |> 
-      mutate(V_ = predict(g, new_data = X_new, type = "raw"))
-    colnames(V_n)[colnames(V_n) == "V_"] <- paste0("V_", i)
+get_Vn <- function(fit_Y_nn, X_new) {
+  V_n <- tibble(V_ = rep(NA, nrow(X_new)))
+  for(A_type in names(fit_Y_nn)) {
+    for(j in c(2,3)) {
+      V_n <- 
+        V_n |>
+        mutate(V_ = predict(fit_Y_nn[[A_type]][[j]], new_data = X_new, type = "raw") |>
+                 as.vector())
+      
+      V_type <- stringr::str_replace(A_type, "A", "V")
+      s <- ifelse(j==2, j+2, j)
+      r <- stringr::str_sub(A_type, s, s)
+      colnames(V_n)[colnames(V_n) == "V_"] <- paste0(V_type, "_g", r)
+    }
   }
-  V_n
+  V_n |> mutate(OTR = stringr::str_sub(colnames(V_n)[max.col(V_n)], 6, 7))
 }
-
-
-# ---------------------------
-# One iteration function k=3+
-# ---------------------------
-
-one_sim <- function(n=n, p=8, Xmu, beta_A, beta_Y, gamma, Y_fun, A_flavor, Y_flavor,
-                    nn_hidunits, nn_eps, nn_penals, verbose = FALSE) {
-
-  X <- gen_X(n=n, p=p, rho=rho, mu=Xmu)
-  A <- gen_A(X=X, beta=beta_A, flavor_A=A_flavor)
-  Y <- gen_Y(X=X, A=A, beta_Y=beta_Y, gamma=gamma, flavor_Y=Y_flavor)
-  dat <- cbind(Y,A,X) 
-  
-  stopifnot(Y>0)
-  for(i in 1:k-1) {cat(paste0("\n  P(A=",i,")= ", mean(A==i) |> round(1)))}
-  
-  get_true_diff <- function(x) {
-    i <- x[[2]]
-    j <- x[[1]]
-    d <- mean(Y_fun(as.matrix(cbind(1,X)) %*% as.matrix(beta_Y) + gamma*(i))) - 
-           mean(Y_fun(as.matrix(cbind(1,X)) %*% as.matrix(beta_Y) + gamma*j))
-    cat(paste0("\n  True diff means ", j, i, " = ", round(d, 3)))
-    d
-  }
-  true_diffs <- apply(as.matrix(combn(k,2)-1), 2, get_true_diff)
-  dat <- cbind(Y,A,X) 
-  
-  # Estimating A (propensity model)
-  fit_A_nn <- estimate_A_nn(X=X, dat=dat, k=3, 
-                            hidunits=nn_hidunits, 
-                            eps=nn_eps, 
-                            penals=nn_penals)
-  
-  # Estimating Y (outcome model)
-  fit_Y_nn <- estimate_Y_nn(dat, pscores_df=fit_A_nn$pscores,
-                            hidunits=nn_hidunits, 
-                            eps=nn_eps, 
-                            penals=nn_penals, 
-                            verbose=TRUE)
-  
-  toc <- toc(quiet=TRUE)
-  print(paste0("  Y nn time:", round((toc$toc[[1]]-toc$tic[[1]])/60,2), " mins"))  
-  
-  # Computing Vn
-  X_new <- gen_X(n=25, p=p, rho=rho, mu=Xmu)
-  Vn_df <- get_Vn(fit_Y_nn$LIST_OF_g_s, X_new = X_new[1,]) 
-  
-  # Packing results into k rows
-  get_naive_est <- function(x) {
-    i <- x[[1]]
-    j <- x[[2]]
-    d <- mean(Y[A==j]) - mean(Y[A==i])
-    cat(paste0("\n  Naive diff means ", i, j, " = ", round(d, 3)))
-    d
-  }
-  naive_est <- apply(as.matrix(combn(3,2) - 1), 2, get_naive_est)
-  nn_model_est <- sapply(fit_Y_nn, function(x) {x[[1]]})
-
-  my_k_rows <- 
-    t(as.data.frame(nn_model_est)) |> 
-    rbind(naive_est, true_diffs) |>
-    mutate(dataset = i)
-  
-  list(my_k_rows = my_k_rows, Vn_df = Vn_df)
-  
-}
-
-#toc <- toc(quiet=TRUE)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
