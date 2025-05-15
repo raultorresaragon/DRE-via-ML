@@ -77,8 +77,8 @@ one_sim <- function(n=n, p=8, Xmu, beta_A, beta_Y, gamma, Y_fun, A_flavor, Y_fla
   
   # Pack results into k rows
   get_naive_est <- function(x) {
-    i <- x[[1]]
-    j <- x[[2]]
+    i <- x[[2]]
+    j <- x[[1]]
     d <- mean(Y[A==j]) - mean(Y[A==i])
     cat(paste0("\n  Naive diff means ", i, j, " = ", round(d, 3)))
     d
