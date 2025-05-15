@@ -129,7 +129,7 @@ estimate_Y_nn <- function(dat, pscores_df, verbose=FALSE,
     
     d_ij <- get_diff(ghat_i, delta_i, ghat_j, delta_j, pi_hat_i, Y)
     
-    cat(paste0("\n  NN est diff means [k=",j, " vs. k=",i,"]=", 
+    cat(paste0("\n  NN est diff means [a=",j, " vs. a=",i,"]=", 
                round(d_ij$diff_means, 3)))
     
     names(d_ij) <- c(paste0("diff_means_",j,i), paste0("muhat_",i), paste0("muhat_",j))
