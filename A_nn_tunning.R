@@ -36,6 +36,7 @@ A_model_nn <- function(dat, a_func, hidunits, eps, penals, cvs=6, verbose=FALSE)
     add_recipe(A_recip)
   
   # select hyperparameter ranges
+  penalty_range <- penalty() %>% range_set(c(log10(min(penals)), log10(max(penals))))
   nn_param <- 
     extract_parameter_set_dials(A_model_nn) %>%
     update(hidden_units = hidden_units(hidunits), # hidden_units(c(5,25)),

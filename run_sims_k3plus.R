@@ -5,20 +5,21 @@
 # Note: This script runs M simulations of
 #       k=3+ treatment regime with DRE via NN
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-set.seed(345)
+set.seed(1811)
 library(tictoc)
 rm(list = ls())
 
 # Set parameters and load functions
 # ---------------------------------
-M <- 3
+M <- 5
 n <- 500
 k <- 3
+p <- 8
 source("functions_k3plus.R")
 source("one_sim_k3plus.R")
 
-hidunits = c(5,20)
-eps = c(50,150)
+hidunits = c(p, p)
+eps = c(120,150)
 penals = c(0.001,0.01)
 mytable <- tibble(dataset = numeric(),
                   estimate = character(),
@@ -34,16 +35,15 @@ for(i in 1:M) {
   cat(paste0("\niteration ", i))
   
   # params
-  p <- 8
   rho   <- round(runif(1, 0.4, 0.6), 1)
   Xmu   <- round(runif(p, -1, 1), 1)
-  beta_A <- c(1, round(runif(p, -1, 1), 1))
+  beta_A <- c(1, round(runif(p, -2, 2), 1))
   beta_Y <- c(1, round(runif(p, -1, 1), 1))
-  gamma <- 0.6
+  gamma <- c(0.69, 0.45)
   
   # estimation
   tic("")
-  r <- one_sim(n = n, p = 8, Xmu = Xmu, iter = i, verbose = FALSE, 
+  r <- one_sim(n = n, p = p, Xmu = Xmu, iter = i, verbose = FALSE, 
                A_flavor = flavor_ops[[1]], beta_A = beta_A, gamma = gamma, 
                Y_flavor = flavor_ops[[2]], Y_fun = flavor_ops[[3]], beta_Y = beta_Y,
                nn_hidunits = hidunits, nn_eps = eps, nn_penals = penals)

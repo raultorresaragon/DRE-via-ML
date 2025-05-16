@@ -46,8 +46,11 @@ gen_A <- function(X, beta_A, flavor_A, k) {
 #gamma <- dplyr::if_else(X[,1]>0, 0.7, 0.1) #<-with trt heterogeneity
 gen_Y <- function(gamma, X, A, beta_Y, flavor_Y) {
   
-  xb_gamma_a <- as.matrix(cbind(1,X))%*%beta_Y + gamma * A
-  
+  as <- sort(unique(A)) #<--lowest a value will be baseline
+  A_mat <- sapply(as[-1], function(a) as.integer(A==a))
+  colnames(A_mat) <-paste0("A_", as[-1])
+  xb_gamma_a <- as.matrix(cbind(1,X))%*%beta_Y + A_mat %*% gamma
+
   if(flavor_Y == "expo") { fun_Y = exp}
   if(flavor_Y == "square") { fun_Y = function(x) x^2}
   if(flavor_Y == "sigmoid"){ fun_Y = function(x) 1/(1+exp(-x)) * 10}

@@ -11,27 +11,29 @@
 # PARAMERTERS FOR DEBUGGING
 # ---------------------------
 
-# One iteration function k=3+
-# rm(list = ls())
-# M <- 1
-# n <- 300
-# k <- 3
-# source("functions_k3plus.R")
-# flavor_ops <- c("tanh","sigmoid", function(x) 1/(1+exp(-x)) * 10)
-# p <- 8
-# rho   <- round(runif(1, 0.4, 0.6),1)
-# Xmu   <- round(runif(p, -1, 1),1)
-# beta_A <- c(1, round(runif(p, -1, 1),1))
-# beta_Y <- c(1, round(runif(p, -1, 1),1))
-# gamma <- 0.6
-# hidunits = c(5,20)
-# eps = c(50,150)
-# penals = c(0.001,0.01)
-# n=n; p=8; Xmu=Xmu; 
-# A_flavor = flavor_ops[[1]]; beta_A=beta_A; gamma=gamma; 
-# Y_flavor = flavor_ops[[2]]; Y_fun = flavor_ops[[3]]; beta_Y=beta_Y;
-# nn_hidunits=hidunits; nn_eps=eps; nn_penals=penals; 
-# iter = 1; verbose=FALSE
+#### One iteration function k=3+
+## rm(list = ls())
+## set.seed(1811)
+## M <- 1
+## n <- 300
+## k <- 3
+## source("functions_k3plus.R")
+## flavor_ops <- c("tanh","sigmoid", function(x) 1/(1+exp(-x)) * 10)
+## p <- 8
+## rho   <- round(runif(1, 0.4, 0.6),1)
+## Xmu   <- round(runif(p, -1, 1),1)
+## beta_A <- c(1, round(runif(p, -2, 2),1))
+## beta_Y <- c(1, round(runif(p, -1, 1),1))
+## gamma <- c(0.9, 0.3)
+## hidunits = c(5,10)
+## eps = c(100,150)
+## penals = c(0.001,0.01)
+## n=n; p=8; Xmu=Xmu; 
+## A_flavor = flavor_ops[[1]]; beta_A=beta_A; gamma=gamma; 
+## Y_flavor = flavor_ops[[2]]; Y_fun = flavor_ops[[3]]; beta_Y=beta_Y;
+## nn_hidunits=hidunits; nn_eps=eps; nn_penals=penals; 
+## iter = 1; 
+## verbose=FALSE
 
 
 one_sim <- function(n=n, p=8, Xmu, beta_A, beta_Y, gamma, Y_fun, A_flavor, Y_flavor,
@@ -41,18 +43,21 @@ one_sim <- function(n=n, p=8, Xmu, beta_A, beta_Y, gamma, Y_fun, A_flavor, Y_fla
   A <- gen_A(X=X, beta=beta_A, k=k, flavor_A=A_flavor)
   Y <- gen_Y(X=X, A=A, beta_Y=beta_Y, gamma=gamma, flavor_Y=Y_flavor)
   dat <- cbind(Y,A,X) 
-  
   stopifnot(Y>0)
   
   # print P(A=j)
+  hist(Y)
   for(i in 1:k-1) {cat(paste0("\n  P(A=",i,")= ", mean(A==i) |> round(1)))}
   
   # print delta_ij
   get_true_diff <- function(x) {
-    i <- x[[2]]
-    j <- x[[1]]
-    d <- mean(Y_fun(as.matrix(cbind(1,X)) %*% as.matrix(beta_Y) + gamma*(i))) - 
-      mean(Y_fun(as.matrix(cbind(1,X)) %*% as.matrix(beta_Y) + gamma*j))
+    gamma_allvals <- c(0, gamma)
+    i <- x[[2]];
+    j <- x[[1]];
+    gamma_i <- gamma_allvals[i+1]
+    gamma_j <- gamma_allvals[j+1]
+    d <- mean(Y_fun(as.matrix(cbind(1,X)) %*% as.matrix(beta_Y) + gamma_i)) - 
+      mean(Y_fun(as.matrix(cbind(1,X)) %*% as.matrix(beta_Y) + gamma_j))
     cat(paste0("\n  True diff means ", j, i, " = ", round(d, 3)))
     d
   }
@@ -79,8 +84,8 @@ one_sim <- function(n=n, p=8, Xmu, beta_A, beta_Y, gamma, Y_fun, A_flavor, Y_fla
   get_naive_est <- function(x) {
     i <- x[[2]]
     j <- x[[1]]
-    d <- mean(Y[A==j]) - mean(Y[A==i])
-    cat(paste0("\n  Naive diff means ", i, j, " = ", round(d, 3)))
+    d <- mean(Y[A==i]) - mean(Y[A==j])
+    cat(paste0("\n  Naive diff means ", j, i, " = ", round(d, 3)))
     d
   }
   naive_est <- apply(as.matrix(combn(3,2) - 1), 2, get_naive_est)
