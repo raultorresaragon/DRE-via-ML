@@ -9,8 +9,8 @@
 #
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 library(tictoc)
-source("A_nn_tunning.R")
-source("Y_nn_tunning.R")
+source("A_dnn_tuning.R")
+source("Y_dnn_tuning.R")
 
 # --------------------------
 # Generate X (design matrix)
@@ -50,7 +50,7 @@ gen_Y <- function(gamma, X, A, beta_Y, flavor_Y) {
   A_mat <- sapply(as[-1], function(a) as.integer(A==a))
   colnames(A_mat) <-paste0("A_", as[-1])
   xb_gamma_a <- as.matrix(cbind(1,X))%*%beta_Y + A_mat %*% gamma
-  
+
   if(flavor_Y == "expo") { fun_Y = exp}
   if(flavor_Y == "square") { fun_Y = function(x) x^2}
   if(flavor_Y == "sigmoid"){ fun_Y = function(x) 1/(1+exp(-x)) * 10}
@@ -66,29 +66,29 @@ gen_Y <- function(gamma, X, A, beta_Y, flavor_Y) {
 # ----------------------------------
 # Estimate A: propensity score model
 # ----------------------------------
-estimate_A_nn <- function(X, dat, k, hidunits, eps, penals, verbose=FALSE) {
+estimate_A_nn <- function(X, dat, k, p, eps, penals, verbose=FALSE) {
   
   H_nns <- list()
   pscores <- data.frame(prob = rep(0,n))
   for(i in 1:k-1) {
-    
+
     dat_i <- dat |> mutate(A = if_else(A == i, 1, 0)) |> dplyr::select(-Y)
-    H_nn <- A_model_nn(a_func = "A~.",
-                       dat = dat_i,
-                       hidunits=hidunits, eps=eps, penals=penals, 
-                       verbose=verbose)
+    H_nn <- A_model_dnn(a_func = "A~.",
+                        dat = dat_i,
+                        p=p, eps=eps, penals=penals, 
+                        verbose=verbose)
     pscores_nn_i <- 
-      predict(H_nn, new_data = dat_i |> select(-A), type = "raw") |> 
+      predict(H_nn, new_data = dat_i |> select(-A), type = "prob") |> 
+      pull(".pred_1") |>
       as.vector()
     
     pscores <- pscores |> mutate(prob = pscores_nn_i)  
     colnames(pscores)[stringr::str_detect(colnames(pscores),"prob")]<-paste0("pscores_",i)
-    rowsums <- rowSums(pscores)
-    scale <- function(x) x/rowsums
-    pscores <- pscores |> mutate_all(scale)
-    
-    #H_nns[i] <- H_nn
+    H_nns[i+1] <-H_nn 
   }
+  
+  myrowsums <- rowSums(pscores)
+  pscores_df <- apply(pscores, 2, function(x) x/myrowsums) |> as.data.frame()
   list(pscores = pscores, H_nns = H_nns)
 }
 
@@ -107,28 +107,31 @@ get_diff <- function(ghat_1, delta_1, ghat_0, delta_0, pi_hat, Y) {
 # --------------------------
 # Estimate Y: outcome  model
 # --------------------------
-estimate_Y_nn <- function(dat, pscores_df, verbose=FALSE,
-                          hidunits=c(5,25), eps=c(50,200), penals=c(0.001,0.01)) {
+estimate_Y_nn <- function(dat, pscores_df, p, eps, penals, verbose=FALSE) {
   
   Y <- dat$Y
   
-  # compute muhat_0 vs muhat_1, muhat_0 vs muhat_2, muhat_1 vs muhat_2, ... combn(k,2)
+  # compute muhat_i vs muhat_j, for(i,k) = combn(k,2)
   m <- combn(k, 2)-1
   get_d_ij <- function(x) {
     i <- x[[2]] # this is g1 on iteration 1
     j <- x[[1]] # this is g0 on iteration 1
     pi_hat_i <- pscores_df[,i] |> as.vector()
     A_i <- dat |> mutate(A_i = case_when(A==i~1, A==j~0, TRUE ~99)) |> pull("A_i")
-    delta_i <- as.numeric(A_i==1) # The 99s are retained so length = n
-    delta_j <- as.numeric(A_i==0) # The 99s are retained so length = n
+    delta_i <- as.numeric(A_i==1) # The 99s are retained thus length = n
+    delta_j <- as.numeric(A_i==0) # The 99s are retained thus length = n
+
+    g_i <- Y_model_dnn(dat=dat[A_i==1,] |> dplyr::select(-A), y_func = "Y~.", 
+                       p=p, eps=eps, penals=penals, verbose=verbose)
+    ghat_i <- predict(g_i, new_data = dat |> select(-Y, -A), type = "numeric") |> 
+              unlist() |> 
+              unname()
     
-    g_i <- Y_model_nn(dat=dat[A_i==1,] |> dplyr::select(-A), y_func = "Y~.", 
-                      hidunits=hidunits, eps=eps, penals=penals, verbose=verbose)
-    ghat_i <- predict(g_i, new_data = dat %>% select(-Y, -A), type = "raw") |> as.vector()
-    
-    g_j <- Y_model_nn(dat=dat[A_i==0, ] |> dplyr::select(-A), y_func = "Y~.",
-                      hidunits=hidunits, eps=eps, penals=penals, verbose=verbose)
-    ghat_j <- predict(g_j, new_data = dat %>% select(-Y, -A), type = "raw") |> as.vector()
+    g_j <- Y_model_dnn(dat=dat[A_i==0, ] |> dplyr::select(-A), y_func = "Y~.",
+                       p=p, eps=eps, penals=penals, verbose=verbose)
+    ghat_j <- predict(g_j, new_data = dat |> select(-Y, -A), type = "numeric") |> 
+              unlist() |>
+              unname()
     
     d_ij <- get_diff(ghat_i, delta_i, ghat_j, delta_j, pi_hat_i, Y)
     
@@ -157,8 +160,8 @@ get_Vn <- function(fit_Y_nn, X_new) {
     for(j in c(2,3)) {
       V_n <- 
         V_n |>
-        mutate(V_ = predict(fit_Y_nn[[A_type]][[j]], new_data = X_new, type = "raw") |>
-                 as.vector())
+        mutate(V_ = predict(fit_Y_nn[[A_type]][[j]], new_data = X_new, type = "numeric")|>
+                 unlist() |> unname())
       
       V_type <- stringr::str_replace(A_type, "A", "V")
       s <- ifelse(j==2, j+2, j)
@@ -168,3 +171,5 @@ get_Vn <- function(fit_Y_nn, X_new) {
   }
   V_n |> mutate(OTR = stringr::str_sub(colnames(V_n)[max.col(V_n)], 6, 7))
 }
+
+

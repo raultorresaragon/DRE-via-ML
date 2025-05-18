@@ -10,8 +10,36 @@
 # ---------------------------
 # PARAMERTERS FOR DEBUGGING
 # ---------------------------
-one_sim <- function(n=n, p=8, Xmu, beta_A, beta_Y, gamma, Y_fun, A_flavor, Y_flavor,
-                    nn_hidunits, nn_eps, nn_penals, verbose = FALSE, iter = 1) {
+
+#### One iteration function k=3+
+## rm(list = ls())
+## set.seed(1811)
+## M <- 1
+## n <- 400
+## k <- 3
+## source("functions_k3plus.R")
+## flavor_ops <- c("tanh","sigmoid", function(x) 1/(1+exp(-x)) * 10)
+## p <- 8
+## rho   <- round(runif(1, 0.4, 0.6),1)
+## Xmu   <- round(runif(p, -1, 1),1)
+## beta_A <- c(1, round(runif(p, -2, 2),1))
+## beta_Y <- c(1, round(runif(p, -1, 1),1))
+## gamma <- c(0.9, 0.3)
+## #hidunits = c(5,10)
+## eps = c(100,150)
+## penals = c(0.001,0.005)
+## n=n; p=8; Xmu=Xmu; 
+## A_flavor = flavor_ops[[1]]; beta_A=beta_A; gamma=gamma; 
+## Y_flavor = flavor_ops[[2]]; Y_fun = flavor_ops[[3]]; beta_Y=beta_Y;
+## #nn_hidunits=hidunits; 
+## nn_eps=eps; nn_penals=penals; 
+## iter = 1; 
+## verbose=TRUE
+
+
+one_sim <- function(n, p, Xmu, beta_A, beta_Y, gamma, 
+                    A_flavor, Y_flavor, Y_fun, 
+                    nn_eps, nn_penals, verbose = FALSE, iter = 1) {
   
   X <- gen_X(n=n, p=p, rho=rho, mu=Xmu)
   A <- gen_A(X=X, beta=beta_A, k=k, flavor_A=A_flavor)
@@ -38,17 +66,22 @@ one_sim <- function(n=n, p=8, Xmu, beta_A, beta_Y, gamma, Y_fun, A_flavor, Y_fla
   true_diffs <- apply(as.matrix(combn(k,2)-1), 2, get_true_diff)
   
   # Estimate A (propensity model)
+  tic("\nA model")
   fit_A_nn <- estimate_A_nn(X=X, dat=dat, k=k, 
-                            hidunits=nn_hidunits, 
+                            p=p,
                             eps=nn_eps, 
-                            penals=nn_penals)
+                            penals=nn_penals,
+                            verbose=verbose)
+  toc()
   
   # Estimate Y (outcome model)
+  tic("\nY model")
   fit_Y_nn <- estimate_Y_nn(dat, pscores_df=fit_A_nn$pscores,
-                            hidunits=nn_hidunits, 
+                            p=p,
                             eps=nn_eps, 
                             penals=nn_penals, 
                             verbose=verbose)
+  toc()
   
   # Compute Vn
   X_new <- gen_X(n=5, p=p, rho=rho, mu=Xmu)
@@ -76,3 +109,5 @@ one_sim <- function(n=n, p=8, Xmu, beta_A, beta_Y, gamma, Y_fun, A_flavor, Y_fla
   list(my_k_rows = my_k_rows, Vn_df = Vn_df)
   
 }
+
+
