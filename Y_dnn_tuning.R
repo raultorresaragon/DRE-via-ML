@@ -9,10 +9,10 @@ library(tidymodels)
 library(future)
 library(brulee)
 
-Y_model_dnn <- function(dat, y_func, p, eps, penals, cvs=6, verbose=FALSE) {
-  
-  hunits_1 <- p
-  hunits_2 <- c(0, p)
+Y_model_dnn <- function(dat, y_func, hidunits, eps, penals, cvs=6, verbose=FALSE) {
+  hidunits <- NA
+  hunits_1 <- c(3,3)
+  hunits_2 <- c(2,3)
   penalty_range <- penalty() %>% range_set(c(log10(min(penals)), log10(max(penals))))
   
   
@@ -31,7 +31,7 @@ Y_model_dnn <- function(dat, y_func, p, eps, penals, cvs=6, verbose=FALSE) {
     step_normalize(all_predictors())
   
   Y_model_nn <- # we only tune epochs and penals
-    mlp(hidden_units = hunits_1, penalty = tune(), epochs = tune()) %>%
+    mlp(hidden_units = tune(), penalty = tune(), epochs = tune()) %>%
     set_engine("brulee_two_layer", hidden_units_2 = tune(), stop_iter = 5) %>% 
     set_mode("regression")
   
@@ -43,7 +43,7 @@ Y_model_dnn <- function(dat, y_func, p, eps, penals, cvs=6, verbose=FALSE) {
   # select hyperparameter ranges
   nn_param <- 
     extract_parameter_set_dials(Y_model_nn) %>%
-    update(#hidden_units = hidden_units(hunits_1),
+    update(hidden_units = hidden_units(hunits_1),
            hidden_units_2 = hidden_units_2(hunits_2),
            penalty = penalty(penals),
            epochs = epochs(eps)) 
@@ -59,7 +59,7 @@ Y_model_dnn <- function(dat, y_func, p, eps, penals, cvs=6, verbose=FALSE) {
   nn_tune <- 
     nn_wflow %>%
     tune_grid(folds, 
-              grid = nn_param %>% grid_latin_hypercube(size = 65, original = FALSE),
+              grid = nn_param %>% grid_latin_hypercube(size = 100, original = FALSE),
               param_info = nn_param,
               metrics = tune_metric,
               control = control_grid(parallel_over = "resamples", allow_par = TRUE))

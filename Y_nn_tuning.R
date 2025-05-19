@@ -39,9 +39,9 @@ Y_model_nn <- function(dat, y_func, hidunits, eps, penals, cvs=6, verbose=FALSE)
   penalty_range <- penalty() %>% range_set(c(log10(min(penals)), log10(max(penals))))
   nn_param <- 
     extract_parameter_set_dials(Y_model_nn) %>%
-    update(hidden_units = hidden_units(hidunits), # hidden_units(c(5,25)),
-           epochs = epochs(eps), # epochs(c(50,200)),
-           penalty = penalty(penals)) # penalty(c(0.001,0.1)))
+    update(hidden_units = hidden_units(hidunits), 
+           epochs = epochs(eps), 
+           penalty = penalty(penals)) 
   
   # split training set into folds for cross validation
   folds <- vfold_cv(dat_train, v=cvs)
@@ -54,7 +54,7 @@ Y_model_nn <- function(dat, y_func, hidunits, eps, penals, cvs=6, verbose=FALSE)
   nn_tune <- 
     nn_wflow %>%
     tune_grid(folds, 
-              grid = nn_param %>% grid_random(size = 500),
+              grid = nn_param %>% grid_latin_hypercube(size = 500),
               param_info = nn_param,
               metrics = tune_metric,
               control = control_grid(parallel_over = "resamples", allow_par = TRUE))

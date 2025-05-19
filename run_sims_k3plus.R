@@ -11,11 +11,13 @@ rm(list = ls())
 
 # Set parameters and load functions
 # ---------------------------------
-M <- 4
+M <- 1
 n <- 360
 k <- 3
 p <- 8
+nntype <- "dnn"
 source("functions_k3plus_dnet.R")
+#source("functions_k3plus.R")
 source("one_sim_k3plus.R")
 
 eps = c(120,150)
@@ -46,7 +48,7 @@ for(i in 1:M) {
   r <- one_sim(n = n, p = p, Xmu = Xmu, iter = i, verbose = TRUE, 
                A_flavor = flavor_ops[[1]], beta_A = beta_A, gamma = gamma, 
                Y_flavor = flavor_ops[[2]], Y_fun = flavor_ops[[3]], beta_Y = beta_Y,
-               nn_eps = eps, nn_penals = penals)
+               nn_eps = eps, nn_penals = penals, nntype = nntype)
   )
   toc(log = TRUE, quiet = TRUE)
   last_time <- tictoc::tic.log(format = FALSE)

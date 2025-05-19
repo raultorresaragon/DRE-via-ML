@@ -27,7 +27,7 @@ gen_X <- function(p=8, rho=0.6, mu, n) {
 # -----------
 # Generate A 
 # -----------
-gen_A <- function(X, beta_A, flavor_A, k) {
+gen_A <- function(X, beta_A, flavor_A) {
   
   xb <-(as.matrix(cbind(1,X))%*%beta_A) 
   if(flavor_A == "logit")   {probs <- 1/(1 + exp(-1*(xb)))}
@@ -36,7 +36,14 @@ gen_A <- function(X, beta_A, flavor_A, k) {
   if(flavor_A == "arctan")  {probs <- (atan(xb)/pi) + 0.5}
   if(flavor_A == "tanh")    {probs <- 0.5* (tanh(xb)+1)}
   
-  A <- rbinom(n, k-1, probs) 
+  if(ncol(as.matrix(beta_A)) > 1) {
+    probs <- probs/rowSums(probs)
+    A_mat <- t(apply(probs, 1, function(pr) rmultinom(1, size=1, prob=pr)))
+    A <- max.col(A_mat, ties.method = "first") - 1 #<-get column index where the max is
+  } else {
+    A <- rbinom(n, 1, probs) 
+  }
+  A
 }
 
 
@@ -66,8 +73,8 @@ gen_Y <- function(gamma, X, A, beta_Y, flavor_Y) {
 # ----------------------------------
 # Estimate A: propensity score model
 # ----------------------------------
-estimate_A_nn <- function(X, dat, k, p, eps, penals, verbose=FALSE) {
-  
+estimate_A_nn <- function(X, dat, k, hidunits, eps, penals, verbose=FALSE) {
+  cat("\n   ...fitting deep neural network")
   H_nns <- list()
   pscores <- data.frame(prob = rep(0,n))
   for(i in 1:k-1) {
@@ -75,7 +82,7 @@ estimate_A_nn <- function(X, dat, k, p, eps, penals, verbose=FALSE) {
     dat_i <- dat |> mutate(A = if_else(A == i, 1, 0)) |> dplyr::select(-Y)
     H_nn <- A_model_dnn(a_func = "A~.",
                         dat = dat_i,
-                        p=p, eps=eps, penals=penals, 
+                        hidunits=hidunits, eps=eps, penals=penals, 
                         verbose=verbose)
     pscores_nn_i <- 
       predict(H_nn, new_data = dat_i |> select(-A), type = "prob") |> 
@@ -107,11 +114,11 @@ get_diff <- function(ghat_1, delta_1, ghat_0, delta_0, pi_hat, Y) {
 # --------------------------
 # Estimate Y: outcome  model
 # --------------------------
-estimate_Y_nn <- function(dat, pscores_df, p, eps, penals, verbose=FALSE) {
+estimate_Y_nn <- function(dat, pscores_df, hidunits, eps, penals, verbose=FALSE) {
   
   Y <- dat$Y
   
-  # compute muhat_i vs muhat_j, for(i,k) = combn(k,2)
+  # compute muhat_i vs muhat_j for i,j = combn(k,2)
   m <- combn(k, 2)-1
   get_d_ij <- function(x) {
     i <- x[[2]] # this is g1 on iteration 1
@@ -122,13 +129,13 @@ estimate_Y_nn <- function(dat, pscores_df, p, eps, penals, verbose=FALSE) {
     delta_j <- as.numeric(A_i==0) # The 99s are retained thus length = n
 
     g_i <- Y_model_dnn(dat=dat[A_i==1,] |> dplyr::select(-A), y_func = "Y~.", 
-                       p=p, eps=eps, penals=penals, verbose=verbose)
+                       hidunits=hidunits, eps=eps, penals=penals, verbose=verbose)
     ghat_i <- predict(g_i, new_data = dat |> select(-Y, -A), type = "numeric") |> 
               unlist() |> 
               unname()
     
     g_j <- Y_model_dnn(dat=dat[A_i==0, ] |> dplyr::select(-A), y_func = "Y~.",
-                       p=p, eps=eps, penals=penals, verbose=verbose)
+                       hidunits=hidunits, eps=eps, penals=penals, verbose=verbose)
     ghat_j <- predict(g_j, new_data = dat |> select(-Y, -A), type = "numeric") |> 
               unlist() |>
               unname()
@@ -171,5 +178,3 @@ get_Vn <- function(fit_Y_nn, X_new) {
   }
   V_n |> mutate(OTR = stringr::str_sub(colnames(V_n)[max.col(V_n)], 6, 7))
 }
-
-

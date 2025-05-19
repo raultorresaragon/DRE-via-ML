@@ -9,8 +9,8 @@
 #
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 library(tictoc)
-source("A_nn_tunning.R")
-source("Y_nn_tunning.R")
+source("A_nn_tuning.R")
+source("Y_nn_tuning.R")
 
 # --------------------------
 # Generate X (design matrix)
@@ -27,7 +27,7 @@ gen_X <- function(p=8, rho=0.6, mu, n) {
 # -----------
 # Generate A 
 # -----------
-gen_A <- function(X, beta_A, flavor_A, k) {
+gen_A <- function(X, beta_A, flavor_A) {
   
   xb <-(as.matrix(cbind(1,X))%*%beta_A) 
   if(flavor_A == "logit")   {probs <- 1/(1 + exp(-1*(xb)))}
@@ -36,7 +36,14 @@ gen_A <- function(X, beta_A, flavor_A, k) {
   if(flavor_A == "arctan")  {probs <- (atan(xb)/pi) + 0.5}
   if(flavor_A == "tanh")    {probs <- 0.5* (tanh(xb)+1)}
   
-  A <- rbinom(n, k-1, probs) 
+  if(ncol(as.matrix(beta_A)) > 1) {
+    probs <- probs/rowSums(probs)
+    A_mat <- t(apply(probs, 1, function(pr) rmultinom(1, size=1, prob=pr)))
+    A <- max.col(A_mat, ties.method = "first") - 1 #<-get column index where the max is
+  } else {
+    A <- rbinom(n, 1, probs) 
+  }
+  A
 }
 
 
@@ -67,7 +74,7 @@ gen_Y <- function(gamma, X, A, beta_Y, flavor_Y) {
 # Estimate A: propensity score model
 # ----------------------------------
 estimate_A_nn <- function(X, dat, k, hidunits, eps, penals, verbose=FALSE) {
-  
+  cat("\n   ...fitting 1 hidden-layer neural network")
   H_nns <- list()
   pscores <- data.frame(prob = rep(0,n))
   for(i in 1:k-1) {
@@ -81,14 +88,14 @@ estimate_A_nn <- function(X, dat, k, hidunits, eps, penals, verbose=FALSE) {
       predict(H_nn, new_data = dat_i |> select(-A), type = "raw") |> 
       as.vector()
     
+    
     pscores <- pscores |> mutate(prob = pscores_nn_i)  
     colnames(pscores)[stringr::str_detect(colnames(pscores),"prob")]<-paste0("pscores_",i)
-    rowsums <- rowSums(pscores)
-    scale <- function(x) x/rowsums
-    pscores <- pscores |> mutate_all(scale)
-    
-    #H_nns[i] <- H_nn
+    H_nns[i+1] <-H_nn 
   }
+  
+  myrowsums <- rowSums(pscores)
+  pscores_df <- apply(pscores, 2, function(x) x/myrowsums) |> as.data.frame()
   list(pscores = pscores, H_nns = H_nns)
 }
 
@@ -107,12 +114,11 @@ get_diff <- function(ghat_1, delta_1, ghat_0, delta_0, pi_hat, Y) {
 # --------------------------
 # Estimate Y: outcome  model
 # --------------------------
-estimate_Y_nn <- function(dat, pscores_df, verbose=FALSE,
-                          hidunits=c(5,25), eps=c(50,200), penals=c(0.001,0.01)) {
+estimate_Y_nn <- function(dat, pscores_df, hidunits, eps, penals, verbose=FALSE) {
   
   Y <- dat$Y
   
-  # compute muhat_0 vs muhat_1, muhat_0 vs muhat_2, muhat_1 vs muhat_2, ... combn(k,2)
+  # compute muhat_i vs muhat_j for i,j = combn(k,2)
   m <- combn(k, 2)-1
   get_d_ij <- function(x) {
     i <- x[[2]] # this is g1 on iteration 1
@@ -124,11 +130,15 @@ estimate_Y_nn <- function(dat, pscores_df, verbose=FALSE,
     
     g_i <- Y_model_nn(dat=dat[A_i==1,] |> dplyr::select(-A), y_func = "Y~.", 
                       hidunits=hidunits, eps=eps, penals=penals, verbose=verbose)
-    ghat_i <- predict(g_i, new_data = dat %>% select(-Y, -A), type = "raw") |> as.vector()
+    ghat_i <- predict(g_i, new_data = dat %>% select(-Y, -A), type = "raw") |> 
+              as.vector()
+    
     
     g_j <- Y_model_nn(dat=dat[A_i==0, ] |> dplyr::select(-A), y_func = "Y~.",
                       hidunits=hidunits, eps=eps, penals=penals, verbose=verbose)
-    ghat_j <- predict(g_j, new_data = dat %>% select(-Y, -A), type = "raw") |> as.vector()
+    ghat_j <- predict(g_j, new_data = dat %>% select(-Y, -A), type = "raw") |> 
+              as.vector()
+    
     
     d_ij <- get_diff(ghat_i, delta_i, ghat_j, delta_j, pi_hat_i, Y)
     
