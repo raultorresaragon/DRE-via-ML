@@ -9,39 +9,39 @@
 
 # ---------------------------
 # PARAMERTERS FOR DEBUGGING
-# ---------------------------
 
-#### One iteration function k=3+
-rm(list = ls())
-set.seed(1811)
-M <- 1
-n <- 400
-k <- 3
-flavor_ops <- c("tanh","sigmoid", function(x) 1/(1+exp(-x)) * 10)
-p <- 8
-rho   <- round(runif(1, 0.4, 0.6),1)
-Xmu   <- round(runif(p, -1, 1),1)
-beta_A <- cbind(c(1, round(runif(p, -2, 2),1)), 
-                c(1, round(runif(p, -2, 2),1)), 
-                c(1, round(runif(p, -2, 2),1))) |> as.matrix()
-beta_Y <- c(1, round(runif(p, -1, 1),1))
-gamma <- c(0.8, 0.3)
-hidunits = c(2,5)
-eps = c(120,150)
-penals = c(0.001,0.005)
-n=n; p=8; Xmu=Xmu; 
-A_flavor = flavor_ops[[1]]; beta_A=beta_A; gamma=gamma; 
-Y_flavor = flavor_ops[[2]]; Y_fun = flavor_ops[[3]]; beta_Y=beta_Y;
-nn_hidunits=hidunits; 
-nn_eps=eps; nn_penals=penals; 
-iter = 1; 
-verbose=TRUE
-#source("functions_k3plus.R")
-source("functions_k3plus_dnn.R")
+## rm(list = ls())
+## set.seed(1811)
+## M <- 1
+## n <- 400
+## k <- 3
+## flavor_ops <- c("tanh","sigmoid", function(x) 1/(1+exp(-x)) * 10)
+## p <- 8
+## rho   <- round(runif(1, 0.4, 0.6),1)
+## Xmu   <- round(runif(p, -1, 1),1)
+## beta_A <- cbind(c(1, round(runif(p, -2, 2),1)), 
+##                 c(1, round(runif(p, -2, 2),1)), 
+##                 c(1, round(runif(p, -2, 2),1))) |> as.matrix()
+## beta_Y <- c(1, round(runif(p, -1, 1),1))
+## gamma <- c(0.8, 0.3)
+## hidunits = c(2,6)
+## eps = c(120,150)
+## penals = c(0.001,0.005)
+## n=n; p=8; Xmu=Xmu; 
+## A_flavor = flavor_ops[[1]]; 
+## Y_flavor = flavor_ops[[2]]; Y_fun = flavor_ops[[3]];
+## 
+## iter = 1; 
+## source("YAX_funs.R")
+## source("functions_k3plus.R")
+## #source("functions_k3plus_dnn.R")
+## verbose=TRUE
+
+# ---------------------------
 
 one_sim <- function(n, p, Xmu, beta_A, beta_Y, gamma,
                     A_flavor, Y_flavor, Y_fun, 
-                    hidunits, nn_eps, nn_penals, verbose = FALSE, iter = 1, 
+                    hidunits, eps, penals, verbose = FALSE, iter = 1, 
                     nntype = "1nn") {
   
   if(nntype == "dnn") { source("functions_k3plus_dnn.R") } 
@@ -75,8 +75,8 @@ one_sim <- function(n, p, Xmu, beta_A, beta_Y, gamma,
   tic("\nA model")
   fit_A_nn <- estimate_A_nn(X=X, dat=dat, k=k, 
                             hidunits=hidunits,
-                            eps=nn_eps, 
-                            penals=nn_penals,
+                            eps=eps, 
+                            penals=penals,
                             verbose=verbose)
   toc()
   
@@ -84,8 +84,8 @@ one_sim <- function(n, p, Xmu, beta_A, beta_Y, gamma,
   tic("\nY model")
   fit_Y_nn <- estimate_Y_nn(dat, pscores_df=fit_A_nn$pscores,
                             hidunits=hidunits,
-                            eps=nn_eps, 
-                            penals=nn_penals, 
+                            eps=eps, 
+                            penals=penals, 
                             verbose=verbose)
   toc()
   

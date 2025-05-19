@@ -11,17 +11,19 @@ rm(list = ls())
 
 # Set parameters and load functions
 # ---------------------------------
-M <- 1
-n <- 360
+M <- 2
+n <- 600
 k <- 3
 p <- 8
-nntype <- "dnn"
-source("functions_k3plus_dnet.R")
-#source("functions_k3plus.R")
+nntype <- "1nn"
+#source("functions_k3plus_dnn.R")
+source("functions_k3plus.R")
+source("YAX_funs.R")
 source("one_sim_k3plus.R")
 
 eps = c(120,150)
 penals = c(0.001,0.005)
+hidunits = c(2L, 6L)
 mytable <- tibble(dataset = numeric(),
                   estimate = character(),
                   A_01 = numeric(),
@@ -38,7 +40,9 @@ for(i in 1:M) {
   # dataset params
   rho   <- round(runif(1, 0.4, 0.6), 1)
   Xmu   <- round(runif(p, -1, 1), 1)
-  beta_A <- c(1, round(runif(p, -2, 2), 1))
+  beta_A <-  cbind(c(1, round(runif(p, -2, 2),1)), 
+                   c(1, round(runif(p, -2, 2),1)), 
+                   c(1, round(runif(p, -2, 2),1))) |> as.matrix()
   beta_Y <- c(1, round(runif(p, -1, 1), 1))
   gamma <- c(0.7, 0.45)
   
@@ -48,7 +52,7 @@ for(i in 1:M) {
   r <- one_sim(n = n, p = p, Xmu = Xmu, iter = i, verbose = TRUE, 
                A_flavor = flavor_ops[[1]], beta_A = beta_A, gamma = gamma, 
                Y_flavor = flavor_ops[[2]], Y_fun = flavor_ops[[3]], beta_Y = beta_Y,
-               nn_eps = eps, nn_penals = penals, nntype = nntype)
+               hidunits = hidunits, eps = eps, penals = penals, nntype = nntype)
   )
   toc(log = TRUE, quiet = TRUE)
   last_time <- tictoc::tic.log(format = FALSE)
@@ -58,18 +62,24 @@ for(i in 1:M) {
   # results
   print(r$Vn_df)
   mytable <- rbind(mytable, r$my_k_row)
+  table
   tictoc::tic.clearlog()
 }
 total_time <- toc(log = TRUE, quiet = TRUE)
 total_seconds <- total_time$toc - total_time$tic
 cat(paste0("\nTotal run time: ", round(total_seconds / 60, 2), " mins"))
-
+mytable
 
 # Results
 # -------
-mytable
-readr::write_csv(round(mytable, 3), 
-                 paste0("tables/simk",3,"_",flavor_ops[[1]],"_",flavor_ops[[2]],".csv"))
+mytable <- 
+  mytable[,c(1,2)] |> 
+  cbind(
+    apply(mytable[,-c(1,2)], 2, function(x) as.numeric(unname(unlist(x)))) |> 
+      as.data.frame()
+  )
+readr::write_csv(mytable, 
+                 paste0("tables/simk",k,"_",flavor_ops[[1]],"_",flavor_ops[[2]],".csv"))
 
 
 # Save R objects

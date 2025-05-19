@@ -11,8 +11,8 @@ library(brulee)
 
 Y_model_dnn <- function(dat, y_func, hidunits, eps, penals, cvs=6, verbose=FALSE) {
   hidunits <- NA
-  hunits_1 <- c(3,3)
-  hunits_2 <- c(2,3)
+  hunits_1 <- c(2L, 5L)
+  hunits_2 <- c(2L, 3L)
   penalty_range <- penalty() %>% range_set(c(log10(min(penals)), log10(max(penals))))
   
   
