@@ -11,7 +11,7 @@ rm(list = ls())
 
 # Set parameters and load functions
 # ---------------------------------
-M <- 2
+M <- 1
 n <- 600
 k <- 3
 p <- 8
@@ -24,20 +24,7 @@ source("one_sim_k3plus.R")
 eps = c(120,150)
 penals = c(0.001,0.005)
 hidunits = c(2L, 6L)
-mytable <- tibble(dataset = numeric(),
-                  estimate = character(),
-                  A_01 = numeric(),
-                  A_02 = numeric(),
-                  A_12 = numeric())
-otr <- tibble(V_01_g1 = numeric(),
-              V_01_g0 = numeric(),
-              V_02_g2 = numeric(),
-              V_02_g0 = numeric(),
-              V_12_g2 = numeric(),
-              V_12_g1 = numeric(),
-              OTR = character()
-              )
-flavor_ops <- c("tanh","sigmoid", function(x) 1/(1+exp(-x)) * 10)
+flavor_ops <- c("logit","expo", function(x) {exp(x)}) #tanh sigmoid 1/(1+exp(-x)) * 10
 
 
 # Run simulations
@@ -70,16 +57,26 @@ for(i in 1:M) {
   
   # results
   print(r$Vn_df)
-  mytable <- rbind(mytable, r$my_k_row)
+  if(i==1) {
+    mytable <- r$my_k_row
+    otr_table <- cbind(r$Xnew_Vn, r$Vn_df)
+  } else {
+    mytable <- rbind(mytable, r$my_k_row)
+    otr_table <- rbind(otr_table, cbind(r$Xnew_Vn, r$Vn_df))
+  }
+  otr_table <- otr_table |> dplyr::select(dataset, OTR, contains("X"), contains("g"))
   mytable
-  otr <- rbind(otr, cbind(r$X_new_Vn, r$Vn_df[,c(1:3, 7)]))
+  otr_table
   tictoc::tic.clearlog()
+  
 }
+
+
 total_time <- toc(log = TRUE, quiet = TRUE)
 total_seconds <- total_time$toc - total_time$tic
 cat(paste0("\nTotal run time: ", round(total_seconds / 60, 2), " mins"))
 mytable
-otr
+otr_table
 
 # Results
 # -------
@@ -92,7 +89,7 @@ mytable <-
 readr::write_csv(mytable, 
                  paste0("tables/simk",k,"_",flavor_ops[[1]],"_",flavor_ops[[2]],".csv"))
 
-readr::write_csv(otr, 
+readr::write_csv(otr_table, 
                  paste0("tables/OTR_simk",k,"_",flavor_ops[[1]],"_",flavor_ops[[2]],".csv"))
 
 
