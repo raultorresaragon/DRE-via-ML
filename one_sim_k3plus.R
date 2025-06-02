@@ -10,36 +10,36 @@
 # ---------------------------
 # PARAMERTERS FOR DEBUGGING
 
-rm(list = ls())
-set.seed(1811)
-M <- 1
-n <- 400
-k <- 3
-flavor_ops <- c("tanh","sigmoid", function(x) 1/(1+exp(-x)) * 10)
-p <- 8
-rho   <- round(runif(1, 0.4, 0.6),1)
-Xmu   <- round(runif(p, -1, 1),1)
-beta_A <- cbind(c(1, round(runif(p, -2, 2),1)), 
-                c(1, round(runif(p, -2, 2),1)), 
-                c(1, round(runif(p, -2, 2),1))) |> as.matrix()
-beta_Y <- c(1, round(runif(p, -1, 1),1))
-gamma <- c(0.8, 0.3)
-hidunits = c(2,6)
-eps = c(120,150)
-penals = c(0.001,0.005)
-n=n; p=8; Xmu=Xmu; 
-A_flavor = flavor_ops[[1]]; 
-Y_flavor = flavor_ops[[2]]; Y_fun = flavor_ops[[3]];
-
-iter = 1; 
-source("YAX_funs.R")
-source("functions_k3plus.R")
-#source("functions_k3plus_dnn.R")
-verbose=TRUE
+ ### rm(list = ls())
+ ### set.seed(1811)
+ ### M <- 1
+ ### n <- 400
+ ### k <- 3
+ ### flavor_ops <- c("tanh","sigmoid", function(x) 1/(1+exp(-x)) * 10)
+ ### p <- 8
+ ### rho   <- round(runif(1, 0.4, 0.6),1)
+ ### Xmu   <- round(runif(p, -1, 1),1)
+ ### beta_A <- cbind(c(1, round(runif(p, -2, 2),1)), 
+ ###                 c(1, round(runif(p, -2, 2),1)), 
+ ###                 c(1, round(runif(p, -2, 2),1))) |> as.matrix()
+ ### beta_Y <- c(1, round(runif(p, -1, 1),1))
+ ### gamma <- c(0.8, 0.3)
+ ### hidunits = c(2,6)
+ ### eps = c(120,150)
+ ### penals = c(0.001,0.005)
+ ### n=n; p=8; Xmu=Xmu; 
+ ### A_flavor = flavor_ops[[1]]; 
+ ### Y_flavor = flavor_ops[[2]]; Y_fun = flavor_ops[[3]];
+ ### 
+ ### iter = 1; 
+ ### source("YAX_funs.R")
+ ### source("functions_k3plus.R")
+ ### #source("functions_k3plus_dnn.R")
+ ### verbose=TRUE
 
 # ---------------------------
 
-one_sim <- function(n, p, Xmu, beta_A, beta_Y, gamma,
+one_sim <- function(n, p, Xmu, beta_A, beta_Y, gamma, k,
                     A_flavor, Y_flavor, Y_fun, 
                     hidunits, eps, penals, verbose = FALSE, iter = 1, 
                     nntype = "1nn") {
@@ -78,20 +78,25 @@ one_sim <- function(n, p, Xmu, beta_A, beta_Y, gamma,
                             eps=eps, 
                             penals=penals,
                             verbose=verbose)
+  fit_A_logit <- estimate_A_logit(X=X, dat=dat, k=k, verbose=verbose)
   toc()
   
   # Estimate Y (outcome model)
   tic("\nY model")
-  fit_Y_nn <- estimate_Y_nn(dat, pscores_df=fit_A_nn$pscores,
+  fit_Y_nn <- estimate_Y_nn(dat, pscores_df=fit_A_nn$pscores, k=k,
                             hidunits=hidunits,
                             eps=eps, 
                             penals=penals, 
                             verbose=verbose)
+  fit_Y_expo <- estimate_Y_expo(dat, pscores_df=fit_A_logit$pscores, k=k)
   toc()
   
   # Compute Vn
-  X_new <- gen_X(n=5, p=p, rho=rho, mu=Xmu)
-  Vn_df <- get_Vn(fit_Y_nn, X_new = X_new)[1,] 
+  X_new <- matrix(rep(sample(-5:5, 5, replace = FALSE), each = dim(X)[2]), 
+                  nrow = 5, 
+                  byrow = TRUE) |> as.data.frame()
+  colnames(X_new) <- paste0("X",1:ncol(X_new))
+  Vn_df <- get_Vn(fit_Y_nn, X_new = X_new)
   
   # Pack results into k rows
   get_naive_est <- function(x) {
@@ -103,16 +108,19 @@ one_sim <- function(n, p, Xmu, beta_A, beta_Y, gamma,
   }
   naive_est <- apply(as.matrix(combn(3,2) - 1), 2, get_naive_est)
   nn_model_est <- sapply(fit_Y_nn, function(x) {x[[1]]}) |> data.frame() 
+  logit_expo_est <- sapply(fit_Y_expo, function(x) {x[[1]]}) |> data.frame()
   
   my_k_rows <- 
     nn_model_est[1,] |> 
-    rbind(true_diffs, naive_est) |> 
-    `row.names<-`(c("NN_est", "True_diff", "Naive_est")) |>
+    rbind(logit_expo_est[1,]) |> 
+    rbind(naive_est, true_diffs) |> 
+    `row.names<-`(c("NN_est", "LogitExpo_est", "Naive_est","True_diff")) |>
     rownames_to_column("estimate") |>
     mutate(dataset = iter) |> 
     dplyr::select(dataset, everything())
+  my_k_rows <- rbind(my_k_rows[4,], my_k_rows[-4,])  
   
-  list(my_k_rows = my_k_rows, Vn_df = Vn_df)
+  list(my_k_rows = my_k_rows, Vn_df = Vn_df, Xnew_Vn = X_new)
   
 }
 
