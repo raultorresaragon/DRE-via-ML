@@ -10,32 +10,30 @@
 # ---------------------------
 # PARAMERTERS FOR DEBUGGING
 
-  ## rm(list = ls())
-  ## set.seed(1811)
-  ## M <- 1
-  ## n <- 400
-  ## k <- 3
-  ## flavor_ops <- c("tanh","sigmoid", function(x) 1/(1+exp(-x)) * 10)
-  ## p <- 8
-  ## rho   <- round(runif(1, 0.4, 0.6),1)
-  ## Xmu   <- round(runif(p, -1, 1),1)
-  ## beta_A <- cbind(c(1, round(runif(p, -2, 2),1)), 
-  ##                 c(1, round(runif(p, -2, 2),1)), 
-  ##                 c(1, round(runif(p, -2, 2),1))) |> as.matrix()
-  ## beta_Y <- c(1, round(runif(p, -1, 1),1))
-  ## gamma <- c(0.8, 0.3)
-  ## hidunits = c(2,6)
-  ## eps = c(120,150)
-  ## penals = c(0.001,0.005)
-  ## n=n; p=8; Xmu=Xmu; 
-  ## A_flavor = flavor_ops[[1]]; 
-  ## Y_flavor = flavor_ops[[2]]; Y_fun = flavor_ops[[3]];
-  ## 
-  ## iter = 1; 
-  ## source("YAX_funs.R")
-  ## source("functions_k3plus.R")
-  ## #source("functions_k3plus_dnn.R")
-  ## verbose=TRUE
+ ## rm(list = ls())
+ ## set.seed(1811)
+ ## M <- 1
+ ## n <- 1000
+ ## k <- 5
+ ## gamma <- c(0.8, 0.6, 0.52, 0.37)
+ ## flavor_ops <- c("tanh","sigmoid", function(x) 1/(1+exp(-x)) * 10)
+ ## #flavor_ops <- c("logit","expo", function(x) exp(x))
+ ## p <- 12
+ ## rho   <- round(runif(1, 0.4, 0.6),1)
+ ## Xmu   <- round(runif(p, -1, 1),1)
+ ## beta_A <- matrix(rep(1,k), nrow=1) |> rbind(matrix(round(runif(p*k, -2, 2),1), nrow=p))
+ ## beta_Y <- c(1, round(runif(p, -1, 1),1))
+ ## hidunits = c(2,6)
+ ## eps = c(120,150)
+ ## penals = c(0.001,0.005)
+ ## A_flavor = flavor_ops[[1]]; 
+ ## Y_flavor = flavor_ops[[2]]; Y_fun = flavor_ops[[3]];
+ ## 
+ ## iter = 1; 
+ ## source("YAX_funs.R")
+ ## source("functions_k3plus.R")
+ ## #source("functions_k3plus_dnn.R")
+ ## verbose=TRUE
 
 # ---------------------------
 
@@ -109,7 +107,7 @@ one_sim <- function(n, p, Xmu, beta_A, beta_Y, gamma, k,
     cat(paste0("\n  Naive diff means ", j, i, " = ", round(d, 3)))
     d
   }
-  naive_est <- apply(as.matrix(combn(3,2) - 1), 2, get_naive_est)
+  naive_est <- apply(as.matrix(combn(k,2) - 1), 2, get_naive_est)
   nn_model_est <- sapply(fit_Y_nn, function(x) {x[[1]]}) |> data.frame() 
   logit_expo_est <- sapply(fit_Y_expo, function(x) {x[[1]]}) |> data.frame()
   

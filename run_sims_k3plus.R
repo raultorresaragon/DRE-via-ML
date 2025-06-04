@@ -5,16 +5,16 @@
 # Note: This script runs M simulations of
 #       k=3+ treatment regime with DRE via NN
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-set.seed(1812)
+set.seed(1609)
 library(tictoc)
 rm(list = ls())
 
 # Set parameters and load functions
 # ---------------------------------
-M <- 1
-n <- 600
-k <- 3
-p <- 8
+M <- 5
+n <- 1000
+k <- 5
+p <- 12
 nntype <- "1nn"
 #source("functions_k3plus_dnn.R")
 source("functions_k3plus.R")
@@ -36,11 +36,9 @@ for(i in 1:M) {
   # dataset params
   rho   <- round(runif(1, 0.4, 0.6), 1)
   Xmu   <- round(runif(p, -1, 1), 1)
-  beta_A <-  cbind(c(1, round(runif(p, -2, 2),1)), 
-                   c(1, round(runif(p, -2, 2),1)), 
-                   c(1, round(runif(p, -2, 2),1))) |> as.matrix()
+  beta_A <-  matrix(rep(1,k), nrow=1) |> rbind(matrix(round(runif(p*k, -2, 2),1), nrow=p))
   beta_Y <- c(1, round(runif(p, -1, 1), 1))
-  gamma <- c(0.7, 0.45)
+  gamma <- c(0.67, 0.54, 0.62, 0.79)
   
   # estimation
   tic("")

@@ -13,7 +13,7 @@ library(dplyr)
 # --------------------------
 # Generate X (design matrix)
 # --------------------------
-gen_X <- function(p=8, rho=0.6, mu, n) {
+gen_X <- function(p, rho=0.6, mu, n) {
   Xnames <- paste0("X", 1:p) 
   Sigma <- outer(1:p, 1:p, function(i,j) rho^abs(i-j))
   X <- MASS::mvrnorm(n = n, mu = mu, Sigma = Sigma) |> 
