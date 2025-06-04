@@ -25,6 +25,7 @@ eps = c(120,150)
 penals = c(0.001,0.005)
 hidunits = c(2L, 6L)
 flavor_ops <- c("logit","expo", function(x) {exp(x)}) #tanh sigmoid 1/(1+exp(-x)) * 10
+flavor_ops <- c("tanh","sigmoid", function(x) {1/(1+exp(-x)) * 10}) #logit expo exp(x)
 
 
 # Run simulations
@@ -90,7 +91,8 @@ readr::write_csv(mytable,
 readr::write_csv(otr_table, 
                  paste0("tables/OTR_simk",k,"_",flavor_ops[[1]],"_",flavor_ops[[2]],".csv"))
 
-
+# to generate LaTeX: 
+# print(xtable::xtable(table_k5_tanhsigmoid, include.rownames = FALSE))
 # Save R objects
 # --------------
 #save.image(file="sim_01_k2.RData")
