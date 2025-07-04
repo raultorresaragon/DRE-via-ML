@@ -126,3 +126,48 @@ curve(1/(1+exp(-x)) * 10,
 legend("topleft", legend = c("exponential", "scaled logit"), fill=c("skyblue3", "darkred"),
        cex=2)
 dev.off()
+
+
+jpeg("images/expo_vs_sigmoid_AND_logit_vs_tanh.jpeg", width = 1000, height = 750)
+par(mfrow=c(1,2))
+
+# left panel
+par(mar = c(5, 6, 4, 2))
+curve(1/(1 + exp(-1*(x))), 
+      from=-4, to=4, 
+      lwd = 6,
+      col = "skyblue3",      
+      main = "Propensity model",
+      ylab = "P(A=1)",
+      xlab = expression(x[i]^T * beta[A]),
+      cex.lab = 2, cex.main = 2.25, cex.axis = 1.75) 
+curve(0.5 * (tanh(x) + 1),
+      add = TRUE,
+      from=-4, to=4, 
+      lwd = 6,
+      col = "darkred",      
+      cex.lab = 2) 
+legend("bottomright", legend = c("logit", "tanh"), fill=c("skyblue3", "darkred"),
+       cex=2)
+
+# right panel
+par(mar = c(5, 6, 4, 2))
+curve(exp(x), 
+      from=-4, to=4, 
+      lwd = 6,
+      col = "skyblue3",      
+      main = "Outcome model",
+      ylab = "Y",
+      xlab = expression(x[i]^T * beta[Y] + gamma * A),
+      cex.lab = 2, cex.main = 2.25, cex.axis = 1.75) 
+curve(1/(1+exp(-x)) * 10,
+      add = TRUE,
+      from=-4, to=4, 
+      lwd = 6,
+      col = "darkred",      
+      cex.lab = 2) 
+legend("topleft", legend = c("exponential", "scaled logit"), fill=c("skyblue3", "darkred"),
+       cex=2)
+dev.off()
+
+
