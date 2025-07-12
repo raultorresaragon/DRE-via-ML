@@ -10,8 +10,6 @@ library(tidyverse)
 library(readr)
 rm(list = ls())
 set.seed(1810)
-source("A_nn_tunning.R")
-source("Y_nn_tunning.R")
 source("functions_k2_01.R")
 
 
@@ -27,12 +25,12 @@ Y <- df$gh
 X <- cbind(df$gender, df$age, df$partial_or_total_removal) |> 
      `colnames<-`(c("X1","X2","X3"))
 A <- df$chemo
-dat <- as.data.frame(cbind(Y,A,X))
+dat <- as.data.frame(cbind(Y,A,X)) |> na.omit()
 
 
 # grab a hold out for OTR
-dat_new <- dat[random_row,] |> dplyr::select(-A) |> `rownames<-`(NULL)
-dat <- dat[-random_row,] 
+# random_row <- round(runif(1, nrow(df)))
+# dat_new <- dat[random_row,] |> dplyr::select(-A) |> `rownames<-`(NULL)
 Y <- dat$Y
 A <- dat$A
 
@@ -51,10 +49,11 @@ pscores_nn <- predict(H_nn, new_data = dat %>% select(-A), type = "raw") |> as.v
 
 
 # estimate Y (outcome model)
-dat$Y[dat$Y<=0] <- 0.00001
+dat$Y[dat$Y<=0] <- 0.00001 #FIX THIS
 delta_1 <- as.numeric(A==1)
 delta_0 <- as.numeric(A==0)
 
+  ### TURN TO OLS
   ### fit_expo <- estimate_Y_expo(dat, pi_hat=pscores_logit, ymod_formula=omodel)
 g_1 <- glm(as.formula(omodel), family = gaussian(link="log"), data = dat[A==1,])
 g_0 <- glm(as.formula(omodel), family = gaussian(link="log"), data = dat[A==0,])
@@ -89,10 +88,10 @@ get_Vn <- function(g_1, g_0, X_new, from_model = "nn") {
 
 Vn_df_expo <- get_Vn(g_1 = fit_expo$g_1, 
                      g_0 = fit_expo$g_0, 
-                     X_new = dat_new,
+                     X_new = tibble(X1=1, X2=75, X3=0),
                      from_model = "expo") 
 
 Vn_df_nn <- get_Vn(g_1 = fit_nn$g_1, 
                    g_0 = fit_nn$g_0, 
-                   X_new = dat_new,
+                   X_new = tibble(X1=1, X2=75, X3=1),
                    from_model = "nn") 

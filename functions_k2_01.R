@@ -10,8 +10,8 @@
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 library(tictoc)
 print(getwd())
-source(here::here("A_nn_tunning.R"))
-source(here::here("Y_nn_tunning.R"))
+source(here::here("A_nn_tuning.R"))
+source(here::here("Y_nn_tuning.R"))
 
 # --------------------------
 # Generate X (design matrix)
