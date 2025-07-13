@@ -20,12 +20,14 @@ penals = c(0.001,0.01)
 
 
 # get data
-df <- read_csv("real_data/recoded_ASTR_t1.csv")
+#df <- read_csv("real_data/recoded_ASTR_t1.csv")
+df <- read_csv("real_data/recoded_ASTR.csv")
 Y <- df$gh
 X <- cbind(df$gender, df$age, df$partial_or_total_removal) |> 
      `colnames<-`(c("X1","X2","X3"))
 A <- df$chemo
 dat <- as.data.frame(cbind(Y,A,X)) |> na.omit()
+dim(dat)
 
 
 # grab a hold out for OTR
@@ -49,23 +51,25 @@ pscores_nn <- predict(H_nn, new_data = dat %>% select(-A), type = "raw") |> as.v
 
 
 # estimate Y (outcome model)
-dat$Y[dat$Y<=0] <- 0.00001 #FIX THIS
 delta_1 <- as.numeric(A==1)
 delta_0 <- as.numeric(A==0)
 
-  ### TURN TO OLS
-  ### fit_expo <- estimate_Y_expo(dat, pi_hat=pscores_logit, ymod_formula=omodel)
-g_1 <- glm(as.formula(omodel), family = gaussian(link="log"), data = dat[A==1,])
-g_0 <- glm(as.formula(omodel), family = gaussian(link="log"), data = dat[A==0,])
-muhat_1 <- mean(ghat_1 + (delta_1*(Y - ghat_1)/(pscores_logit))/(mean(delta_1/pscores_logit)), na.rm = TRUE)
-muhat_0 <- mean(ghat_0 + (delta_0*(Y - ghat_0)/(1-pscores_logit))/(mean(delta_0/(1-pscores_logit))), na.rm = TRUE)
+  ### turn expo to OLS because of Y=0 cases
+g_1 <- glm(as.formula(omodel), family = gaussian(link="identity"), data = dat[A==1,])
+ghat_1 <- predict(g_1, newdata = dat, type = "response")
+g_0 <- glm(as.formula(omodel), family = gaussian(link="identity"), data = dat[A==0,])
+ghat_0 <- predict(g_0, newdata = dat, type = "response")
+muhat_1 <- mean(ghat_1 + (delta_1*(Y - ghat_1)/(pscores_logit))/(mean(delta_1/pscores_logit)))
+muhat_0 <- mean(ghat_0 + (delta_0*(Y - ghat_0)/(1-pscores_logit))/(mean(delta_0/(1-pscores_logit))))
 diff_means_exp <- muhat_1 - muhat_0
 
 fit_nn <- estimate_Y_nn(dat, pi_hat=pscores_nn, ymod_formula=omodel,
                         hidunits=hidunits, eps=eps, penals=penals, 
                         verbose=FALSE)
-muhat_1 <- mean(fit_nn$ghat_1 + (delta_1*(Y - fit_nn$ghat_1)/(pscores_nn))/(mean(delta_1/pscores_nn)), na.rm = TRUE)
-muhat_0 <- mean(fit_nn$ghat_0 + (delta_0*(Y - fit_nn$ghat_0)/(1-pscores_nn))/(mean(delta_0/(1-pscores_nn))), na.rm = TRUE)
+muhat_1 <- 
+  mean(fit_nn$ghat_1 + (delta_1*(Y - fit_nn$ghat_1)/(pscores_nn))/(mean(delta_1/pscores_nn)))
+muhat_0 <- 
+  mean(fit_nn$ghat_0 + (delta_0*(Y - fit_nn$ghat_0)/(1-pscores_nn))/(mean(delta_0/(1-pscores_nn))))
 diff_means_nn <- muhat_1 - muhat_0
 
 # compute OTR Vn
@@ -86,10 +90,10 @@ get_Vn <- function(g_1, g_0, X_new, from_model = "nn") {
   
 }
 
-Vn_df_expo <- get_Vn(g_1 = fit_expo$g_1, 
-                     g_0 = fit_expo$g_0, 
-                     X_new = tibble(X1=1, X2=75, X3=0),
-                     from_model = "expo") 
+Vn_df_logitols <- get_Vn(g_1 = g_1, 
+                         g_0 = g_0, 
+                         X_new = tibble(X1=1, X2=75, X3=1),
+                         from_model = "logit-ols") 
 
 Vn_df_nn <- get_Vn(g_1 = fit_nn$g_1, 
                    g_0 = fit_nn$g_0, 
