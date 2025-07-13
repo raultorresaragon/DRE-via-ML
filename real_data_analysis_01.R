@@ -99,3 +99,25 @@ Vn_df_nn <- get_Vn(g_1 = fit_nn$g_1,
                    g_0 = fit_nn$g_0, 
                    X_new = tibble(X1=1, X2=75, X3=1),
                    from_model = "nn") 
+
+
+# plot predicted Y vs actual Y in sample
+mycols <- c("#CC6600","#00994C")
+plot(sort(dat$Y[A==1]), col="darkgrey",
+     main="GH and predicted GH (in sample) by model",
+     type="b" , bty="l",
+     ylab="GH",
+     xlab=expression(X^T * hat(bold(beta))))
+points(sort(fit_nn$ghat_1), col=mycols[1], type="b" , bty="l", lwd=1 , pch=19) 
+points(sort(ghat_1), col=mycols[2],type="b" , bty="l",lwd=1 , pch=19)
+legend("bottomright", 
+       legend = c(expression(hat(GH)["nn"]), expression(hat(GH)["logit-ols"])), 
+       col = c(mycols[1], 
+               mycols[2]), 
+       pch = c(19,19), 
+       bty = "n", 
+       pt.cex = 2, 
+       cex = 1.2, 
+       text.col = "black", 
+       horiz = F , 
+       inset = c(0.1, 0.1))
