@@ -100,16 +100,26 @@ Vn_df_nn <- get_Vn(g_1 = fit_nn$g_1,
                    X_new = tibble(X1=1, X2=75, X3=1),
                    from_model = "nn") 
 
+dat$Yhat_logit_ols <- 0
+dat$Yhat_nn <- 0
+dat$Yhat_logit_ols[dat$A==1] <- ghat_1[dat$A==1]
+dat$Yhat_logit_ols[dat$A==0] <- ghat_0[dat$A==0]
+dat$Yhat_nn[dat$A==1] <- fit_nn$ghat_1[dat$A==1]
+dat$Yhat_nn[dat$A==0] <- fit_nn$ghat_0[dat$A==0]
+
+
 
 # plot predicted Y vs actual Y in sample
-mycols <- c("#CC6600","#00994C")
-plot(sort(dat$Y[A==1]), col="darkgrey",
-     main="GH and predicted GH (in sample) by model",
+jpeg("myplot.jpeg", width = 1073, height = 743)
+
+mycols <- c("#CC661AB3","#33661AB3")
+plot(sort(dat$Y), col="darkgrey",
+     main=expression("GH and " * hat(GH) * " (in sample) by model"),
      type="b" , bty="l",
      ylab="GH",
      xlab=expression(X^T * hat(bold(beta))))
-points(sort(fit_nn$ghat_1), col=mycols[1], type="b" , bty="l", lwd=1 , pch=19) 
-points(sort(ghat_1), col=mycols[2],type="b" , bty="l",lwd=1 , pch=19)
+points(sort(dat$Yhat_nn), col=mycols[1], type="b" , bty="l", lwd=0.5 , pch=19) 
+points(sort(dat$Yhat_logit_ols), col=mycols[2], type="b" , bty="l", lwd=0.5 , pch=19)
 legend("bottomright", 
        legend = c(expression(hat(GH)["nn"]), expression(hat(GH)["logit-ols"])), 
        col = c(mycols[1], 
@@ -121,3 +131,17 @@ legend("bottomright",
        text.col = "black", 
        horiz = F , 
        inset = c(0.1, 0.1))
+dev.off()
+
+#ggsave(paste0("images/rwd_gh_ghhat.jpeg"), width = 7.15, height = 4.95, dpi = 150)
+# for jpeg simply multiply 7.15*150 and round up. Same with height.
+
+RMSE <- function(y, yhat){
+  stopifnot(length(y)==length(yhat))
+  sqrt(sum((y-yhat)^2)/length(y))
+}
+
+rmse_nn <- RMSE(dat$Y, dat$Yhat_nn)
+rmse_logit_ols <-RMSE(dat$Y, dat$Yhat_logit_ols)
+
+
