@@ -121,6 +121,10 @@ one_sim <- function(n, p, Xmu, beta_A, beta_Y, gamma, k,
     dplyr::select(dataset, everything())
   my_k_rows <- rbind(my_k_rows[4,], my_k_rows[-4,]) |> `row.names<-.data.frame`(1:4)
   
+  # Export predicted Y and predicted A from NN and expo-logit for comparison
+  # or it might make more sense to write CSV to then combine plots on a different script
+  # TO DO
+  
   list(my_k_rows = my_k_rows, Vn_df = Vn_df, Xnew_Vn = X_new)
   
 }

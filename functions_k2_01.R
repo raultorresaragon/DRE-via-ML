@@ -162,7 +162,7 @@ extract_nn_params <- function(fit_nn) {
 # --------------------------------
 one_sim <- function(n=n, p=3, Xmu, beta_A, beta_Y, gamma, Y_fun, A_flavor, Y_flavor,
                     ymod_formula_os, amod_formula_os,
-                    nn_hidunits, nn_eps, nn_penals, verbose = FALSE) {
+                    nn_hidunits, nn_eps, nn_penals, miter, verbose = FALSE) {
   
   X <- gen_X(n=n, p=p, rho=rho, mu=Xmu)
   A <- gen_A(X=X, beta=beta_A, flavor_A=A_flavor)
@@ -192,6 +192,11 @@ one_sim <- function(n=n, p=3, Xmu, beta_A, beta_Y, gamma, Y_fun, A_flavor, Y_fla
                           verbose=verbose)
   #toc <- toc(quiet=TRUE)
   #print(paste0("  Y nn time:", round((toc$toc[[1]]-toc$tic[[1]])/60,2), " mins"))  
+  
+  # save predicted A and Y plots
+  plot_predicted_A_Y(beta_A, beta_Y, Y, X, A, 
+                     fit_nn, fit_expo, gamma, 
+                     pscores_logit, pscores_nn, A_flavor, Y_flavor, ds=miter, k=2)
   
   # Computing Vn
   X_new <- gen_X(n=25, p=p, rho=rho, mu=Xmu)

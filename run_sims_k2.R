@@ -12,9 +12,10 @@ rm(list = ls())
 
 # Set parameters and load functions
 # ---------------------------------
-M <- 10
+M <- 5
 n <- 300
 source("functions_k2_01.R")
+source("predicted_A_Y_plots_k2.R")
 
 amod_formula <- "A~X1+X2+X3"
 ymod_formula <- "Y~X1+X2+X3"
@@ -28,8 +29,8 @@ mytable <- tibble(prob_A = numeric(),
                   nn_model_est = numeric())
 #nn_params_list <- 
 
-#flavor_ops <- c("logit","expo", exp)
-flavor_ops <- c("tanh","sigmoid", function(x) 1/(1+exp(-x)) * 10)
+flavor_ops <- c("logit","expo", exp)
+#flavor_ops <- c("tanh","sigmoid", function(x) 1/(1+exp(-x)) * 10)
 
 # Run simulations
 # ---------------
@@ -51,7 +52,7 @@ for(i in 1:M) {
                A_flavor = flavor_ops[[1]], beta_A=beta_A, gamma=gamma, 
                Y_flavor = flavor_ops[[2]], Y_fun = flavor_ops[[3]], beta_Y=beta_Y,
                ymod_formula_os=ymod_formula, amod_formula_os=amod_formula,
-               nn_hidunits=hidunits, nn_eps=eps, nn_penals=penals, verbose=FALSE)
+               nn_hidunits=hidunits, nn_eps=eps, nn_penals=penals, miter=i, verbose=FALSE)
   cat(paste0("\n V_1 = ", round(r$Vn$V_1,2), 
              " ; V_0 = ", round(r$Vn$V_0), 
              " ; OTR: A=", r$Vn$Optimal_A))

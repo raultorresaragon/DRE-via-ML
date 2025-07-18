@@ -110,27 +110,32 @@ dat$Yhat_nn[dat$A==0] <- fit_nn$ghat_0[dat$A==0]
 
 
 # plot predicted Y vs actual Y in sample
-jpeg("myplot.jpeg", width = 1073, height = 743)
-
 mycols <- c("#CC661AB3","#33661AB3")
+
+jpeg("images/rwd_gh_ghhat.jpeg", width = 1073, height = 743)
+par(mar = c(5.1, 6, 4.1, 2.1))  
 plot(sort(dat$Y), col="darkgrey",
-     main=expression("GH and " * hat(GH) * " (in sample) by model"),
+     #main=expression("GH and " * hat(GH) * " (in sample) by model"),
      type="b" , bty="l",
      ylab="GH",
-     xlab=expression(X^T * hat(bold(beta))))
+     xlab=expression(X^T * hat(bold(beta))),
+     cex.main = 2.5,
+     cex.lab = 2,
+     cex.axis = 1.4)
 points(sort(dat$Yhat_nn), col=mycols[1], type="b" , bty="l", lwd=0.5 , pch=19) 
 points(sort(dat$Yhat_logit_ols), col=mycols[2], type="b" , bty="l", lwd=0.5 , pch=19)
 legend("bottomright", 
-       legend = c(expression(hat(GH)["nn"]), expression(hat(GH)["logit-ols"])), 
+       legend = c(expression(hat(GH)["nn"]), expression(hat(GH)["logit-ols"]), "Observed"), 
        col = c(mycols[1], 
-               mycols[2]), 
-       pch = c(19,19), 
+               mycols[2],
+               "darkgrey"), 
+       pch = c(19,19,19), 
        bty = "n", 
        pt.cex = 2, 
-       cex = 1.2, 
+       cex = 2, 
        text.col = "black", 
        horiz = F , 
-       inset = c(0.1, 0.1))
+       inset = c(0.1, 0.1, 0.1))
 dev.off()
 
 #ggsave(paste0("images/rwd_gh_ghhat.jpeg"), width = 7.15, height = 4.95, dpi = 150)
