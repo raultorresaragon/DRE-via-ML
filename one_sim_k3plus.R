@@ -10,30 +10,31 @@
 # ---------------------------
 # PARAMERTERS FOR DEBUGGING
 
- ## rm(list = ls())
- ## set.seed(1811)
- ## M <- 1
- ## n <- 1000
- ## k <- 5
- ## gamma <- c(0.8, 0.6, 0.52, 0.37)
- ## flavor_ops <- c("tanh","sigmoid", function(x) 1/(1+exp(-x)) * 10)
- ## #flavor_ops <- c("logit","expo", function(x) exp(x))
- ## p <- 12
- ## rho   <- round(runif(1, 0.4, 0.6),1)
- ## Xmu   <- round(runif(p, -1, 1),1)
- ## beta_A <- matrix(rep(1,k), nrow=1) |> rbind(matrix(round(runif(p*k, -2, 2),1), nrow=p))
- ## beta_Y <- c(1, round(runif(p, -1, 1),1))
- ## hidunits = c(2,6)
- ## eps = c(120,150)
- ## penals = c(0.001,0.005)
- ## A_flavor = flavor_ops[[1]]; 
- ## Y_flavor = flavor_ops[[2]]; Y_fun = flavor_ops[[3]];
- ## 
- ## iter = 1; 
- ## source("YAX_funs.R")
- ## source("functions_k3plus.R")
- ## #source("functions_k3plus_dnn.R")
- ## verbose=TRUE
+  ## rm(list = ls())
+  ## set.seed(1811)
+  ## M <- 1
+  ## n <- 1000
+  ## k <- 3
+  ## gamma <- c(0.8, 0.6, 0.52, 0.37)[1:(k-1)]
+  ## flavor_ops <- c("tanh","sigmoid", function(x) 1/(1+exp(-x)) * 10)
+  ## #flavor_ops <- c("logit","expo", function(x) exp(x))
+  ## p <- 12
+  ## rho   <- round(runif(1, 0.4, 0.6),1)
+  ## Xmu   <- round(runif(p, -1, 1),1)
+  ## beta_A <- matrix(rep(1,k), nrow=1) |> rbind(matrix(round(runif(p*k, -2, 2),1), nrow=p))
+  ## beta_Y <- c(1, round(runif(p, -1, 1),1))
+  ## hidunits = c(2,6)
+  ## eps = c(120,150)
+  ## penals = c(0.001,0.005)
+  ## A_flavor = flavor_ops[[1]]; 
+  ## Y_flavor = flavor_ops[[2]]; Y_fun = flavor_ops[[3]];
+  ## 
+  ## iter = 1; 
+  ## source("YAX_funs.R")
+  ## source("functions_k3plus.R")
+  ## #source("functions_k3plus_dnn.R")
+  ## source("predicted_A_Y_plots_k3.R")
+  ## verbose=TRUE
 
 # ---------------------------
 
@@ -47,7 +48,7 @@ one_sim <- function(n, p, Xmu, beta_A, beta_Y, gamma, k,
   
   X <- gen_X(n=n, p=p, rho=rho, mu=Xmu)
   A <- gen_A(X=X, beta=beta_A, flavor_A=A_flavor)
-  Y <- gen_Y(X=X, A=A, beta_Y=beta_Y, gamma=gamma[1:(k-1)], flavor_Y=Y_flavor)
+  Y <- gen_Y(X=X, A=A, beta_Y=beta_Y, gamma=gamma, flavor_Y=Y_flavor)
   dat <- cbind(Y,A,X) 
   stopifnot(Y>0)
   

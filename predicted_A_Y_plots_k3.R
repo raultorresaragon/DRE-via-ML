@@ -14,9 +14,11 @@ plot_predicted_A_Y <-function(beta_A, beta_Y, Y, X, A,
        width = 1000, height = 510)
   
   
+  
   par(mfrow = c(2,3), mar = c(5.1, 5.8, 4.1, 1.3))
   mycolors = mycolors <- adjustcolor(c("#FB8072", "#80B1D3"), alpha.f = 0.5)
   
+  gamma_ <- c(0,gamma)
   xb_A <-(as.matrix(cbind(1,X))%*%beta_A) 
   xb_Y <-(as.matrix(cbind(1,X))%*%beta_Y) 
   if(A_flavor=="tanh") { 
@@ -28,13 +30,13 @@ plot_predicted_A_Y <-function(beta_A, beta_Y, Y, X, A,
     curve_A <- function(x) { (1/(1 + exp(-1*(x)))) }
   }
   if(Y_flavor=="sigmoid") { 
-    curve_Y <- lapply(seq_along(gamma[1:k]), function(i) {
-      function(x) 1/(1+exp(-x-gamma[i])) * 10
+    curve_Y <- lapply(seq_along(gamma_), function(g) {
+      function(x) 1/(1+exp(-x-gamma_[g])) * 10
     })
   }
   if(Y_flavor=="expo"){
-    curve_Y <- lapply(seq_along(gamma[1:k]), function(i) {
-      function(x) exp(x + gamma[i])
+    curve_Y <- lapply(seq_along(gamma_), function(g) {
+      function(x) exp(x + gamma_[g])
     })
   }
   
@@ -71,7 +73,7 @@ plot_predicted_A_Y <-function(beta_A, beta_Y, Y, X, A,
   }
   }
   
-  ## plotting Y[A==1]
+  ## plotting Y[A==i]
   for(d in 0:(k-1)){
     d_j <- A==d
     curve_Ya <- curve_Y[[d+1]]

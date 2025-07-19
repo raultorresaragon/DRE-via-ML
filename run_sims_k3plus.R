@@ -26,7 +26,7 @@ eps = c(120,150)
 penals = c(0.001,0.005)
 hidunits = c(2L, 6L)
 flavor_ops <- c("logit","expo", function(x) {exp(x)}) #tanh sigmoid 1/(1+exp(-x)) * 10
-flavor_ops <- c("tanh","sigmoid", function(x) {1/(1+exp(-x)) * 10}) #logit expo exp(x)
+#flavor_ops <- c("tanh","sigmoid", function(x) {1/(1+exp(-x)) * 10}) #logit expo exp(x)
 
 
 # Run simulations
@@ -40,13 +40,13 @@ for(i in 1:M) {
   Xmu   <- round(runif(p, -1, 1), 1)
   beta_A <-  matrix(rep(1,k), nrow=1) |> rbind(matrix(round(runif(p*k, -2, 2),1), nrow=p))
   beta_Y <- c(1, round(runif(p, -1, 1), 1))
-  gamma <- c(0, 0.67, 0.54, 0.62, 0.79)
+  gamma <- c(0.67, 0.54, 0.62, 0.79)
   
   # estimation
   tic("")
   suppressWarnings(
   r <- one_sim(n = n, p = p, Xmu = Xmu, iter = i, k = k, verbose = TRUE, 
-               A_flavor = flavor_ops[[1]], beta_A = beta_A, gamma = gamma, 
+               A_flavor = flavor_ops[[1]], beta_A = beta_A, gamma = gamma[1:(k-1)], 
                Y_flavor = flavor_ops[[2]], Y_fun = flavor_ops[[3]], beta_Y = beta_Y,
                hidunits = hidunits, eps = eps, penals = penals, nntype = nntype)
   )
