@@ -90,14 +90,14 @@ estimate_Y_expo <- function(dat, pscores_df, k) {
                round(d_ij$diff_means, 3)))
     names(d_ij) <- c(paste0("diff_means_",j,i), paste0("muhat_",i), paste0("muhat_",j))
     
-    list(d_ij, g_i, g_j)
+    list(d_ij, g_i, g_j, ghat_j, ghat_i) #'j' is the smaller in "02"of A_02, e.g.
   }
   o <- apply(m, 2, get_d_ij)
   names(o) <- apply(m, 2, function(x) { 
-    i <- x[[2]] 
-    j <- x[[1]]
-    paste0("A_",j,i)
-  })
+                            i <- x[[2]] 
+                            j <- x[[1]]
+                            paste0("A_",j,i)
+                          })
   o
 }
 
@@ -117,31 +117,31 @@ estimate_Y_nn <- function(dat, pscores_df, hidunits, eps, penals, k, verbose=FAL
     
     g_i <- Y_model_nn(dat=dat[A_i==1,] |> dplyr::select(-A), y_func = "Y~.", 
                       hidunits=hidunits, eps=eps, penals=penals, verbose=verbose)
-    ghat_i <- predict(g_i, new_data = dat %>% select(-Y, -A), type = "raw") |> 
-              as.vector()
+    ghat_i <- predict(g_i, new_data = dat %>% select(-Y, -A), type = "raw") #|> 
+              #as.vector()
     
     
     g_j <- Y_model_nn(dat=dat[A_i==0, ] |> dplyr::select(-A), y_func = "Y~.",
                       hidunits=hidunits, eps=eps, penals=penals, verbose=verbose)
-    ghat_j <- predict(g_j, new_data = dat %>% select(-Y, -A), type = "raw") |> 
-              as.vector()
+    ghat_j <- predict(g_j, new_data = dat %>% select(-Y, -A), type = "raw") #|> 
+              #as.vector()
     
     
-    d_ij <- get_diff(ghat_i, delta_i, ghat_j, delta_j, pi_hat_i, Y)
+    d_ij <- get_diff(as.vector(ghat_i), delta_i, as.vector(ghat_j), delta_j, pi_hat_i, Y)
     
     cat(paste0("\n  NN est diff means [a=",j, " vs. a=",i,"]=", 
                round(d_ij$diff_means, 3)))
     
     names(d_ij) <- c(paste0("diff_means_",j,i), paste0("muhat_",i), paste0("muhat_",j))
     
-    list(d_ij, g_i, g_j)
+    list(d_ij, g_i, g_j, ghat_j, ghat_i) #'j' is the smaller in "02"of A_02, e.g.
   }
   o <- apply(m, 2, get_d_ij)
   names(o) <- apply(m, 2, function(x) { 
-    i <- x[[2]] 
-    j <- x[[1]]
-    paste0("A_",j,i)
-  })
+                            i <- x[[2]] 
+                            j <- x[[1]]
+                            paste0("A_",j,i)
+                          })
   o
 }
 

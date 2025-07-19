@@ -47,12 +47,12 @@ one_sim <- function(n, p, Xmu, beta_A, beta_Y, gamma, k,
   
   X <- gen_X(n=n, p=p, rho=rho, mu=Xmu)
   A <- gen_A(X=X, beta=beta_A, flavor_A=A_flavor)
-  Y <- gen_Y(X=X, A=A, beta_Y=beta_Y, gamma=gamma, flavor_Y=Y_flavor)
+  Y <- gen_Y(X=X, A=A, beta_Y=beta_Y, gamma=gamma[1:(k-1)], flavor_Y=Y_flavor)
   dat <- cbind(Y,A,X) 
   stopifnot(Y>0)
   
   # print P(A=j)
-  hist(Y)
+  xb_Y <-(as.matrix(cbind(1,X))%*%beta_Y); plot(Y~xb_Y); rm(xb_Y)
   for(i in 1:k-1) {cat(paste0("\n  P(A=",i,")= ", mean(A==i) |> round(1)))}
   
   # print delta_ij
@@ -88,6 +88,12 @@ one_sim <- function(n, p, Xmu, beta_A, beta_Y, gamma, k,
                             verbose=verbose)
   fit_Y_expo <- estimate_Y_expo(dat, pscores_df=fit_A_logit$pscores, k=k)
   toc()
+  
+  # Save predicted Aj and Yj plot
+  plot_predicted_A_Y(beta_A, beta_Y, Y, X, A, 
+                     fit_Y_nn, fit_Y_expo, gamma, 
+                     fit_A_nn, fit_A_logit, A_flavor, Y_flavor, ds=iter, k)
+  
   
   # Compute Vn
   X_new <- matrix(round(runif(5*dim(X)[2], -8, 8),1), 

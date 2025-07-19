@@ -13,13 +13,14 @@ rm(list = ls())
 # ---------------------------------
 M <- 5
 n <- 1000
-k <- 5
-p <- 12
+k <- 3
+p <- 8
 nntype <- "1nn"
 #source("functions_k3plus_dnn.R")
 source("functions_k3plus.R")
 source("YAX_funs.R")
 source("one_sim_k3plus.R")
+source("predicted_A_Y_plots_k3.R")
 
 eps = c(120,150)
 penals = c(0.001,0.005)
@@ -39,7 +40,7 @@ for(i in 1:M) {
   Xmu   <- round(runif(p, -1, 1), 1)
   beta_A <-  matrix(rep(1,k), nrow=1) |> rbind(matrix(round(runif(p*k, -2, 2),1), nrow=p))
   beta_Y <- c(1, round(runif(p, -1, 1), 1))
-  gamma <- c(0.67, 0.54, 0.62, 0.79)
+  gamma <- c(0, 0.67, 0.54, 0.62, 0.79)
   
   # estimation
   tic("")
