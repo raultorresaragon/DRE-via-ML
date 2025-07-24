@@ -64,7 +64,11 @@ gen_Y <- function(gamma, X, A, beta_Y, flavor_Y) {
   if(flavor_Y == "atan") { fun_Y = function(x) 6 * (atan(x) / pi + 0.5)}
   if(flavor_Y == "expf") { fun_Y = function(x) rexp(length(x), rate = 1/x)}
   
-  Y <- fun_Y(xb_gamma_a) + abs(rnorm(n, 0, 0.01))
+  Y <- fun_Y(xb_gamma_a) + rnorm(n, 0, 0.1)
+  Y[Y<=0] <- abs(Y[Y<=0])
+  threshold <- qexp(0.9995, rate = 1/mean(Y))  # 99.95th percentile cutoff
+  Y[Y > threshold] <- threshold
+  Y
 }
 
 

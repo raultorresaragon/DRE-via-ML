@@ -11,7 +11,7 @@ rm(list = ls())
 
 # Set parameters and load functions
 # ---------------------------------
-M <- 5
+M <- 1
 n <- 1000
 k <- 3
 p <- 8
@@ -45,7 +45,7 @@ for(i in 1:M) {
   # estimation
   tic("")
   suppressWarnings(
-  r <- one_sim(n = n, p = p, Xmu = Xmu, iter = i, k = k, verbose = TRUE, 
+  r <- one_sim(n = n, p = p, Xmu = Xmu, iter = i, k = k, verbose = FALSE, 
                A_flavor = flavor_ops[[1]], beta_A = beta_A, gamma = gamma[1:(k-1)], 
                Y_flavor = flavor_ops[[2]], Y_fun = flavor_ops[[3]], beta_Y = beta_Y,
                hidunits = hidunits, eps = eps, penals = penals, nntype = nntype)

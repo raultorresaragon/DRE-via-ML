@@ -14,30 +14,32 @@ plot_predicted_A_Y <-function(beta_A, beta_Y, Y, X, A,
        width = 1000, height = 510)
   
   
-  
-  par(mfrow = c(2,3), mar = c(5.1, 5.8, 4.1, 1.3))
-  mycolors = mycolors <- adjustcolor(c("#FB8072", "#80B1D3"), alpha.f = 0.5)
+  par(mfrow = c(2,k), mar = c(5.1, 5.8, 4.1, 1.3))
+  mycolors = mycolors <- adjustcolor(c("#FB8072", "#80B1D3"), alpha.f = 0.9)
   
   gamma_ <- c(0,gamma)
   xb_A <-(as.matrix(cbind(1,X))%*%beta_A) 
   xb_Y <-(as.matrix(cbind(1,X))%*%beta_Y) 
+  b <- 1 #1/k
   if(A_flavor=="tanh") { 
-    plt_p <- 0.5* (tanh(xb_A)+1)
-    curve_A <- function(x) { (0.5* (tanh(x)+1)) }
+    plt_p <- b * 0.5* (tanh(xb_A)+1)
+    curve_A <- function(x) { (b * 0.5* (tanh(x)+1)) }
   }
   if(A_flavor=="logit"){ 
-    plt_p <- 1/(1 + exp(-1*(xb_A)))
-    curve_A <- function(x) { (1/(1 + exp(-1*(x)))) }
+    plt_p <- b * 1/(1 + exp(-1*(xb_A)))
+    curve_A <- function(x) { (b * 1/(1 + exp(-1*(x)))) }
   }
   if(Y_flavor=="sigmoid") { 
     curve_Y <- lapply(seq_along(gamma_), function(g) {
       function(x) 1/(1+exp(-x-gamma_[g])) * 10
     })
+    legpos <- "bottomright"
   }
   if(Y_flavor=="expo"){
     curve_Y <- lapply(seq_along(gamma_), function(g) {
       function(x) exp(x + gamma_[g])
     })
+    legpos <- "topleft"
   }
   
   Yhat_nn <- rep(NA, length(Y))
@@ -62,8 +64,8 @@ plot_predicted_A_Y <-function(beta_A, beta_Y, Y, X, A,
         lwd = 2,
         col = "black",      
         add = TRUE) 
-  points(fit_A_logit$pscores[[paste0("pscores_",i)]]~xb_A[,i+1], cex=1.5, col=mycolors[1], pch = 2)
-  points(fit_A_nn$pscores[[paste0("pscores_",i)]]~xb_A[,i+1], cex=1.5, col=mycolors[2], pch = 3)
+  points((b*fit_A_logit$pscores[[paste0("pscores_",i)]])~xb_A[,i+1], cex=1.5, col=mycolors[1], pch = 2)
+  points((b*fit_A_nn$pscores[[paste0("pscores_",i)]])~xb_A[,i+1], cex=1.5, col=mycolors[2], pch = 3)
   if(i==0){
     legend("topleft", 
            legend = c("true","logit","nn"), 
@@ -81,7 +83,7 @@ plot_predicted_A_Y <-function(beta_A, beta_Y, Y, X, A,
          main=bquote("Y and "*hat(Y) * " for A=" * .(d)),
          ylab = "Y",
          cex.lab = 2, cex.main = 2.25, cex.axis = 1.75,
-         xlab = bquote(x[i]^T * beta[Y] * "+" * gamma))
+         xlab = bquote(x[i]^T * beta[Y] * "+" * gamma[.(d)]))
     curve(curve_Ya, 
           from=min(xb_Y[d_j]), to=max(xb_Y[d_j]), 
           lwd = 2,
@@ -90,8 +92,8 @@ plot_predicted_A_Y <-function(beta_A, beta_Y, Y, X, A,
     points(Yhat_expo[d_j]~xb_Y[d_j], cex=1.5, col=mycolors[1], pch=2)
     points(Yhat_nn[d_j]~xb_Y[d_j], cex=1.5, col=mycolors[2], pch=3)
     if(d==0){
-      legend("bottomright", 
-           legend = c("true","logit","nn"), 
+      legend(legpos, 
+           legend = c("true","expo","nn"), 
            col=c("black", mycolors[1], mycolors[2]),
            pch = c(1,2,3),
            cex=1.9)

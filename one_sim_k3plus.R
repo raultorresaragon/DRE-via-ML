@@ -14,10 +14,10 @@
   ## set.seed(1811)
   ## M <- 1
   ## n <- 1000
-  ## k <- 3
+  ## k <- 5
   ## gamma <- c(0.8, 0.6, 0.52, 0.37)[1:(k-1)]
-  ## flavor_ops <- c("tanh","sigmoid", function(x) 1/(1+exp(-x)) * 10)
-  ## #flavor_ops <- c("logit","expo", function(x) exp(x))
+  ## #flavor_ops <- c("tanh","sigmoid", function(x) 1/(1+exp(-x)) * 10)
+  ## flavor_ops <- c("logit","expo", function(x) exp(x))
   ## p <- 12
   ## rho   <- round(runif(1, 0.4, 0.6),1)
   ## Xmu   <- round(runif(p, -1, 1),1)
@@ -34,7 +34,7 @@
   ## source("functions_k3plus.R")
   ## #source("functions_k3plus_dnn.R")
   ## source("predicted_A_Y_plots_k3.R")
-  ## verbose=TRUE
+  ## verbose=FALSE
 
 # ---------------------------
 
