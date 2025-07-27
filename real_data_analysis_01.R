@@ -15,7 +15,7 @@ source("functions_k2_01.R")
 
 # nn parameter space for tuning
 hidunits = c(5,20)
-eps = c(50,150)
+eps = c(100,250)
 penals = c(0.001,0.01)
 
 
@@ -108,13 +108,23 @@ dat$Yhat_nn[dat$A==1] <- fit_nn$ghat_1[dat$A==1]
 dat$Yhat_nn[dat$A==0] <- fit_nn$ghat_0[dat$A==0]
 
 
+# Compute RMSE
+RMSE <- function(y, yhat){
+  stopifnot(length(y)==length(yhat))
+  sqrt(sum((y-yhat)^2)/length(y))
+}
+
+rmse_nn <- RMSE(dat$Y, dat$Yhat_nn)
+rmse_logit_ols <-RMSE(dat$Y, dat$Yhat_logit_ols)
+
 
 # plot predicted Y vs actual Y in sample
-mycols <- c("#CC661AB3","#33661AB3")
+mycols <- c("#CC661AB3","#33661AB3","black")
+mycols <- c("black","black","black")
 
 jpeg("images/rwd_gh_ghhat.jpeg", width = 1073, height = 743)
 par(mar = c(5.1, 6, 4.1, 2.1))  
-plot(sort(dat$Y), col="darkgrey",
+plot(sort(dat$Y), col=mycols[3],
      #main=expression("GH and " * hat(GH) * " (in sample) by model"),
      type="b" , bty="l",
      ylab="GH",
@@ -126,10 +136,8 @@ points(sort(dat$Yhat_nn), col=mycols[1], type="b" , bty="l", lwd=0.5 , pch=19)
 points(sort(dat$Yhat_logit_ols), col=mycols[2], type="b" , bty="l", lwd=0.5 , pch=19)
 legend("bottomright", 
        legend = c(expression(hat(GH)["nn"]), expression(hat(GH)["logit-ols"]), "Observed"), 
-       col = c(mycols[1], 
-               mycols[2],
-               "darkgrey"), 
-       pch = c(19,19,19), 
+       col = mycols, 
+       pch = c(3,2,1), 
        bty = "n", 
        pt.cex = 2, 
        cex = 2, 
@@ -141,12 +149,5 @@ dev.off()
 #ggsave(paste0("images/rwd_gh_ghhat.jpeg"), width = 7.15, height = 4.95, dpi = 150)
 # for jpeg simply multiply 7.15*150 and round up. Same with height.
 
-RMSE <- function(y, yhat){
-  stopifnot(length(y)==length(yhat))
-  sqrt(sum((y-yhat)^2)/length(y))
-}
-
-rmse_nn <- RMSE(dat$Y, dat$Yhat_nn)
-rmse_logit_ols <-RMSE(dat$Y, dat$Yhat_logit_ols)
 
 

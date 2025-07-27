@@ -71,7 +71,7 @@ plot_predicted_A_Y <-function(beta_A, beta_Y, Y, X, A,
            legend = c("true","logit","nn"), 
            col=c("black", mycolors[1], mycolors[2]),
            pch=c(1,2,3),
-          cex=1.9)
+           cex=1.9)
   }
   }
   
@@ -100,6 +100,7 @@ plot_predicted_A_Y <-function(beta_A, beta_Y, Y, X, A,
     }
   }
   
+  par(mfrow = c(1,1))
   dev.off()
   
 }

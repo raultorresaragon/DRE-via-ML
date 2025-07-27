@@ -8,19 +8,21 @@
 set.seed(1609)
 library(tictoc)
 rm(list = ls())
+par(mfrow=c(1,1))
 
 # Set parameters and load functions
 # ---------------------------------
 M <- 1
-n <- 1000
-k <- 3
-p <- 8
+n <- 500
+k <- 2
+p <- 3
 nntype <- "1nn"
 #source("functions_k3plus_dnn.R")
 source("functions_k3plus.R")
 source("YAX_funs.R")
 source("one_sim_k3plus.R")
-source("predicted_A_Y_plots_k3.R")
+#source("predicted_A_Y_plots_k3.R")
+source("Y_Yhat_plots_k3.R")
 
 eps = c(120,150)
 penals = c(0.001,0.005)

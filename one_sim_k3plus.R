@@ -11,14 +11,14 @@
 # PARAMERTERS FOR DEBUGGING
 
   ## rm(list = ls())
-  ## set.seed(1811)
+  ## set.seed(1609)
   ## M <- 1
   ## n <- 1000
-  ## k <- 5
+  ## k <- 3
   ## gamma <- c(0.8, 0.6, 0.52, 0.37)[1:(k-1)]
+  ## p <- 8
   ## #flavor_ops <- c("tanh","sigmoid", function(x) 1/(1+exp(-x)) * 10)
   ## flavor_ops <- c("logit","expo", function(x) exp(x))
-  ## p <- 12
   ## rho   <- round(runif(1, 0.4, 0.6),1)
   ## Xmu   <- round(runif(p, -1, 1),1)
   ## beta_A <- matrix(rep(1,k), nrow=1) |> rbind(matrix(round(runif(p*k, -2, 2),1), nrow=p))
@@ -33,7 +33,8 @@
   ## source("YAX_funs.R")
   ## source("functions_k3plus.R")
   ## #source("functions_k3plus_dnn.R")
-  ## source("predicted_A_Y_plots_k3.R")
+  ## #source("predicted_A_Y_plots_k3.R")
+  ## source("Y_Yhat_plots_k3.R")
   ## verbose=FALSE
 
 # ---------------------------
@@ -43,8 +44,8 @@ one_sim <- function(n, p, Xmu, beta_A, beta_Y, gamma, k,
                     hidunits, eps, penals, verbose = FALSE, iter = 1, 
                     nntype = "1nn") {
   
-  if(nntype == "dnn") { source("functions_k3plus_dnn.R") } 
-  else { source("functions_k3plus.R") }
+  #if(nntype == "dnn") { source("functions_k3plus_dnn.R") } 
+  #else { source("functions_k3plus.R") }
   
   X <- gen_X(n=n, p=p, rho=rho, mu=Xmu)
   A <- gen_A(X=X, beta=beta_A, flavor_A=A_flavor)
