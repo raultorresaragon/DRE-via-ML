@@ -114,33 +114,62 @@ RMSE <- function(y, yhat){
   sqrt(sum((y-yhat)^2)/length(y))
 }
 
-rmse_nn <- RMSE(dat$Y, dat$Yhat_nn)
-rmse_logit_ols <-RMSE(dat$Y, dat$Yhat_logit_ols)
+rmse_nn <- RMSE(dat$Y, dat$Yhat_nn) |> round(1)
+rmse_logit_ols <-RMSE(dat$Y, dat$Yhat_logit_ols) |> round(1)
 
 
 # plot predicted Y vs actual Y in sample
 mycols <- c("#CC661AB3","#33661AB3","black")
-mycols <- c("black","black","black")
+mycols <- c("black","darkgrey","blue")
+legpos <- "bottomright"
+cex_lab = 1.7
+cex_main = 2
+cex_axis = 1.7
+cex_legend = 1.7
+
+rand <- sample(1:nrow(dat), size = 150, replace = FALSE)
+plot_dat <- dat[rand, ] |> arrange(Y)
+
+jpeg("images/rwd_gh_ghhat_scatters.jpeg", width = 1073, height = 743)
+par(mfrow = c(1,2))
+plot(plot_dat$Y~plot_dat$Yhat_logit_ols, 
+    ylab = 'GH observed', #bquote('P(A='*.(i)*")"),
+    xlim = c(min(dat$Y),max(dat$Y)),
+    xlab = bquote('GH predicted logit-ols (RMSE='*.(rmse_logit_ols)*")"),
+    pch = c(2),
+    col = c(mycols[1]),
+    cex.lab = cex_lab, cex.main = cex_main, cex.axis = cex_axis)
+abline(a = 0, b = 1, col = "blue", lwd = 2, lty = 2)
+
+plot(plot_dat$Y~plot_dat$Yhat_nn, 
+       ylab = 'GH observed', #bquote('P(A='*.(i)*")"),
+       xlim = c(min(dat$Y),max(dat$Y)),
+       xlab = bquote('GH predicted NN (RMSE='*.(rmse_nn)*")"), #bquote(hat(P)*"(A="*.(i)*")"),
+       pch = c(3),
+       col = c(mycols[1]),
+       cex.lab = cex_lab, cex.main = cex_main, cex.axis = cex_axis)
+abline(a = 0, b = 1, col = "blue", lwd = 2, lty = 2)
+par(mfrow=c(1,1))
+dev.off()
+
 
 jpeg("images/rwd_gh_ghhat.jpeg", width = 1073, height = 743)
 par(mar = c(5.1, 6, 4.1, 2.1))  
 plot(sort(dat$Y), col=mycols[3],
      #main=expression("GH and " * hat(GH) * " (in sample) by model"),
-     type="b" , bty="l",
+     #type="b" , bty="l",
      ylab="GH",
-     xlab=expression(X^T * hat(bold(beta))),
-     cex.main = 2.5,
-     cex.lab = 2,
-     cex.axis = 1.4)
-points(sort(dat$Yhat_nn), col=mycols[1], type="b" , bty="l", lwd=0.5 , pch=19) 
-points(sort(dat$Yhat_logit_ols), col=mycols[2], type="b" , bty="l", lwd=0.5 , pch=19)
+     xlab="", #expression(X^T * hat(bold(beta))),
+     cex.lab = cex_lab, cex.main = cex_main, cex.axis = cex_axis)
+points(sort(dat$Yhat_nn), col=mycols[1] , pch=3) 
+points(sort(dat$Yhat_logit_ols), col=mycols[2], pch=2)
 legend("bottomright", 
        legend = c(expression(hat(GH)["nn"]), expression(hat(GH)["logit-ols"]), "Observed"), 
        col = mycols, 
        pch = c(3,2,1), 
        bty = "n", 
-       pt.cex = 2, 
-       cex = 2, 
+       pt.cex = cex_legend, 
+       cex = cex_legend, 
        text.col = "black", 
        horiz = F , 
        inset = c(0.1, 0.1, 0.1))
