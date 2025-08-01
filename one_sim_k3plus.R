@@ -13,12 +13,13 @@
   ## rm(list = ls())
   ## set.seed(1609)
   ## M <- 1
-  ## n <- 1000
-  ## k <- 3
+  ## k <- 2
+  ## if(k==2){ p<-3 ; n<-500}
+  ## if(k==3){ p<-8 ; n<-750}
+  ## if(k==5){ p<-10; n<-1250}
   ## gamma <- c(0.8, 0.6, 0.52, 0.37)[1:(k-1)]
-  ## p <- 8
-  ## #flavor_ops <- c("tanh","sigmoid", function(x) 1/(1+exp(-x)) * 10)
-  ## flavor_ops <- c("logit","expo", function(x) exp(x))
+  ## flavor_ops <- c("tanh","sigmoid", function(x) 1/(1+exp(-x)) * 10)
+  ## #flavor_ops <- c("logit","expo", function(x) exp(x))
   ## rho   <- round(runif(1, 0.4, 0.6),1)
   ## Xmu   <- round(runif(p, -1, 1),1)
   ## beta_A <- matrix(rep(1,k), nrow=1) |> rbind(matrix(round(runif(p*k, -2, 2),1), nrow=p))
@@ -34,7 +35,8 @@
   ## source("functions_k3plus.R")
   ## #source("functions_k3plus_dnn.R")
   ## #source("predicted_A_Y_plots_k3.R")
-  ## source("Y_Yhat_plots_k3.R")
+  ## #source("Y_Yhat_plots_k3.R")
+  ## source("Y_Yhat_sorted_plots.R")
   ## verbose=FALSE
 
 # ---------------------------
@@ -79,7 +81,7 @@ one_sim <- function(n, p, Xmu, beta_A, beta_Y, gamma, k,
                             penals=penals,
                             verbose=verbose)
   fit_A_logit <- estimate_A_logit(X=X, dat=dat, k=k, verbose=verbose)
-  toc()
+  toc()  
   
   # Estimate Y (outcome model)
   tic("\nY model")
@@ -92,7 +94,7 @@ one_sim <- function(n, p, Xmu, beta_A, beta_Y, gamma, k,
   toc()
   
   # Save predicted Aj and Yj plot
-  plot_predicted_A_Y(beta_A, beta_Y, Y, X, A, 
+  plot_predicted_A_Y(beta_A, beta_Y, dat, 
                      fit_Y_nn, fit_Y_expo, gamma, 
                      fit_A_nn, fit_A_logit, A_flavor, Y_flavor, ds=iter, k)
   
@@ -128,10 +130,6 @@ one_sim <- function(n, p, Xmu, beta_A, beta_Y, gamma, k,
     mutate(dataset = iter) |> 
     dplyr::select(dataset, everything())
   my_k_rows <- rbind(my_k_rows[4,], my_k_rows[-4,]) |> `row.names<-.data.frame`(1:4)
-  
-  # Export predicted Y and predicted A from NN and expo-logit for comparison
-  # or it might make more sense to write CSV to then combine plots on a different script
-  # TO DO
   
   list(my_k_rows = my_k_rows, Vn_df = Vn_df, Xnew_Vn = X_new)
   

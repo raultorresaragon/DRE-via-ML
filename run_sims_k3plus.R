@@ -13,22 +13,22 @@ par(mfrow=c(1,1))
 # Set parameters and load functions
 # ---------------------------------
 M <- 1
-n <- 500
-k <- 2
-p <- 3
+k <- 5
+if(k==2){ p<-3 ; n<-500}
+if(k==3){ p<-8 ; n<-1000}
+if(k==5){ p<-10; n<-2000}
 nntype <- "1nn"
 #source("functions_k3plus_dnn.R")
 source("functions_k3plus.R")
 source("YAX_funs.R")
 source("one_sim_k3plus.R")
-#source("predicted_A_Y_plots_k3.R")
-source("Y_Yhat_plots_k3.R")
+source("Y_Yhat_sorted_plots.R")
 
 eps = c(120,150)
 penals = c(0.001,0.005)
 hidunits = c(2L, 6L)
-flavor_ops <- c("logit","expo", function(x) {exp(x)}) #tanh sigmoid 1/(1+exp(-x)) * 10
-#flavor_ops <- c("tanh","sigmoid", function(x) {1/(1+exp(-x)) * 10}) #logit expo exp(x)
+#flavor_ops <- c("logit","expo", function(x) {exp(x)}) #tanh sigmoid 1/(1+exp(-x)) * 10
+flavor_ops <- c("tanh","sigmoid", function(x) {1/(1+exp(-x)) * 10}) #logit expo exp(x)
 
 
 # Run simulations
@@ -58,19 +58,20 @@ for(i in 1:M) {
   cat(paste0("\n  ...run time: ", round(last_iter_time / 60, 2), " mins"))
   
   # results
-  print(r$Vn_df)
-  if(i==1) {
-    mytable <- r$my_k_row
-    otr_table <- cbind(r$Xnew_Vn, r$Vn_df)
-  } else {
-    mytable <- rbind(mytable, r$my_k_row)
-    otr_table <- rbind(otr_table, cbind(r$Xnew_Vn, r$Vn_df))
+  if(k>2){
+    print(r$Vn_df)
+    if(i==1) {
+      mytable <- r$my_k_row
+      otr_table <- cbind(r$Xnew_Vn, r$Vn_df)
+    } else {
+      mytable <- rbind(mytable, r$my_k_row)
+      otr_table <- rbind(otr_table, cbind(r$Xnew_Vn, r$Vn_df))
+    }
+    otr_table <- otr_table |> dplyr::select(dataset, OTR, contains("X"), contains("g"))
+    mytable
+    otr_table
+    tictoc::tic.clearlog()
   }
-  otr_table <- otr_table |> dplyr::select(dataset, OTR, contains("X"), contains("g"))
-  mytable
-  otr_table
-  tictoc::tic.clearlog()
-  
 }
 
 

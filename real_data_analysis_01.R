@@ -130,7 +130,7 @@ cex_legend = 1.7
 rand <- sample(1:nrow(dat), size = 150, replace = FALSE)
 plot_dat <- dat[rand, ] |> arrange(Y)
 
-jpeg("images/rwd_gh_ghhat_scatters.jpeg", width = 1073, height = 743)
+jpeg("images/rwd_gh_ghhat_scatters.jpeg", width = 1273, height = 743)
 par(mfrow = c(1,2))
 plot(plot_dat$Y~plot_dat$Yhat_logit_ols, 
     ylab = 'GH observed', #bquote('P(A='*.(i)*")"),
@@ -161,8 +161,8 @@ plot(sort(dat$Y), col=mycols[3],
      ylab="GH",
      xlab="", #expression(X^T * hat(bold(beta))),
      cex.lab = cex_lab, cex.main = cex_main, cex.axis = cex_axis)
-points(sort(dat$Yhat_nn), col=mycols[1] , pch=3) 
-points(sort(dat$Yhat_logit_ols), col=mycols[2], pch=2)
+points(dat$Yhat_nn, col=mycols[1] , pch=3) 
+points(dat$Yhat_logit_ols, col=mycols[2], pch=2)
 legend("bottomright", 
        legend = c(expression(hat(GH)["nn"]), expression(hat(GH)["logit-ols"]), "Observed"), 
        col = mycols, 
