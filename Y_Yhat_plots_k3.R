@@ -33,6 +33,7 @@ plot_predicted_A_Y <-function(beta_A, beta_Y, Y, X, A,
     curve_A <- function(x) { (b * 1/(1 + exp(-1*(x)))) }
   }
   
+  plt_p <- plt_p/rowSums(plt_p)
   Yhat_nn <- rep(NA, length(Y))
   Yhat_expo <- rep(NA, length(Y))
   Yhat_nn[A==0] <- fit_Y_nn$A_01[[4]][A==0]

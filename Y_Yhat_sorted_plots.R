@@ -14,7 +14,7 @@ plot_predicted_A_Y <-function(beta_A, beta_Y, dat,
        width = 1000, height = 510)
   
   Y <- dat$Y
-  X <- dat[,3:ncol(dat)]
+  X <- dplyr::select(dat, starts_with("X"))
   A <- dat$A
   
   par(mfrow = c(2,k), mar = c(5.1, 5.8, 4.1, 1.3))
@@ -32,16 +32,15 @@ plot_predicted_A_Y <-function(beta_A, beta_Y, dat,
   if(A_flavor=="tanh") { 
     plt_p <- b * 0.5* (tanh(xb_A)+1)
     curve_A <- function(x) { (b * 0.5* (tanh(x)+1))}
-    colnames(plt_p) <- paste0("true_pscores",0:(ncol(plt_p)-1))
-    dat <- cbind(dat, plt_p)
   }
   if(A_flavor=="logit"){ 
     plt_p <- b * 1/(1 + exp(-1*(xb_A)))
     curve_A <- function(x) { (b * 1/(1 + exp(-1*(x)))) }
-    colnames(plt_p) <- paste0("true_pscores",0:(ncol(plt_p)-1))
-    dat <- cbind(dat, plt_p)
   }
   
+  colnames(plt_p) <- paste0("true_pscores",0:(ncol(plt_p)-1))
+  dat <- cbind(dat, plt_p)
+  plt_p <- plt_p/rowSums(plt_p)
   Yhat_nn <- rep(NA, length(Y))
   Yhat_expo <- rep(NA, length(Y))
   Yhat_nn[A==0] <- fit_Y_nn$A_01[[4]][A==0]
@@ -71,7 +70,7 @@ plot_predicted_A_Y <-function(beta_A, beta_Y, dat,
     points(dat[order(dat[[paste0("true_pscores",i)]]),paste0("pscores_",i,"_nn")],
            col=mycols[3], pch=3)
 
-    #plot(sort(plt_p[,i+1][sample]), col="black",
+    #plot((plt_p[,i+1][sample]~fit_A_logit$pscores[[paste0("pscores_",i,"_logit")]][sample]), col="black",
     #     ylab="pscore",
     #     xlab="predcited pscore",
     #     cex.lab = cex_lab, cex.main = cex_main, cex.axis = cex_axis)
@@ -89,7 +88,7 @@ plot_predicted_A_Y <-function(beta_A, beta_Y, dat,
   
   ## Y vs \hat{Y}
   for(d in 0:(k-1)){
-    d_j <- A==d
+    d_j <- A==d #rep(TRUE, length(A))
     plot(sort(dat$Y[d_j]), pch=1, col=mycols[1],
          #main=bquote(Y["A="*.(d)]),
          ylab=bquote("observed " * Y["A="*.(d)]),
@@ -110,7 +109,7 @@ plot_predicted_A_Y <-function(beta_A, beta_Y, dat,
     #abline(a = 0, b = 1, col = "blue", lwd = 2, lty = 2)
     if(d==0){
       legend(legpos, 
-             legend = c("observed","ols","nn"), 
+             legend = c("observed","expo","nn"), 
              col=mycols,
              pch=1:3,
              cex=cex_legend)

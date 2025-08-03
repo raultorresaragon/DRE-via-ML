@@ -161,8 +161,8 @@ plot(sort(dat$Y), col=mycols[3],
      ylab="GH",
      xlab="", #expression(X^T * hat(bold(beta))),
      cex.lab = cex_lab, cex.main = cex_main, cex.axis = cex_axis)
-points(dat$Yhat_nn, col=mycols[1] , pch=3) 
-points(dat$Yhat_logit_ols, col=mycols[2], pch=2)
+points(dat[order(dat$Y),]$Yhat_nn, col=mycols[1] , pch=3) 
+points(dat[order(dat$Y),]$Yhat_logit_ols, col=mycols[2], pch=2)
 legend("bottomright", 
        legend = c(expression(hat(GH)["nn"]), expression(hat(GH)["logit-ols"]), "Observed"), 
        col = mycols, 
