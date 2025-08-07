@@ -27,15 +27,23 @@ gen_X <- function(p, rho=0.6, mu, n) {
 # -----------
 gen_A <- function(X, beta_A, flavor_A) {
   
-  xb <-(as.matrix(cbind(1,X))%*%beta_A) 
-  if(flavor_A == "logit")   {probs <- 1/(1 + exp(-1*(xb)))}
-  if(flavor_A == "pnorm")   {probs <- pnorm(xb)}
-  if(flavor_A == "gomertz") {probs <- exp(-exp(xb))}
-  if(flavor_A == "arctan")  {probs <- (atan(xb)/pi) + 0.5}
-  if(flavor_A == "tanh")    {probs <- 0.5* (tanh(xb)+1)}
+  xb <- (as.matrix(cbind(1,X))%*%beta_A) 
+  if(flavor_A == "logit")   {
+    exp_xb <- exp(xb)
+    denom <- 1 + rowSums(exp_xb)
+    probs <- 1/denom
+    for(i in 1:dim(beta_A)[2]) {
+      probs <- cbind(probs, exp_xb[,i]/denom)
+    }
+  }
+  if(flavor_A == "tanh")    {
+    raw_scores <- 0.5 * (tanh(xb)+1)
+    if(dim(raw_scores)[2]>1) sum_raws <- rowSums(raw_scores)
+    if(dim(raw_scores)[2]<2) sum_raws <- 1
+    probs <- raw_scores / sum_raws
+  }
   
   if(ncol(as.matrix(beta_A)) > 1) {
-    probs <- probs/rowSums(probs)
     A_mat <- t(apply(probs, 1, function(pr) rmultinom(1, size=1, prob=pr)))
     A <- max.col(A_mat, ties.method = "first") - 1 #<-get column index where the max is
   } else {

@@ -17,7 +17,7 @@ plot_predicted_A_Y <-function(beta_A, beta_Y, dat,
   X <- dplyr::select(dat, starts_with("X"))
   A <- dat$A
   
-  par(mfrow = c(2,k), mar = c(5.1, 5.8, 4.1, 1.3))
+  par(mfrow = c(2,(k)), mar = c(5.1, 5.8, 4.1, 1.3))
   #                                   True   logit/expo  NN     True
   mycols = mycolors <- adjustcolor(c("black","#FB8072","blue"), alpha.f = 0.9)
   xb_A <-(as.matrix(cbind(1,X))%*%beta_A)
@@ -32,15 +32,20 @@ plot_predicted_A_Y <-function(beta_A, beta_Y, dat,
   if(A_flavor=="tanh") { 
     plt_p <- b * 0.5* (tanh(xb_A)+1)
     curve_A <- function(x) { (b * 0.5* (tanh(x)+1))}
+    if(ncol(plt_p)==1) { colnames(plt_p) <- "true_pscores1" } 
+    else{ colnames(plt_p) <- paste0("true_pscores",0:(ncol(plt_p)-1)) }
+    loopover <- ifelse(k==2, 1, 0:(k-2))
   }
   if(A_flavor=="logit"){ 
     plt_p <- b * 1/(1 + exp(-1*(xb_A)))
     curve_A <- function(x) { (b * 1/(1 + exp(-1*(x)))) }
+    colnames(plt_p) <- paste0("true_pscores",0:(ncol(plt_p)-1))
+    loopover <- ifelse(k==2, 0, seq(0,(k-1)))
   }
   
-  colnames(plt_p) <- paste0("true_pscores",0:(ncol(plt_p)-1))
+  if(k>2) {loopover <- 0:(k-1)}
   dat <- cbind(dat, plt_p)
-  plt_p <- plt_p/rowSums(plt_p)
+  #plt_p <- plt_p/rowSums(plt_p)
   Yhat_nn <- rep(NA, length(Y))
   Yhat_expo <- rep(NA, length(Y))
   Yhat_nn[A==0] <- fit_Y_nn$A_01[[4]][A==0]
@@ -58,8 +63,9 @@ plot_predicted_A_Y <-function(beta_A, beta_Y, dat,
   dat$Yhat_expo <- Yhat_expo
   
   # P(A=i) vs. \hat{P}(A=i)
-  for(i in 0:(k-1)){
-    P = i
+  P=0
+  for(i in loopover){
+    P = P+1
     plot(sort(dat[[paste0("true_pscores",i)]]), pch=1, col=mycols[1],
          #main = paste0("P(A=",i,")"),
          ylab=paste0("true pscore for P(A=",i,")"),
@@ -69,15 +75,7 @@ plot_predicted_A_Y <-function(beta_A, beta_Y, dat,
            col=mycols[2], pch=2)
     points(dat[order(dat[[paste0("true_pscores",i)]]),paste0("pscores_",i,"_nn")],
            col=mycols[3], pch=3)
-
-    #plot((plt_p[,i+1][sample]~fit_A_logit$pscores[[paste0("pscores_",i,"_logit")]][sample]), col="black",
-    #     ylab="pscore",
-    #     xlab="predcited pscore",
-    #     cex.lab = cex_lab, cex.main = cex_main, cex.axis = cex_axis)
-    #points(fit_A_logit$pscores[[paste0("pscores_",i,"_logit")]][sample], col=mycols[2], pch=2)
-    #points(fit_A_nn$pscores[[paste0("pscores_",i,"_nn")]][sample]   , col=mycols[3], pch=3) 
-    #abline(a = 0, b = 1, col = "blue", lwd = 2, lty = 2)
-    if(i==0){
+    if(P==1){
       legend(legpos, 
              legend = c("true", "logit", "nn"), 
              col=mycols,

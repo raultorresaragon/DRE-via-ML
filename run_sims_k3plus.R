@@ -13,7 +13,7 @@ par(mfrow=c(1,1))
 # Set parameters and load functions
 # ---------------------------------
 M <- 1
-k <- 5
+k <- 3
 if(k==2){ p<-3 ; n<-500}
 if(k==3){ p<-8 ; n<-1000}
 if(k==5){ p<-10; n<-2000}
