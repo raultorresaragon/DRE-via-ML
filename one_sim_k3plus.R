@@ -13,7 +13,7 @@
   rm(list = ls())
   set.seed(1609)
   M <- 1
-  k <- 2
+  k <- 3
   if(k==2){ p<-3 ; n<-500}
   if(k==3){ p<-8 ; n<-750}
   if(k==5){ p<-10; n<-1250}
@@ -41,10 +41,10 @@
 
 # ---------------------------
 
-one_sim <- function(n, p, Xmu, beta_A, beta_Y, gamma, k,
-                    A_flavor, Y_flavor, Y_fun, 
-                    hidunits, eps, penals, verbose = FALSE, iter = 1, 
-                    nntype = "1nn") {
+#one_sim <- function(n, p, Xmu, beta_A, beta_Y, gamma, k,
+#                    A_flavor, Y_flavor, Y_fun, 
+#                    hidunits, eps, penals, verbose = FALSE, iter = 1, 
+#                    nntype = "1nn") {
   
   #if(nntype == "dnn") { source("functions_k3plus_dnn.R") } 
   #else { source("functions_k3plus.R") }
@@ -56,7 +56,9 @@ one_sim <- function(n, p, Xmu, beta_A, beta_Y, gamma, k,
   stopifnot(Y>0)
   
   # print P(A=j)
-  xb_Y <-(as.matrix(cbind(1,X))%*%beta_Y); plot(Y~xb_Y); rm(xb_Y)
+  main <- paste0("k=",k,"  flavor:", A_flavor, "-", Y_flavor, "\nN=",n, "  dim(X)=", p)
+  xb_Y <-(as.matrix(cbind(1,X))%*%beta_Y); 
+  par(mfrow=c(1,1)); plot(Y~xb_Y, main=main, cex.main=2); rm(xb_Y)
   for(i in 1:k-1) {cat(paste0("\n  P(A=",i,")= ", mean(A==i) |> round(1)))}
   
   # print delta_ij

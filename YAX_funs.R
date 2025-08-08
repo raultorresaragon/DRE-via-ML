@@ -37,6 +37,7 @@ gen_A <- function(X, beta_A, flavor_A) {
     }
   }
   if(flavor_A == "tanh")    {
+    # When k>2,this should output p(A=0),p(A=1),p(A=2)...,p(A=k-1) for rmultinom()
     raw_scores <- 0.5 * (tanh(xb)+1)
     if(dim(raw_scores)[2]>1) sum_raws <- rowSums(raw_scores)
     if(dim(raw_scores)[2]<2) sum_raws <- 1
@@ -75,7 +76,7 @@ gen_Y <- function(gamma, X, A, beta_Y, flavor_Y) {
   Y <- fun_Y(xb_gamma_a) + rnorm(n, 0, 0.1)
   Y[Y<=0] <- abs(Y[Y<=0])
   threshold <- qexp(0.9995, rate = 1/mean(Y))  # 99.95th percentile cutoff
-  Y[Y > threshold] <- threshold
+  #Y[Y < threshold] <- threshold
   Y
 }
 

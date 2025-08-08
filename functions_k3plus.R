@@ -18,46 +18,72 @@ source("Y_nn_tuning.R")
 # ----------------------------------
 estimate_A_nn <- function(X, dat, k, hidunits, eps, penals, verbose=FALSE) {
   cat("\n   ...fitting 1 hidden-layer neural networks")
-  H_nns <- list()
-  pscores <- data.frame(prob = rep(0,n))
-  for(i in 1:k-1) {
-    
-    dat_i <- dat |> mutate(A = if_else(A == i, 1, 0)) |> dplyr::select(-Y)
-    H_nn <- A_model_nn(a_func = "A~.",
-                       dat = dat_i,
-                       hidunits=hidunits, eps=eps, penals=penals, 
-                       verbose=verbose)
-    pscores_nn_i <- 
-      predict(H_nn, new_data = dat_i |> select(-A), type = "raw") |> 
-      as.vector()
-    
-    
-    pscores <- pscores |> mutate(prob = pscores_nn_i)  
-    colnames(pscores)[stringr::str_detect(colnames(pscores),"prob")]<-paste0("pscores_",i)
-    H_nns[i+1] <- list(H_nn) 
+  H_nn <- A_model_nn(a_func = "A~.",
+                     dat = dat[,colnames(dat)!="Y"],
+                     hidunits=hidunits, eps=eps, penals=penals, 
+                     verbose=verbose)
+  pscores <- predict(H_nn, new_data=dat[,colnames(dat)!="A"], type="raw")
+  if(k==2) { 
+    pscores_names <- "pscores_1"
+  } else {
+    pscores_names <- paste0("pscores_",0:(k-1))
   }
+  colnames(pscores) <- pscores_names
+  list(pscores = pscores, H_nn = H_nn)
   
-  myrowsums <- rowSums(pscores)
-  pscores_df <- apply(pscores, 2, function(x) x/myrowsums) |> as.data.frame()
-  list(pscores = pscores, H_nns = H_nns)
+  
+  ## H_nns <- list()
+  ## pscores <- data.frame(prob = rep(0,n))
+  ## for(i in 1:k-1) {
+  ##   
+  ##   dat_i <- dat |> mutate(A = if_else(A == i, 1, 0)) |> dplyr::select(-Y)
+  ##   H_nn <- A_model_nn(a_func = "A~.",
+  ##                      dat = dat_i,
+  ##                      hidunits=hidunits, eps=eps, penals=penals, 
+  ##                      verbose=verbose)
+  ##   pscores_nn_i <- 
+  ##     predict(H_nn, new_data = dat_i |> select(-A), type = "raw") |> 
+  ##     as.vector()
+  ##   
+  ##   
+  ##   pscores <- pscores |> mutate(prob = pscores_nn_i)  
+  ##   colnames(pscores)[stringr::str_detect(colnames(pscores),"prob")]<-paste0("pscores_",i)
+  ##   H_nns[i+1] <- list(H_nn) 
+  ## }
+  ## 
+  ## myrowsums <- rowSums(pscores)
+  ## pscores_df <- apply(pscores, 2, function(x) x/myrowsums) |> as.data.frame()
+  ## list(pscores = pscores, H_nns = H_nns)
 }
 
 estimate_A_logit <- function(X, dat,k, verbose=FALSE){
-  cat("\n   ...fitting logistic models")
-  H_logits <- list()
-  pscores <- data.frame(prob = rep(0,n))
-  for(i in 1:k-1) {
-    
-    dat_i <- dat |> mutate(A = if_else(A == i, 1, 0)) |> dplyr::select(-Y)
-    H_logit <- glm(as.formula(A~.), family=binomial(link="logit"), data=dat_i)
-    pscores_logit_i <- predict(H_logit, type = "response", new_data = dat_i)
-    pscores <- pscores |> mutate(prob = pscores_logit_i)  
-    colnames(pscores)[stringr::str_detect(colnames(pscores),"prob")]<-paste0("pscores_",i)
-    H_logits[i+1] <- list(H_logit) 
+  cat("\n   ...fitting logistic model")
+  H_logit <- nnet::multinom(A~., data = dat[,colnames(dat)!="Y"])
+  pscores <- predict(H_logit, type="probs") |> as.data.frame()
+  if(k==2) { 
+    pscores_names <- "pscores_1"
+  } else {
+    pscores_names <- paste0("pscores_",0:(k-1))
   }
-  myrowsums <- rowSums(pscores)
-  pscores_df <- apply(pscores, 2, function(x) x/myrowsums) |> as.data.frame()
-  list(pscores = pscores, H_logits = H_logits)
+  colnames(pscores) <- pscores_names
+  list(pscores = pscores, H_logits = H_logit)
+  
+  
+  ## H_logits <- list()
+  ## pscores <- data.frame(prob = rep(0,n))
+  ## 
+  ## for(i in 1:k-1) {
+  ##   
+  ##   dat_i <- dat |> mutate(A = if_else(A == i, 1, 0)) |> dplyr::select(-Y)
+  ##   H_logit <- glm(as.formula(A~.), family=binomial(link="logit"), data=dat_i)
+  ##   pscores_logit_i <- predict(H_logit, type = "response", new_data = dat_i)
+  ##   pscores <- pscores |> mutate(prob = pscores_logit_i)  
+  ##   colnames(pscores)[stringr::str_detect(colnames(pscores),"prob")]<-paste0("pscores_",i)
+  ##   H_logits[i+1] <- list(H_logit) 
+  ## }
+  ## myrowsums <- rowSums(pscores)
+  ## pscores_df <- apply(pscores, 2, function(x) x/myrowsums) |> as.data.frame()
+  ## list(pscores = pscores, H_logits = H_logits)
 }
 
 

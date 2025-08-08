@@ -27,8 +27,8 @@ source("Y_Yhat_sorted_plots.R")
 eps = c(120,150)
 penals = c(0.001,0.005)
 hidunits = c(2L, 6L)
-#flavor_ops <- c("logit","expo", function(x) {exp(x)}) #tanh sigmoid 1/(1+exp(-x)) * 10
-flavor_ops <- c("tanh","sigmoid", function(x) {1/(1+exp(-x)) * 10}) #logit expo exp(x)
+flavor_ops <- c("logit","expo", function(x) {exp(x)}) #tanh sigmoid 1/(1+exp(-x)) * 10
+#flavor_ops <- c("tanh","sigmoid", function(x) {1/(1+exp(-x)) * 10}) #logit expo exp(x)
 
 
 # Run simulations
