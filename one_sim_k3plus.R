@@ -10,41 +10,41 @@
 # ---------------------------
 # PARAMERTERS FOR DEBUGGING
 
-  rm(list = ls())
-  set.seed(1609)
-  M <- 1
-  k <- 3
-  if(k==2){ p<-3 ; n<-500}
-  if(k==3){ p<-8 ; n<-750}
-  if(k==5){ p<-10; n<-1250}
-  gamma <- c(0.8, 0.6, 0.52, 0.37)[1:(k-1)]
-  flavor_ops <- c("tanh","sigmoid", function(x) 1/(1+exp(-x)) * 10)
-  #flavor_ops <- c("logit","expo", function(x) exp(x))
-  rho   <- round(runif(1, 0.4, 0.6),1)
-  Xmu   <- round(runif(p, -1, 1),1)
-  beta_A <- matrix(rep(1,(k-1)), nrow=1) |> rbind(matrix(round(runif(p*(k-1), -2, 2),1), nrow=p))
-  beta_Y <- c(1, round(runif(p, -1, 1),1))
-  hidunits = c(2,6)
-  eps = c(120,150)
-  penals = c(0.001,0.005)
-  A_flavor = flavor_ops[[1]]; 
-  Y_flavor = flavor_ops[[2]]; Y_fun = flavor_ops[[3]];
-  
-  iter = 1; 
-  source("YAX_funs.R")
-  source("functions_k3plus.R")
-  #source("functions_k3plus_dnn.R")
-  #source("predicted_A_Y_plots_k3.R")
-  #source("Y_Yhat_plots_k3.R")
-  source("Y_Yhat_sorted_plots.R")
-  verbose=FALSE
+  ## rm(list = ls())
+  ## set.seed(1609)
+  ## M <- 1
+  ## k <- 2
+  ## if(k==2){ p<-3 ; n<-500}
+  ## if(k==3){ p<-8 ; n<-750}
+  ## if(k==5){ p<-10; n<-1250}
+  ## gamma <- c(0.8, 0.6, 0.52, 0.37)[1:(k-1)]
+  ## flavor_ops <- c("tanh","sigmoid", function(x) 1/(1+exp(-x)) * 10)
+  ## #flavor_ops <- c("logit","expo", function(x) exp(x))
+  ## rho   <- round(runif(1, 0.4, 0.6),1)
+  ## Xmu   <- round(runif(p, -1, 1),1)
+  ## beta_A <- matrix(rep(1,(k-1)), nrow=1) |> rbind(matrix(round(runif(p*(k-1), -2, 2),1), nrow=p))
+  ## beta_Y <- c(1, round(runif(p, -1, 1),1))
+  ## hidunits = c(2,6)
+  ## eps = c(120,150)
+  ## penals = c(0.001,0.005)
+  ## A_flavor = flavor_ops[[1]]; 
+  ## Y_flavor = flavor_ops[[2]]; Y_fun = flavor_ops[[3]];
+  ## 
+  ## iter = 1; 
+  ## source("YAX_funs.R")
+  ## source("functions_k3plus.R")
+  ## #source("functions_k3plus_dnn.R")
+  ## #source("predicted_A_Y_plots_k3.R")
+  ## #source("Y_Yhat_plots_k3.R")
+  ## source("Y_Yhat_sorted_plots.R")
+  ## verbose=FALSE
 
 # ---------------------------
 
-#one_sim <- function(n, p, Xmu, beta_A, beta_Y, gamma, k,
-#                    A_flavor, Y_flavor, Y_fun, 
-#                    hidunits, eps, penals, verbose = FALSE, iter = 1, 
-#                    nntype = "1nn") {
+one_sim <- function(n, p, Xmu, beta_A, beta_Y, gamma, k,
+                    A_flavor, Y_flavor, Y_fun, 
+                    hidunits, eps, penals, verbose = FALSE, iter = 1, 
+                    nntype = "1nn") {
   
   #if(nntype == "dnn") { source("functions_k3plus_dnn.R") } 
   #else { source("functions_k3plus.R") }
@@ -128,6 +128,7 @@
     rbind(logit_expo_est[1,]) |> 
     rbind(naive_est, true_diffs) |> 
     `row.names<-`(c("NN_est", "LogitExpo_est", "Naive_est","True_diff")) |>
+    as.data.frame() |>
     rownames_to_column("estimate") |>
     mutate(dataset = iter) |> 
     dplyr::select(dataset, everything())

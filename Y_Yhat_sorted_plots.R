@@ -20,27 +20,29 @@ plot_predicted_A_Y <-function(beta_A, beta_Y, dat,
   par(mfrow = c(2,(k)), mar = c(5.1, 5.8, 4.1, 1.3))
   #                                   True   logit/expo  NN     True
   mycols = mycolors <- adjustcolor(c("black","#FB8072","blue"), alpha.f = 0.9)
+  mycols = mycolors <- adjustcolor(c("black","darkgray","darkgray"), alpha.f = 0.9)
   xb_A <-(as.matrix(cbind(1,X))%*%beta_A)
-  legpos <- "topleft"
+  legposA <- "topleft"
   cex_lab = 1.4
   cex_main = 1.8
   cex_axis = 1.4
   cex_legend = 1.4
-  sample <- sample(1:floor(length(Y)/k), 200)
+  sample <- sample(1:floor(length(Y)/k), 250)
   
   ## Add true propensity scores to dat
-  if(A_flavor=="tanh") { 
+  if(A_flavor == "tanh"){
+    xb_A <- cbind(xb_A, 0) # adding the baseline class (a=0)
     raw_scores <- 0.5 * (tanh(xb_A)+1)
-    if(dim(raw_scores)[2]>1) sum_raws <- rowSums(raw_scores)
-    if(dim(raw_scores)[2]<2) sum_raws <- 1
-    probs <- as.data.frame(raw_scores / sum_raws)
+    sum_raws <- rowSums(raw_scores)
+    probs <- raw_scores / sum_raws
     if(k==2){
-      probs$V0 <- 1-probs$V1
       colnames(probs) <- c("true_pscores1","true_pscores0")
     } else {
       colnames(probs) <- paste0("true_pscores",0:(ncol(probs)-1))
     }
+    legposY <- "bottomright"
   }
+  
   if(A_flavor=="logit"){ 
     exp_xb_A <- exp(xb_A)
     denom <- 1 + rowSums(exp_xb_A)
@@ -53,6 +55,7 @@ plot_predicted_A_Y <-function(beta_A, beta_Y, dat,
     } else {
       colnames(probs) <- paste0("true_pscores",0:(ncol(probs)-1))
     }
+    legposY <- "topleft"
   }
   dat <- cbind(dat, probs)
   
@@ -76,13 +79,13 @@ plot_predicted_A_Y <-function(beta_A, beta_Y, dat,
   dat$Yhat_nn <- Yhat_nn
   dat$Yhat_expo <- Yhat_expo
   
-  #dat <- dat[sample,]
+  dat <- dat[sample,]
   
   ## Propensity score A plots
   l=0
   for(i in 0:(k-1)){
     l = l+1
-    plot(sort(dat[[paste0("true_pscores",i)]]), pch=1, col=mycols[1],
+    plot(sort(dat[[paste0("true_pscores",i)]]), type="l", lwd=2, col=mycols[1],
          #main = paste0("P(A=",i,")"),
          ylab=paste0("true pscore for P(A=",i,")"),
          xlab=paste0("predicted pscore for P(A=",i,")"),
@@ -92,10 +95,11 @@ plot_predicted_A_Y <-function(beta_A, beta_Y, dat,
     points(dat[order(dat[[paste0("true_pscores",i)]]),paste0("pscores_",i,"_nn")],
            col=mycols[3], pch=3)
     if(l==1){ #<-display legend in the first plot only
-      legend(legpos, 
+      legend(legposA, 
              legend = c("true", "logit", "nn"), 
              col=mycols,
-             pch=1:3,
+             lty=c(1,NA,NA),
+             pch=c(NA,2,3),
              cex=cex_legend)
     }
   }
@@ -103,7 +107,7 @@ plot_predicted_A_Y <-function(beta_A, beta_Y, dat,
   ## Outcome Y plots
   for(d in 0:(k-1)){
     d_j <- A==d #rep(TRUE, length(A))
-    plot(sort(dat$Y[d_j]), pch=1, col=mycols[1],
+    plot(sort(dat$Y[d_j]), type="l", lwd=2, col=mycols[1],
          ylab=bquote("observed " * Y["A="*.(d)]),
          xlab=bquote("predicted " * Y["A="*.(d)]),
          cex.lab = cex_lab, cex.main = cex_main, cex.axis = cex_axis)
@@ -112,10 +116,11 @@ plot_predicted_A_Y <-function(beta_A, beta_Y, dat,
     points(dat[order(dat$Y),"Yhat_nn"][d_j],
            col=mycols[3], pch=3)
     if(d==0){ #<-display legend in the first plot only
-      legend(legpos, 
+      legend(legposY, 
              legend = c("observed","expo","nn"), 
              col=mycols,
-             pch=1:3,
+             lty=c(1,NA,NA),
+             pch=c(NA,2,3),
              cex=cex_legend)
     }
   }

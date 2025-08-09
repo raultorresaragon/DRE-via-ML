@@ -37,10 +37,9 @@ gen_A <- function(X, beta_A, flavor_A) {
     }
   }
   if(flavor_A == "tanh")    {
-    # When k>2,this should output p(A=0),p(A=1),p(A=2)...,p(A=k-1) for rmultinom()
+    xb <- cbind(xb, 0) # adding the baseline class (a=0)
     raw_scores <- 0.5 * (tanh(xb)+1)
-    if(dim(raw_scores)[2]>1) sum_raws <- rowSums(raw_scores)
-    if(dim(raw_scores)[2]<2) sum_raws <- 1
+    sum_raws <- rowSums(raw_scores)
     probs <- raw_scores / sum_raws
   }
   
