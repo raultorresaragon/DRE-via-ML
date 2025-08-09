@@ -12,11 +12,11 @@ par(mfrow=c(1,1))
 
 # Set parameters and load functions
 # ---------------------------------
-M <- 5
-k <- 3
-if(k==2){ p<-3 ; n<-500}
-if(k==3){ p<-8 ; n<-1000}
-if(k==5){ p<-10; n<-2000}
+M <- 3
+k <- 2
+if(k==2){ p<-3 ; n<-200}
+if(k==3){ p<-8 ; n<-750}
+if(k==5){ p<-10; n<-1250}
 nntype <- "1nn"
 #source("functions_k3plus_dnn.R")
 source("functions_k3plus.R")
@@ -100,8 +100,9 @@ for(flav in c("le","ts")) {
         apply(mytable[,-c(1,2)], 2, function(x) as.numeric(unname(unlist(x)))) |> 
         as.data.frame()
       )
-  } else {
+  }else {
     colnames(mytable) <- c("dataset", "estimate", "A_01")
+    mytable$A_01 <- as.numeric(unname(unlist(mytable$A_01)))
   }
   readr::write_csv(mytable, 
                    paste0("tables/simk",k,"_",flavor_ops[[1]],"_",flavor_ops[[2]],".csv"))

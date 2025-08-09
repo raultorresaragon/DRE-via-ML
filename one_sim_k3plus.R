@@ -13,7 +13,7 @@
   ## rm(list = ls())
   ## set.seed(1609)
   ## M <- 1
-  ## k <- 2
+  ## k <- 5
   ## if(k==2){ p<-3 ; n<-500}
   ## if(k==3){ p<-8 ; n<-750}
   ## if(k==5){ p<-10; n<-1250}
@@ -55,10 +55,18 @@ one_sim <- function(n, p, Xmu, beta_A, beta_Y, gamma, k,
   dat <- cbind(Y,A,X) 
   stopifnot(Y>0)
   
-  # print P(A=j)
+  # plot Y
   main <- paste0("k=",k,"  flavor:", A_flavor, "-", Y_flavor, "\nN=",n, "  dim(X)=", p)
-  xb_Y <-(as.matrix(cbind(1,X))%*%beta_Y); 
-  par(mfrow=c(1,1)); plot(Y~xb_Y, main=main, cex.main=2); rm(xb_Y)
+  xb_Y <-(as.matrix(cbind(1,X))%*%beta_Y) 
+  par(mfrow=c(1,1)) 
+  plot(Y~xb_Y, main=main, cex.main=2, col=as.factor(A))
+  jpeg(paste0("images/genY_", k, A_flavor, Y_flavor, "_dset", iter, ".jpeg"), 
+       width = 1000, height = 510)
+      plot(Y~xb_Y, main=main, cex.main=2, col=as.factor(A))
+  dev.off()
+  rm(xb_Y)
+  
+  # print P(A=j)
   for(i in 1:k-1) {cat(paste0("\n  P(A=",i,")= ", mean(A==i) |> round(1)))}
   
   # print delta_ij
@@ -96,9 +104,9 @@ one_sim <- function(n, p, Xmu, beta_A, beta_Y, gamma, k,
   toc()
   
   # Save predicted Aj and Yj plot
-  plot_predicted_A_Y(beta_A, beta_Y, dat, 
-                     fit_Y_nn, fit_Y_expo, gamma, 
-                     fit_A_nn, fit_A_logit, A_flavor, Y_flavor, ds=iter, k)
+  #plot_predicted_A_Y(beta_A, beta_Y, dat, 
+  #                   fit_Y_nn, fit_Y_expo, gamma, 
+  #                   fit_A_nn, fit_A_logit, A_flavor, Y_flavor, ds=iter, k)
   
   
   # Compute Vn
