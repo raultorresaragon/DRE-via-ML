@@ -13,10 +13,10 @@ par(mfrow=c(1,1))
 # Set parameters and load functions
 # ---------------------------------
 M <- 5
-k <- 5
-if(k==2){ p<-3 ; n<-300}
-if(k==3){ p<-8 ; n<-500}
-if(k==5){ p<-10; n<-1000}
+k <- 3
+if(k==2){ p<-3 ; n<-500}
+if(k==3){ p<-8 ; n<-750}
+if(k==5){ p<-10; n<-1500}
 nntype <- "1nn"
 #source("functions_k3plus_dnn.R")
 source("functions_k3plus.R")
@@ -28,8 +28,6 @@ eps = c(120,150)
 penals = c(0.001,0.005)
 hidunits = c(2L, 6L)
 flavor_ops <- NULL
-#flavor_ops <- c("logit","expo", function(x) {exp(x)}) #tanh sigmoid 1/(1+exp(-x)) * 10
-#flavor_ops <- c("tanh","sigmoid", function(x) {1/(1+exp(-x)) * 10}) #logit expo exp(x)
 
 
 # Run simulations

@@ -28,7 +28,7 @@ plot_predicted_A_Y <-function(beta_A, beta_Y, dat,
   cex_main = 1.8
   cex_axis = 1.4
   cex_legend = 1.4
-  sample <- sample(1:floor(length(Y)), min(300,nrow(dat)), replace=FALSE)
+  sample <- sample(1:floor(length(Y)), k*100, replace=FALSE)
   
   ## Add true propensity scores to dat
   if(A_flavor == "tanh"){
@@ -66,7 +66,10 @@ plot_predicted_A_Y <-function(beta_A, beta_Y, dat,
   colnames(fit_A_nn$pscores) <- paste0(colnames(fit_A_nn$pscores), "_nn")
   dat <- cbind(dat, fit_A_logit$pscores)
   dat <- cbind(dat, fit_A_nn$pscores)
-  
+  if(k==2){
+    dat$pscores_0_logit <- 1-dat$pscores_1_logit
+    dat$pscores_0_nn <- 1-dat$pscores_1_nn
+  }
   
   ## Add predicted outcome Y values
   Yhat_nn <- rep(NA, length(Y))

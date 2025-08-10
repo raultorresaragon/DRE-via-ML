@@ -74,7 +74,7 @@ gen_Y <- function(gamma, X, A, beta_Y, flavor_Y) {
   
   Y <- fun_Y(xb_gamma_a) + rnorm(n, 0, 0.1)
   Y[Y<=0] <- abs(Y[Y<=0])
-  threshold <- qexp(0.9995, rate = 1/mean(Y))  # 99.95th percentile cutoff
+  threshold <- qexp(0.995, rate = 1/mean(Y))  # 99.5th percentile cutoff
   #Y[Y < threshold] <- threshold
   Y
 }
