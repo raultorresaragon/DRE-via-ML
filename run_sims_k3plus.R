@@ -12,11 +12,11 @@ par(mfrow=c(1,1))
 
 # Set parameters and load functions
 # ---------------------------------
-M <- 3
-k <- 2
-if(k==2){ p<-3 ; n<-200}
-if(k==3){ p<-8 ; n<-750}
-if(k==5){ p<-10; n<-1250}
+M <- 5
+k <- 5
+if(k==2){ p<-3 ; n<-300}
+if(k==3){ p<-8 ; n<-500}
+if(k==5){ p<-10; n<-1000}
 nntype <- "1nn"
 #source("functions_k3plus_dnn.R")
 source("functions_k3plus.R")
@@ -39,9 +39,9 @@ for(flav in c("le","ts")) {
   
   # Iterate over DGP flavor
   if(flav == "le") {
-    flavor_ops <- c("logit","expo", function(x) {exp(x)}) 
+    flavor_ops <- c("logit","expo", function(x) {exp(x)}, 3, 0.5) 
   } else {
-    flavor_ops <- c("tanh","sigmoid", function(x) {1/(1+exp(-x)) * 10}) 
+    flavor_ops <- c("tanh","sigmoid", function(x) {1/(1+exp(-x)) * 10}, 1, 1) 
   }
   
   # Iterate over number of dasets
@@ -54,8 +54,8 @@ for(flav in c("le","ts")) {
     beta_A <-  
       matrix(rep(1,(k-1)), nrow=1) |> 
       rbind(matrix(round(runif(p*(k-1), -2, 2),1), nrow=p))
-    beta_Y <- c(1, round(runif(p, -1, 1), 1))
-    gamma <- c(0.8, 0.6, 0.52, 0.37)[1:(k-1)]
+    beta_Y <- c(1, round(runif(p, -1, 1), 1)) * flavor_ops[[5]]
+    gamma <- c(0.8, 0.6, 0.52, 0.37)[1:(k-1)] * flavor_ops[[4]]
   
     # estimation
     tic("")

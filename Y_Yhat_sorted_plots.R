@@ -8,10 +8,11 @@
 
 plot_predicted_A_Y <-function(beta_A, beta_Y, dat, 
                               fit_Y_nn, fit_Y_expo, gamma, 
-                              fit_A_nn, fit_A_logit, A_flavor, Y_flavor, ds, k){
-  
-  jpeg(paste0("images/YYhat_sorted_k", k, A_flavor, Y_flavor, "_dset", ds, ".jpeg"), 
-       width = 1000, height = 510)
+                              fit_A_nn, fit_A_logit, A_flavor, Y_flavor, ds, k, save=TRUE){
+  if(save==TRUE){
+    jpeg(paste0("images/YYhat_sorted_k", 
+         k, A_flavor, Y_flavor, "_dset", ds, ".jpeg"), width = 1000, height = 510)
+  }
   
   Y <- dat$Y
   X <- dplyr::select(dat, starts_with("X"))
@@ -27,7 +28,7 @@ plot_predicted_A_Y <-function(beta_A, beta_Y, dat,
   cex_main = 1.8
   cex_axis = 1.4
   cex_legend = 1.4
-  sample <- sample(1:floor(length(Y)/k), 250)
+  sample <- sample(1:floor(length(Y)), min(300,nrow(dat)), replace=FALSE)
   
   ## Add true propensity scores to dat
   if(A_flavor == "tanh"){
@@ -126,6 +127,8 @@ plot_predicted_A_Y <-function(beta_A, beta_Y, dat,
   }
   
   par(mfrow = c(1,1))
-  dev.off()
+  if(save==TRUE){
+    dev.off()
+  }
   
 }
