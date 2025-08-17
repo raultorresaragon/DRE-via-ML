@@ -37,17 +37,28 @@ gen_A <- function(X, beta_A, flavor_A) {
     }
   }
   if(flavor_A == "tanh")    {
-    xb <- cbind(xb, 0) # adding the baseline class (a=0)
-    raw_scores <- 0.5 * (tanh(xb)+1)
-    sum_raws <- rowSums(raw_scores)
-    probs <- raw_scores / sum_raws
+    #xb <- cbind(xb, 0) # adding the baseline class (a=0)
+    raw_scores <- 
+      as.data.frame(0.5 * (tanh(xb)+1)) |> 
+      mutate(dummyzero1=0, dummyzero2=0) # add zero so rowSums works with k<=3
+    
+    probs <- data.frame(class1 = rep(NA, nrow(X)))
+    for(i in 1:ncol(xb)) {
+      probs[[paste0("class",i)]] <- raw_scores[,i] / (1 + rowSums(raw_scores[,-i]))
+    }
+    if(k==2) {
+      sum_all_other_classes <- 1 - probs$class1
+    } else {
+      sum_all_other_classes <- 1 - rowSums(cbind(probs[,1:ncol(probs)], rep(0,nrow(probs))))
+    }
+    probs[[paste0("class",k)]] <- sum_all_other_classes |> as.vector()
   }
   
   if(ncol(as.matrix(beta_A)) > 1) {
     A_mat <- t(apply(probs, 1, function(pr) rmultinom(1, size=1, prob=pr)))
     A <- max.col(A_mat, ties.method = "first") - 1 #<-get column index where the max is
   } else {
-    A <- rbinom(n, 1, probs) 
+    A <- rbinom(n, 1, probs[,1]) 
   }
   A
 }
@@ -62,7 +73,7 @@ gen_Y <- function(gamma, X, A, beta_Y, flavor_Y) {
   as <- sort(unique(A)) #<--lowest a value will be baseline
   A_mat <- sapply(as[-1], function(a) as.integer(A==a))
   colnames(A_mat) <-paste0("A_", as[-1])
-  xb_gamma_a <- as.matrix(cbind(1,X))%*%beta_Y + A_mat %*% gamma
+  xb_gamma_a <- as.matrix(cbind(1,X))%*%beta_Y + (A_mat %*% gamma)
   
   if(flavor_Y == "expo") { fun_Y = exp}
   if(flavor_Y == "square") { fun_Y = function(x) x^2}

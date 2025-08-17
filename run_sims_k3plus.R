@@ -13,10 +13,11 @@ par(mfrow=c(1,1))
 # Set parameters and load functions
 # ---------------------------------
 M <- 5
-k <- 3
-if(k==2){ p<-3 ; n<-500}
-if(k==3){ p<-8 ; n<-750}
+k <- 5
+if(k==2){ p<-3 ; n<-600}
+if(k==3){ p<-8 ; n<-900}
 if(k==5){ p<-10; n<-1500}
+n <- k*300
 nntype <- "1nn"
 #source("functions_k3plus_dnn.R")
 source("functions_k3plus.R")
@@ -33,7 +34,7 @@ flavor_ops <- NULL
 # Run simulations
 # ---------------
 tic("all_iters")
-for(flav in c("le","ts")) {
+for(flav in c("ts")) {
   
   # Iterate over DGP flavor
   if(flav == "le") {

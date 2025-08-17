@@ -13,12 +13,12 @@
   ## rm(list = ls())
   ## set.seed(1609)
   ## M <- 1
-  ## k <- 2
+  ## k <- 5
   ## if(k==2){ p<-3 ; n<-300}
   ## if(k==3){ p<-8 ; n<-500}
   ## if(k==5){ p<-10; n<-1000}
-  ## #flavor_ops <- c("tanh","sigmoid", function(x) 1/(1+exp(-x)) * 10, 1, 1)
-  ## flavor_ops <- c("logit","expo", function(x) exp(x), 3, 0.5)
+  ## flavor_ops <- c("tanh","sigmoid", function(x) 1/(1+exp(-x)) * 10, 1, 1)
+  ## #flavor_ops <- c("logit","expo", function(x) exp(x), 3, 0.5)
   ## gamma <- c(0.8, 0.6, 0.52, 0.37)[1:(k-1)] * flavor_ops[[4]]
   ## rho   <- round(runif(1, 0.4, 0.6),1)
   ## Xmu   <- round(runif(p, -1, 1),1)
@@ -61,6 +61,8 @@ one_sim <- function(n, p, Xmu, beta_A, beta_Y, gamma, k,
   xb_Y <-(as.matrix(cbind(1,X))%*%beta_Y) 
   par(mfrow=c(1,1)) 
   plot(Y~xb_Y, main=main, cex.main=2, col=as.factor(A))
+  legend("topleft", legend = paste0("A=",sort(unique(A))), 
+         col=c("black","darkred","green","blue","skyblue"), pch=1)
   jpeg(paste0("images/genY_", k, A_flavor, Y_flavor, "_dset", iter, ".jpeg"), 
        width = 1000, height = 510)
       plot(Y~xb_Y, main=main, cex.main=2, col=as.factor(A))
