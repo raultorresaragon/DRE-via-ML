@@ -61,11 +61,13 @@ one_sim <- function(n, p, Xmu, beta_A, beta_Y, gamma, k,
   xb_Y <-(as.matrix(cbind(1,X))%*%beta_Y) 
   par(mfrow=c(1,1)) 
   plot(Y~xb_Y, main=main, cex.main=2, col=as.factor(A))
-  legend("topleft", legend = paste0("A=",sort(unique(A))), 
+  legend("topleft", legend = paste0("A=", sort(unique(A))), 
          col=c("black","darkred","green","blue","skyblue"), pch=1)
   jpeg(paste0("images/genY_", k, A_flavor, Y_flavor, "_dset", iter, ".jpeg"), 
        width = 1000, height = 510)
       plot(Y~xb_Y, main=main, cex.main=2, col=as.factor(A))
+      legend("topleft", legend = paste0("A=", sort(unique(A))), 
+             col=c("black","darkred","green","blue","skyblue"), pch=1)
   dev.off()
   rm(xb_Y)
   
