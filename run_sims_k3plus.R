@@ -14,8 +14,8 @@ par(mfrow=c(1,1))
 # ---------------------------------
 export_tables <- FALSE
 M <- 2
-K <- c(2,3,5)      #c(2,3,5)
-flavors <- "le"  #c("ts","le")
+K <- c(2,3,5)      
+flavors <- c("ts","le")
 source("functions_k3plus.R")
 source("YAX_funs.R")
 source("one_sim_k3plus.R")

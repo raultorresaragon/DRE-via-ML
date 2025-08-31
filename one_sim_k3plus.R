@@ -10,35 +10,37 @@
 # ---------------------------
 # PARAMERTERS FOR DEBUGGING
 
-  ## rm(list = ls())
-  ## set.seed(1609)
-  ## M <- 1
-  ## k <- 5
-  ## if(k==2){ p<-3 ; n<-300}
-  ## if(k==3){ p<-8 ; n<-500}
-  ## if(k==5){ p<-10; n<-1000}
-  ## flavor_ops <- c("tanh","sigmoid", function(x) 1/(1+exp(-x)) * 10, 1, 1)
-  ## #flavor_ops <- c("logit","expo", function(x) exp(x), 3, 0.5)
-  ## gamma <- c(0.8, 0.6, 0.52, 0.37)[1:(k-1)] * flavor_ops[[4]]
-  ## rho   <- round(runif(1, 0.4, 0.6),1)
-  ## Xmu   <- round(runif(p, -1, 1),1)
-  ## beta_A <- matrix(rep(1,(k-1)), nrow=1) |> 
-  ##           rbind(matrix(round(runif(p*(k-1), -2, 2),1), nrow=p))
-  ## beta_Y <- c(1, round(runif(p, -1, 1),1)) * flavor_ops[[5]]
-  ## hidunits = c(2,6)
-  ## eps = c(120,150)
-  ## penals = c(0.001,0.005)
-  ## A_flavor = flavor_ops[[1]]; 
-  ## Y_flavor = flavor_ops[[2]]; Y_fun = flavor_ops[[3]];
-  ## 
-  ## iter = 1; 
-  ## source("YAX_funs.R")
-  ## source("functions_k3plus.R")
-  ## #source("functions_k3plus_dnn.R")
-  ## #source("predicted_A_Y_plots_k3.R")
-  ## #source("Y_Yhat_plots_k3.R")
-  ## source("Y_Yhat_sorted_plots.R")
-  ## verbose=FALSE
+  rm(list = ls())
+  set.seed(1609)
+  M <- 1
+  k <- 2
+  if(k==2){ p<-9 ; n<-300}
+  if(k==3){ p<-19; n<-500}
+  if(k==5){ p<-29; n<-1000}
+  Y_flavor = "lognormal"
+  A_flavor = "logit"
+  #flavor_ops <- c("tanh","sigmoid", function(x) 1/(1+exp(-x)) * 10, 1, 1)
+  #flavor_ops <- c("logit","expo", function(x) exp(x), 3, 0.5)
+  gamma <- c(0.8, 0.6, 0.52, 0.37)[1:(k-1)] #* flavor_ops[[4]]
+  rho   <- round(runif(1, 0.4, 0.6),1)
+  Xmu   <- round(runif(p, -1, 1),1)
+  beta_A <- matrix(rep(1,(k-1)), nrow=1) |> 
+              rbind(matrix(round(runif(p*(k-1), -2, 2),1), nrow=p))
+  beta_Y <- c(1, round(runif(p, -1, 1),1)) #* flavor_ops[[5]]
+  hidunits = c(2,6)
+  eps = c(120,150)
+  penals = c(0.001,0.005)
+  #A_flavor = flavor_ops[[1]]; 
+  #Y_flavor = flavor_ops[[2]]; Y_fun = flavor_ops[[3]];
+  
+  iter = 1; 
+  source("YAX_funs.R")
+  source("outcome_models.R")
+  source("pscores_models.R")
+  source("get_diff.R")
+  source("compute_Vn.R")
+  source("Y_Yhat_sorted_plots.R")
+  verbose=FALSE
 
 # ---------------------------
 
@@ -47,27 +49,23 @@ one_sim <- function(n, p, Xmu, beta_A, beta_Y, gamma, k,
                     hidunits, eps, penals, verbose = FALSE, iter = 1, 
                     nntype = "1nn") {
   
-  #if(nntype == "dnn") { source("functions_k3plus_dnn.R") } 
-  #else { source("functions_k3plus.R") }
-  
   X <- gen_X(n=n, p=p, rho=rho, mu=Xmu)
   A <- gen_A(X=X, beta=beta_A, flavor_A=A_flavor)
-  Y <- gen_Y(X=X, A=A, beta_Y=beta_Y, gamma=gamma, flavor_Y=Y_flavor)
+  Y <- gen_Y(X=X, A=A, beta_Y=beta_Y, gamma=gamma, flavor_Y=Y_flavor)$Y
   dat <- cbind(Y,A,X) 
   stopifnot(Y>0)
   
   # plot Y
   main <- paste0("k=",k,"  flavor:", A_flavor, "-", Y_flavor, "\nN=",n, "  dim(X)=", p)
   xb_Y <-(as.matrix(cbind(1,X))%*%beta_Y) 
+  mycols <- c("black","darkred","green","blue","skyblue")
   par(mfrow=c(1,1)) 
   plot(Y~xb_Y, main=main, cex.main=2, col=as.factor(A))
-  legend("topleft", legend = paste0("A=", sort(unique(A))), 
-         col=c("black","darkred","green","blue","skyblue"), pch=1)
+  legend("topleft", legend = paste0("A=", sort(unique(A))), col=mycols, pch=1)
   jpeg(paste0("images/genY_", k, A_flavor, Y_flavor, "_dset", iter, ".jpeg"), 
        width = 1000, height = 510)
       plot(Y~xb_Y, main=main, cex.main=2, col=as.factor(A))
-      legend("topleft", legend = paste0("A=", sort(unique(A))), 
-             col=c("black","darkred","green","blue","skyblue"), pch=1)
+      legend("topleft", legend = paste0("A=", sort(unique(A))), col=mycols, pch=1)
   dev.off()
   rm(xb_Y)
   
@@ -75,13 +73,15 @@ one_sim <- function(n, p, Xmu, beta_A, beta_Y, gamma, k,
   for(i in 1:k-1) {cat(paste0("\n  P(A=",i,")= ", mean(A==i) |> round(1)))}
   
   # print delta_ij
+  Y_fun <- gen_Y(X=X, A=A, beta_Y=beta_Y, gamma=gamma, flavor_Y=Y_flavor)$fun_Y
   get_true_diff <- function(x) {
     gamma_allvals <- c(0, gamma)
     i <- x[[2]];
     j <- x[[1]];
     gamma_i <- gamma_allvals[i+1]
     gamma_j <- gamma_allvals[j+1]
-    d <- mean(Y_fun(as.matrix(cbind(1,X)) %*% as.matrix(beta_Y) + gamma_i)) - 
+    d <- 
+      mean(Y_fun(as.matrix(cbind(1,X)) %*% as.matrix(beta_Y) + gamma_i)) - 
       mean(Y_fun(as.matrix(cbind(1,X)) %*% as.matrix(beta_Y) + gamma_j))
     cat(paste0("\n  True diff means ", j, i, " = ", round(d, 3)))
     d

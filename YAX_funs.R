@@ -14,11 +14,19 @@ library(dplyr)
 # Generate X (design matrix)
 # --------------------------
 gen_X <- function(p, rho=0.6, mu, n) {
+  
   Xnames <- paste0("X", 1:p) 
   Sigma <- outer(1:p, 1:p, function(i,j) rho^abs(i-j))
-  X <- MASS::mvrnorm(n = n, mu = mu, Sigma = Sigma) |> 
+  X <- 
+    MASS::mvrnorm(n = n, mu = mu, Sigma = Sigma) |> 
     data.frame() |> 
     `colnames<-`(Xnames)
+  
+  X_bin1 <- dplyr::if_else(X[,p-1] < mean(X[,p-1]),0,1)
+  X_bin2 <- dplyr::if_else(X[,p]   < mean(X[,p]),0,1)
+  X <- cbind(X[,1:(p-1-1)], X_bin1, X_bin2)
+  colnames(X) <- Xnames
+  X
 }
 
 
@@ -75,28 +83,28 @@ gen_Y <- function(gamma, X, A, beta_Y, flavor_Y) {
   colnames(A_mat) <-paste0("A_", as[-1])
   xb_gamma_a <- as.matrix(cbind(1,X))%*%beta_Y + (A_mat %*% gamma)
   
-  if(flavor_Y == "expo") { fun_Y = exp}
-  if(flavor_Y == "square") { fun_Y = function(x) x^2}
-  if(flavor_Y == "sigmoid"){ fun_Y = function(x) 1/(1+exp(-x)) * 10}
-  if(flavor_Y == "nonlin") { fun_Y = function(x) (x^4) / (1 + abs(x)^3)}
-  if(flavor_Y == "piece") { fun_Y = function(x) ifelse(x<0, log1p(x^2), 1/(1+exp(-x)))*6}
-  if(flavor_Y == "atan") { fun_Y = function(x) 6 * (atan(x) / pi + 0.5)}
-  if(flavor_Y == "expf") { fun_Y = function(x) rexp(length(x), rate = 1/x)}
-  
-  Y <- fun_Y(xb_gamma_a) + rnorm(n, 0, 0.1)
+  if(flavor_Y == "expo") { 
+    fun_Y = exp + rnorm(n, 0, 0.1)
+  }
+  if(flavor_Y == "sigmoid"){ 
+    fun_Y = function(x) 1/(1+exp(-x)) * 10 + rnorm(n, 0, 0.1)
+  }
+  if(flavor_Y == "gamma") { fun_Y = function(x) {
+    mu = abs(x)
+    shape <- 2
+    scale <- mu / shape
+    rgamma(n, shape = shape, scale = scale)
+  }}
+  if(flavor_Y == "lognormal") { fun_Y = function(x) {
+    sigma_true <- 1
+    mu_log = x
+    logY = mu_log + rnorm(n, 0, sigma_true)
+    exp(logY)
+  }}
+
+  Y <- fun_Y(xb_gamma_a)
   Y[Y<=0] <- abs(Y[Y<=0])
   threshold <- qexp(0.995, rate = 1/mean(Y))  # 99.5th percentile cutoff
-  #Y[Y < threshold] <- threshold
-  Y
-}
-
-
-# -----------------------------
-# Estimate difference in means
-# -----------------------------
-get_diff <- function(ghat_1, delta_1, ghat_0, delta_0, pi_hat, Y) {
-  muhat_1 <- mean(ghat_1 + (delta_1*(Y - ghat_1)/(pi_hat))/(mean(delta_1/pi_hat)))
-  muhat_0 <- mean(ghat_0 + (delta_0*(Y - ghat_0)/(1-pi_hat))/(mean(delta_0/(1-pi_hat))))
-  diff_means <- muhat_1 - muhat_0
-  o <-list(diff_means = diff_means, muhat_1 = muhat_1, muhat_0 = muhat_0)
+  Y[Y>threshold] <- threshold
+  list(Y=Y, fun_Y = fun_Y)
 }
