@@ -13,7 +13,7 @@ library(dplyr)
 # --------------------------
 # Generate X (design matrix)
 # --------------------------
-gen_X <- function(p, rho=0.6, mu, n) {
+gen_X <- function(p, rho=0.6, mu, n, p_bin=3) {
   
   Xnames <- paste0("X", 1:p) 
   Sigma <- outer(1:p, 1:p, function(i,j) rho^abs(i-j))
@@ -22,9 +22,11 @@ gen_X <- function(p, rho=0.6, mu, n) {
     data.frame() |> 
     `colnames<-`(Xnames)
   
-  X_bin1 <- dplyr::if_else(X[,p-1] < mean(X[,p-1]),0,1)
-  X_bin2 <- dplyr::if_else(X[,p]   < mean(X[,p]),0,1)
-  X <- cbind(X[,1:(p-1-1)], X_bin1, X_bin2)
+  # Binary covariates
+  X_bin <- sapply((p-p_bin+1):p, function(j) {
+    ifelse(X[, j] < mean(X[, j]), 0, 1)
+  })
+  X <- cbind(X[, 1:(p-p_bin)], X_bin)
   colnames(X) <- Xnames
   X
 }
@@ -104,7 +106,7 @@ gen_Y <- function(gamma, X, A, beta_Y, flavor_Y) {
 
   Y <- fun_Y(xb_gamma_a)
   Y[Y<=0] <- abs(Y[Y<=0])
-  threshold <- qexp(0.995, rate = 1/mean(Y))  # 99.5th percentile cutoff
+  threshold <- qexp(0.999, rate = 1/mean(Y))  # 99.5th percentile cutoff
   Y[Y>threshold] <- threshold
   list(Y=Y, fun_Y = fun_Y)
 }
