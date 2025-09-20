@@ -15,14 +15,14 @@ get_true_diff <- function(a_lvl, xb_Y, gamma, Y_flavor) {
   gamma_j <- gamma_allvals[j+1]
   
   if(Y_flavor == "expo"){
-    EY_j <- mean(exp(xb + gamma_j))
-    EY_i <- mean(exp(xb + gamma_i))
+    EY_j <- mean(exp(xb_Y + gamma_j))
+    EY_i <- mean(exp(xb_Y + gamma_i))
     d <- EY_j - EY_i
   }
   if(Y_flavor == "sigmoid"){
     logistic = function(x) {1/(1+exp(-x))}
-    EY_j <- mean(10*logistic(xb + gamma_j))
-    EY_i <- mean(10*logistic(xb + gamma_i))
+    EY_j <- mean(10*logistic(xb_Y + gamma_j))
+    EY_i <- mean(10*logistic(xb_Y + gamma_i))
     d <- EY_j - EY_i
   }
   if(Y_flavor == "lognormal"){

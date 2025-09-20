@@ -10,36 +10,38 @@
 # ---------------------------
 # PARAMERTERS FOR DEBUGGING
 
-   rm(list = ls())
-   set.seed(1609)
-   M <- 3
-   k <- 2
-   if(k==2){ p<-7 ; n<-1000}
-   if(k==3){ p<-14; n<-1500}
-   if(k==5){ p<-21; n<-2500}
-   Y_flavor = "gamma"
-   A_flavor = "logit"
-   #flavor_ops <- c("tanh","sigmoid", function(x) 1/(1+exp(-x)) * 10, 1, 1)
-   #flavor_ops <- c("logit","expo", function(x) exp(x), 3, 0.5)
-   gamma <- c(0.8, 0.6, 0.52, 0.37)[1:(k-1)] #* flavor_ops[[4]]
-   rho   <- round(runif(1, 0.4, 0.6),1)
-   Xmu   <- round(runif(p, -1, 1),1)
-   beta_A <- matrix(rep(1,(k-1)), nrow=1) |> 
-               rbind(matrix(round(runif(p*(k-1), -2, 2),1), nrow=p))
-   beta_Y <- c(1, round(runif(p, -1, 1),1)) #* flavor_ops[[5]]
-   hidunits = c(2,6)
-   eps = c(120,150)
-   penals = c(0.001,0.005)
-   
-   iter = 1; 
-   source("YAX_funs.R")
-   source("outcome_models.R")
-   source("pscores_models.R")
-   source("get_diff.R")
-   source("get_true_diff.R")
-   source("compute_Vn.R")
-   source("Y_Yhat_sorted_plots.R")
-   verbose=FALSE
+  ## rm(list = ls())
+  ## set.seed(1609)
+  ## M <- 3
+  ## k <- 2
+  ## if(k==2){ p<-3}
+  ## if(k==3){ p<-8}
+  ## if(k==5){ p<-12}
+  ## n <- k*200
+  ## Y_flavor = "lognormal"
+  ## A_flavor = "logit"
+  ## beta_Y_scalar = 1
+  ## #flavor_ops <- c("tanh","sigmoid", function(x) 1/(1+exp(-x)) * 10, 1, 1)
+  ## #flavor_ops <- c("logit","expo", function(x) exp(x), 3, 0.5)
+  ## gamma <- c(0.8, 0.6, 0.52, 0.37)[1:(k-1)] #* flavor_ops[[4]]
+  ## rho   <- round(runif(1, 0.4, 0.6),1)
+  ## Xmu   <- round(runif(p, -1, 1),1)
+  ## beta_A <- matrix(rep(1,(k-1)), nrow=1) |> 
+  ##             rbind(matrix(round(runif(p*(k-1), -2, 2),1), nrow=p))
+  ## beta_Y <- c(1, round(runif(p, -1, 1),1)) * beta_Y_scalar
+  ## hidunits = c(2,6)
+  ## eps = c(120,150)
+  ## penals = c(0.001,0.005)
+  ## 
+  ## iter = 1; 
+  ## source("YAX_funs.R")
+  ## source("outcome_models.R")
+  ## source("pscores_models.R")
+  ## source("get_diff.R")
+  ## source("get_true_diff.R")
+  ## source("compute_Vn.R")
+  ## source("Y_Yhat_sorted_plots.R")
+  ## verbose=FALSE
 
 # ---------------------------
 
@@ -47,7 +49,7 @@ one_sim <- function(n, p, Xmu, beta_A, beta_Y, gamma, k,
                     A_flavor, Y_flavor, 
                     hidunits, eps, penals, verbose = FALSE, iter = 1) {
   
-  X <- gen_X(n=n, p=p, rho=rho, mu=Xmu, p_bin = floor(p * 1/3))
+  X <- gen_X(n=n, p=p, rho=rho, mu=Xmu, p_bin = 1) # floor(p * 1/3))
   A <- gen_A(X=X, beta=beta_A, flavor_A=A_flavor)
   Y <- gen_Y(X=X, A=A, beta_Y=beta_Y, gamma=gamma, flavor_Y=Y_flavor)$Y
   dat <- cbind(Y,A,X) 
@@ -57,20 +59,27 @@ one_sim <- function(n, p, Xmu, beta_A, beta_Y, gamma, k,
   main <- paste0("k=",k,"  flavor:", A_flavor, "-", Y_flavor, "\nN=",n, "  dim(X)=", p)
   xb_Y <-(as.matrix(cbind(1,X))%*%beta_Y) 
   mycols <- c("black","darkred","green","blue","skyblue")
-  par(mfrow=c(1,k)) 
-  for(i in 0:(k-1)){
-    #plot(Y~xb_Y, main=main, cex.main=2, col=as.factor(A))
-    plot(sort(Y[A==i]), main=main, cex.main=2, col=mycols[i+1])
+  par(mfrow=c(1,2)) 
+  plot(Y~xb_Y, main=main, cex.main=2, col=as.factor(A))
+  i=0; plot(sort(Y[A==i]), main="sorted", cex.main=2, col=mycols[i+1], xlim=c(0,1000))
+  for(i in 1:(k-1)){
+    points(sort(Y[A==i]), cex.main=2, col=mycols[i+1])
     legend("topleft", legend = paste0("A=", i), col=mycols[i+1], pch=1)
   }
+  par(mfrow=c(1,1))
   jpeg(paste0("images/genY_", k, A_flavor, Y_flavor, "_dset", iter, ".jpeg"), 
        width = 1000, height = 510)
-      par(mfrow=c(1,k)) 
+      par(mfrow=c(1,2)) 
+      plot(Y~xb_Y, main=main, cex.main=2, col=as.factor(A))
+      i=0
+      plot(sort(Y[A==i]), main="sorted", cex.main=2, col=mycols[i+1], 
+           ylim=c(min(Y), max(Y)))
       for(i in 0:(k-1)){
-      plot(sort(Y[A==i]), main=main, cex.main=2, col=mycols[i+1])
-      legend("topleft", legend = paste0("A=", i), col=mycols[i+1], pch=1)
+        points(sort(Y[A==i]), main=main, cex.main=2, col=mycols[i+1])
+        legend("topleft", legend = paste0("A=", i), col=mycols[i+1], pch=1)
     }
   dev.off()
+  par(mfrow=c(1,1))
   
   # print P(A=j)
   for(i in 1:k-1) {cat(paste0("\n  P(A=",i,")= ", mean(A==i) |> round(1)))}
@@ -87,28 +96,28 @@ one_sim <- function(n, p, Xmu, beta_A, beta_Y, gamma, k,
   rm(xb_Y)
   
   # Estimate A (propensity model)
-  tic("\nA model")
+  tictoc::tic("\nA model")
   fit_A_nn <- estimate_A_nn(X=X, dat=dat, k=k, 
                             hidunits=hidunits,
                             eps=eps, 
                             penals=penals,
                             verbose=verbose)
   fit_A_logit <- estimate_A_logit(X=X, dat=dat, k=k, verbose=verbose)
-  toc()  
+  tictoc::toc()  
   
   # Estimate Y (outcome model)
-  tic("\nY model")
+  tictoc::tic("\nY model")
   fit_Y_nn <- estimate_Y_nn(dat, pscores_df=fit_A_nn$pscores, k=k,
                             hidunits=hidunits,
                             eps=eps, 
                             penals=penals, 
                             verbose=verbose)
-  fit_Y_expo <- estimate_Y_expo(dat, pscores_df=fit_A_logit$pscores, k=k)
-  toc()
+  fit_Y_ols <- estimate_Y_ols(dat, pscores_df=fit_A_logit$pscores, k=k)
+  tictoc::toc()
   
   # Save predicted Aj and Yj plot
   plot_predicted_A_Y(beta_A, beta_Y, dat, 
-                     fit_Y_nn, fit_Y_expo, gamma, 
+                     fit_Y_nn, fit_Y_ols, gamma, 
                      fit_A_nn, fit_A_logit, A_flavor, Y_flavor, ds=iter, k, save=TRUE)
   
   # Pack results into k rows
@@ -121,7 +130,7 @@ one_sim <- function(n, p, Xmu, beta_A, beta_Y, gamma, k,
   }
   naive_est <- apply(as.matrix(combn(k,2) - 1), 2, get_naive_est)
   nn_model_est <- sapply(fit_Y_nn, function(x) {x[[1]]}) |> data.frame() 
-  logit_expo_est <- sapply(fit_Y_expo, function(x) {x[[1]]}) |> data.frame()
+  logit_expo_est <- sapply(fit_Y_ols, function(x) {x[[1]]}) |> data.frame()
   
   nn_model_pvals <- nn_model_est[5,]
   logit_expo_pvals <- logit_expo_est[5,]

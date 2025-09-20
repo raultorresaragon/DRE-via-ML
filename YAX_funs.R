@@ -13,7 +13,7 @@ library(dplyr)
 # --------------------------
 # Generate X (design matrix)
 # --------------------------
-gen_X <- function(p, rho=0.6, mu, n, p_bin=3) {
+gen_X <- function(p, rho=0.6, mu, n, p_bin=1) {
   
   Xnames <- paste0("X", 1:p) 
   Sigma <- outer(1:p, 1:p, function(i,j) rho^abs(i-j))
@@ -86,7 +86,7 @@ gen_Y <- function(gamma, X, A, beta_Y, flavor_Y) {
   xb_gamma_a <- as.matrix(cbind(1,X))%*%beta_Y + (A_mat %*% gamma)
   
   if(flavor_Y == "expo") { 
-    fun_Y = exp + rnorm(n, 0, 0.1)
+    fun_Y = function(x) exp(x) + rnorm(n, 0, 0.1)
   }
   if(flavor_Y == "sigmoid"){ 
     fun_Y = function(x) 1/(1+exp(-x)) * 10 + rnorm(n, 0, 0.1)

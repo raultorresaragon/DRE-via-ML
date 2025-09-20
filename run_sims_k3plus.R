@@ -14,9 +14,9 @@ par(mfrow=c(1,1))
 # ---------------------------------
 export_tables <- TRUE
 M <- 5
-K <- 2 #c(2,3,5)   
-pflavs <- c("t")
-oflavs <- c("l","g")
+K <- c(2,3) #c(2,3,5)   
+pflavs <- c("l","t")
+oflavs <- c("e","s","l","g")
 flavors <- paste0(pflavs,oflavs)  #c("ll","lg","tl","tg")
 
 source("YAX_funs.R")
@@ -29,13 +29,13 @@ source("one_sim_k3plus.R")
 source("Y_Yhat_sorted_plots.R")
 
 for(k in K) {
-  if(k==2){ p<-7}
-  if(k==3){ p<-14}
-  if(k==5){ p<-21}
-  n <- k*500
-  eps = c(120,150)
+  if(k==2){ p<-3}
+  if(k==3){ p<-8}
+  if(k==5){ p<-12}
+  n <- k*250
+  eps = c(120,180)
   penals = c(0.001,0.005)
-  hidunits = c(2L, 6L)
+  hidunits = c(2L, 8L)
   flavor_ops <- NULL
 
 
@@ -66,12 +66,12 @@ for(k in K) {
         matrix(rep(1,(k-1)), nrow=1) |> 
         rbind(matrix(round(runif(p*(k-1), -2, 2),1), nrow=p))
       beta_Y <- c(1, round(runif(p, -1, 1), 1)) * as.numeric(flavor_ops[[4]])
-      gamma <- c(0.8, 0.6, 0.52, 0.37)[1:(k-1)] * as.numeric(flavor_ops[[3]])
+      gamma <- c(0.6, 0.4, 0.75, 0.17)[1:(k-1)] * as.numeric(flavor_ops[[3]])
   
       # estimation
       tic("")
       suppressWarnings(
-      r <- one_sim(n = n, p = p, Xmu = Xmu, iter = i, k = k, verbose = FALSE, 
+      r <- one_sim(n = n, p = p, Xmu = Xmu, iter = i, k = k, verbose = TRUE, 
                    A_flavor = flavor_ops[[1]], beta_A = beta_A, gamma = gamma[1:(k-1)], 
                    Y_flavor = flavor_ops[[2]], beta_Y = beta_Y,
                    hidunits = hidunits, eps = eps, penals = penals)
