@@ -10,38 +10,38 @@
 # ---------------------------
 # PARAMERTERS FOR DEBUGGING
 
-  ## rm(list = ls())
-  ## set.seed(1609)
-  ## M <- 3
-  ## k <- 2
-  ## if(k==2){ p<-3}
-  ## if(k==3){ p<-8}
-  ## if(k==5){ p<-12}
-  ## n <- k*200
-  ## Y_flavor = "lognormal"
-  ## A_flavor = "logit"
-  ## beta_Y_scalar = 1
-  ## #flavor_ops <- c("tanh","sigmoid", function(x) 1/(1+exp(-x)) * 10, 1, 1)
-  ## #flavor_ops <- c("logit","expo", function(x) exp(x), 3, 0.5)
-  ## gamma <- c(0.8, 0.6, 0.52, 0.37)[1:(k-1)] #* flavor_ops[[4]]
-  ## rho   <- round(runif(1, 0.4, 0.6),1)
-  ## Xmu   <- round(runif(p, -1, 1),1)
-  ## beta_A <- matrix(rep(1,(k-1)), nrow=1) |> 
-  ##             rbind(matrix(round(runif(p*(k-1), -2, 2),1), nrow=p))
-  ## beta_Y <- c(1, round(runif(p, -1, 1),1)) * beta_Y_scalar
-  ## hidunits = c(2,6)
-  ## eps = c(120,150)
-  ## penals = c(0.001,0.005)
-  ## 
-  ## iter = 1; 
-  ## source("YAX_funs.R")
-  ## source("outcome_models.R")
-  ## source("pscores_models.R")
-  ## source("get_diff.R")
-  ## source("get_true_diff.R")
-  ## source("compute_Vn.R")
-  ## source("Y_Yhat_sorted_plots.R")
-  ## verbose=FALSE
+ ## rm(list = ls())
+ ## set.seed(1609)
+ ## M <- 3
+ ## k <- 2
+ ## if(k==2){ p<-3}
+ ## if(k==3){ p<-8}
+ ## if(k==5){ p<-12}
+ ## n <- k*200
+ ## Y_flavor = "lognormal"
+ ## A_flavor = "logit"
+ ## beta_Y_scalar = 1
+ ## #flavor_ops <- c("tanh","sigmoid", function(x) 1/(1+exp(-x)) * 10, 1, 1)
+ ## #flavor_ops <- c("logit","expo", function(x) exp(x), 3, 0.5)
+ ## gamma <- c(0.8, 0.6, 0.52, 0.37)[1:(k-1)] #* flavor_ops[[4]]
+ ## rho   <- round(runif(1, 0.4, 0.6),1)
+ ## Xmu   <- round(runif(p, -1, 1),1)
+ ## beta_A <- matrix(rep(1,(k-1)), nrow=1) |> 
+ ##             rbind(matrix(round(runif(p*(k-1), -2, 2),1), nrow=p))
+ ## beta_Y <- c(1, round(runif(p, -1, 1),1)) * beta_Y_scalar
+ ## hidunits = c(2,6)
+ ## eps = c(120,150)
+ ## penals = c(0.001,0.005)
+ ## 
+ ## iter = 1; 
+ ## source("YAX_funs.R")
+ ## source("outcome_models.R")
+ ## source("pscores_models.R")
+ ## source("get_diff.R")
+ ## source("get_true_diff.R")
+ ## source("compute_Vn.R")
+ ## source("Y_Yhat_sorted_plots.R")
+ ## verbose=FALSE
 
 # ---------------------------
 

@@ -16,7 +16,7 @@ export_tables <- TRUE
 M <- 5
 K <- c(2,3) #c(2,3,5)   
 pflavs <- c("l","t")
-oflavs <- c("e","s","l","g")
+oflavs <- c("l","g")
 flavors <- paste0(pflavs,oflavs)  #c("ll","lg","tl","tg")
 
 source("YAX_funs.R")

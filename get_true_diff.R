@@ -26,13 +26,17 @@ get_true_diff <- function(a_lvl, xb_Y, gamma, Y_flavor) {
     d <- EY_j - EY_i
   }
   if(Y_flavor == "lognormal"){
-    EY_j <- mean(exp(xb_Y + gamma_j + 0.5 * 1))
-    EY_i <- mean(exp(xb_Y + gamma_i + 0.5 * 1))
+    EY_j <- mean(plnorm(xb_Y + gamma_j, 0, 1) * 100)
+    EY_i <- mean(plnorm(xb_Y + gamma_i, 0, 1) * 100)
+    #EY_j <- mean(exp(xb_Y + gamma_j + 0.5 * 1))
+    #EY_i <- mean(exp(xb_Y + gamma_i + 0.5 * 1))
     d <- EY_j - EY_i
   }
   if(Y_flavor == "gamma"){
-    EY_j <- mean(abs(xb_Y + gamma_j))
-    EY_i <- mean(abs(xb_Y + gamma_i))
+    EY_j <- mean(pgamma(xb_Y + gamma_j,  shape = 3, rate = 2) * 100)
+    EY_i <- mean(pgamma(xb_Y + gamma_i,  shape = 3, rate = 2) * 100)   
+    #EY_j <- mean(abs(xb_Y + gamma_j))
+    #EY_i <- mean(abs(xb_Y + gamma_i))
     d <- EY_j - EY_i
   }
   round_d <- round(d, 3)
