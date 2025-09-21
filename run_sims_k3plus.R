@@ -13,10 +13,11 @@ par(mfrow=c(1,1))
 # Set parameters and load functions
 # ---------------------------------
 export_tables <- TRUE
+export_images <- TRUE
 M <- 5
 K <- c(2,3) #c(2,3,5)   
 pflavs <- c("l","t")
-oflavs <- c("l","g")
+oflavs <- c("e","s")
 flavors <- paste0(pflavs,oflavs)  #c("ll","lg","tl","tg")
 
 source("YAX_funs.R")
@@ -74,7 +75,8 @@ for(k in K) {
       r <- one_sim(n = n, p = p, Xmu = Xmu, iter = i, k = k, verbose = TRUE, 
                    A_flavor = flavor_ops[[1]], beta_A = beta_A, gamma = gamma[1:(k-1)], 
                    Y_flavor = flavor_ops[[2]], beta_Y = beta_Y,
-                   hidunits = hidunits, eps = eps, penals = penals)
+                   hidunits = hidunits, eps = eps, penals = penals, 
+                   export_images = export_images)
       )
       toc(log = TRUE, quiet = TRUE)
       last_time <- tictoc::tic.log(format = FALSE)
@@ -115,8 +117,9 @@ for(k in K) {
             as.data.frame()
           )
       }else {
-        colnames(mytable) <- c("dataset", "estimate", "A_01")
+        colnames(mytable) <- c("dataset", "estimate", "A_01", "pval")
         mytable$A_01 <- as.numeric(unname(unlist(mytable$A_01)))
+        mytable$pval <- as.numeric(unname(unlist(mytable$pval)))
       }
       readr::write_csv(mytable, 
                      paste0("tables/simk",k,"_",flavor_ops[[1]],"_",flavor_ops[[2]],".csv"))

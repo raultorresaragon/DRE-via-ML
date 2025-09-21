@@ -99,7 +99,7 @@ gen_Y <- function(gamma, X, A, beta_Y, flavor_Y) {
       rgamma(n, shape = shape, scale = scale)
     }
     fun_Y = function(x) {
-      pgamma(-10:10, shape = 3, rate = 2) * 100 + rnorm(n, 0, 0.1)
+      pgamma(x, shape = 3, rate = 2) * 100 + rnorm(n, 0, 0.1)
     }
   }
   if(flavor_Y == "lognormal") { 

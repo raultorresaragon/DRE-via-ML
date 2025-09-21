@@ -47,7 +47,8 @@
 
 one_sim <- function(n, p, Xmu, beta_A, beta_Y, gamma, k,
                     A_flavor, Y_flavor, 
-                    hidunits, eps, penals, verbose = FALSE, iter = 1) {
+                    hidunits, eps, penals, verbose = FALSE, iter = 1, 
+                    export_images = FALSE) {
   
   X <- gen_X(n=n, p=p, rho=rho, mu=Xmu, p_bin = 1) # floor(p * 1/3))
   A <- gen_A(X=X, beta=beta_A, flavor_A=A_flavor)
@@ -118,7 +119,8 @@ one_sim <- function(n, p, Xmu, beta_A, beta_Y, gamma, k,
   # Save predicted Aj and Yj plot
   plot_predicted_A_Y(beta_A, beta_Y, dat, 
                      fit_Y_nn, fit_Y_ols, gamma, 
-                     fit_A_nn, fit_A_logit, A_flavor, Y_flavor, ds=iter, k, save=TRUE)
+                     fit_A_nn, fit_A_logit, A_flavor, Y_flavor, ds=iter, k, 
+                     save=export_images)
   
   # Pack results into k rows
   get_naive_est <- function(x) {
