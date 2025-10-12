@@ -68,7 +68,7 @@ one_sim <- function(n, p, Xmu, beta_A, beta_Y, gamma, k,
     legend("topleft", legend = paste0("A=", i), col=mycols[i+1], pch=1)
   }
   par(mfrow=c(1,1))
-  jpeg(paste0("images/genY_", k, A_flavor, Y_flavor, "_dset", iter, ".jpeg"), 
+  jpeg(paste0("images/genYplots/genY_", k, A_flavor, Y_flavor, "_dset", iter, ".jpeg"), 
        width = 1000, height = 510)
       par(mfrow=c(1,2)) 
       plot(Y~xb_Y, main=main, cex.main=2, col=as.factor(A))

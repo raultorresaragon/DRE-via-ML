@@ -14,11 +14,14 @@ par(mfrow=c(1,1))
 # ---------------------------------
 export_tables <- TRUE
 export_images <- TRUE
-M <- 5
-K <- c(2,3) #c(2,3,5)   
+M <- 10
+K <- c(2) #c(2,3,5)   
 pflavs <- c("l","t")
-oflavs <- c("e","s")
-flavors <- paste0(pflavs,oflavs)  #c("ll","lg","tl","tg")
+oflavs <- c("e","s","l","g")
+flavors <- #pairwise combination of flavors
+  tidyr::expand_grid(pflavs, oflavs) |> 
+  dplyr::mutate(l = paste0(pflavs, oflavs)) |> 
+  dplyr::pull("l")  
 
 source("YAX_funs.R")
 source("outcome_models.R")
@@ -33,7 +36,7 @@ for(k in K) {
   if(k==2){ p<-3}
   if(k==3){ p<-8}
   if(k==5){ p<-12}
-  n <- k*250
+  n <- k*300
   eps = c(120,180)
   penals = c(0.001,0.005)
   hidunits = c(2L, 8L)

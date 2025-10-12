@@ -92,23 +92,23 @@ gen_Y <- function(gamma, X, A, beta_Y, flavor_Y) {
     fun_Y = function(x) 1/(1+exp(-x)) * 10 + rnorm(n, 0, 0.1)
   }
   if(flavor_Y == "gamma") { 
-    fun_Y = function(x) {
-      mu = abs(x)
-      shape <- 2
-      scale <- mu / shape
-      rgamma(n, shape = shape, scale = scale)
-    }
+    #fun_Y = function(x) {
+    #  mu = abs(x)
+    #  shape <- 2
+    #  scale <- mu / shape
+    #  rgamma(n, shape = shape, scale = scale)
+    #}
     fun_Y = function(x) {
       pgamma(x, shape = 3, rate = 2) * 100 + rnorm(n, 0, 0.1)
     }
   }
   if(flavor_Y == "lognormal") { 
-    fun_Y = function(x) {
-      sigma_true <- 1
-      mu_log = x
-      logY = mu_log + rnorm(n, 0, sigma_true)
-      exp(logY)
-    }
+    #fun_Y = function(x) {
+    #  sigma_true <- 1
+    #  mu_log = x
+    #  logY = mu_log + rnorm(n, 0, sigma_true)
+    #  exp(logY)
+    #}
     fun_Y = function(x) {
       plnorm(x, 0, 1) * 100 + rnorm(n, 0 , 0.1)
     }  
