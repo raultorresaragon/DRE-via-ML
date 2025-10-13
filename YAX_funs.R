@@ -98,8 +98,13 @@ gen_Y <- function(gamma, X, A, beta_Y, flavor_Y) {
     #  scale <- mu / shape
     #  rgamma(n, shape = shape, scale = scale)
     #}
+    #fun_Y = function(x) {
+    #  pgamma(x, shape = 3, rate = 2) * 100 + rnorm(n, 0, 0.1)
+    #}
     fun_Y = function(x) {
-      pgamma(x, shape = 3, rate = 2) * 100 + rnorm(n, 0, 0.1)
+      shape <- 2
+      scale <- 3
+      (exp(shape*x) * exp(-exp(x)/scale)) / (gamma(shape) * scale^shape) * 10
     }
   }
   if(flavor_Y == "lognormal") { 
@@ -109,9 +114,12 @@ gen_Y <- function(gamma, X, A, beta_Y, flavor_Y) {
     #  logY = mu_log + rnorm(n, 0, sigma_true)
     #  exp(logY)
     #}
-    fun_Y = function(x) {
-      plnorm(x, 0, 1) * 100 + rnorm(n, 0 , 0.1)
-    }  
+    #fun_Y = function(x) {
+    #  plnorm(x, 0, 1) * 100 + rnorm(n, 0 , 0.1)
+    #}
+    fun_Y <- function(x) {
+      (1 / (exp(x) * sqrt(2 * pi))) * exp(-0.5 * x^2) * 10
+    }
   }
 
   Y <- fun_Y(xb_gamma_a)

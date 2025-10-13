@@ -27,32 +27,19 @@ gen_X <- function(p=3, rho=0.6, mu, n) {
     data.frame() |> 
     `colnames<-`(Xnames)
 }
-
 X <- gen_X(p=3, rho=rho, mu=Xmu, n=n)
 summary(X)
 
 gen_probs <- function(X, beta_A) {
   xb <-(as.matrix(cbind(1,X))%*%beta_A) 
   probs_logit <- 1/(1 + exp(-1*(xb)))
-  probs_norm <- pnorm(xb)
-  probs_gompertz <- exp(-exp(xb))
-  probs_arctan <- (atan(xb)/pi) + 0.5
   probs_tanh <- 0.5* (tanh(xb)+1)
   r <- list(probs_logit = probs_logit, 
-            probs_norm = probs_norm, 
-            probs_gompertz = probs_gompertz,
-            probs_arctan = probs_arctan,
             probs_tanh = probs_tanh,
             xb = xb)  
 }
-
-
 p <- gen_probs(X, beta_A)
-
 plot(y=p$probs_logit, x=(p$xb), col = "lightblue3", ylim=c(0,1), xlim=c(-4,4))
-points(y=p$probs_norm, x=(p$xb), col = "blue")
-points(y=p$probs_gompertz, x=(p$xb), col = "green3")
-points(y=p$probs_arctan, x=(p$xb), col = "orange2")
 points(y=p$probs_tanh, x=(p$xb), col = "darkred")
 
 jpeg("images/logit_vs_tanh.jpeg", width = 1000, height = 750)
@@ -83,52 +70,28 @@ gen_Y <- function(gamma, X, A, beta_Y, flavor_Y) {
   xb_gamma_a <- as.matrix(cbind(1,X))%*%beta_Y + gamma * A
   
   if(flavor_Y == "expo") { fun_Y = exp}
-  if(flavor_Y == "square") { fun_Y = function(x) x^2}
   if(flavor_Y == "sigmoid"){ fun_Y = function(x) 1/(1+exp(-x)) * 10}
-  if(flavor_Y == "nonlin") { fun_Y = function(x) (x^4) / (1 + abs(x)^3)}
-  if(flavor_Y == "piece") { fun_Y = function(x) ifelse(x<0, log1p(x^2), 1/(1+exp(-x)))*6}
-  if(flavor_Y == "atan") { fun_Y = function(x) 6 * (atan(x) / pi + 0.5)}
-
-  Y <- fun_Y(xb_gamma_a) + abs(rnorm(n, 0, 0.01))
+  if(flavor_Y == "gamma") { fun_Y = function(x) pgamma(x, shape = 3, rate = 2) * 10}
+  if(flavor_Y == "lognormal") { fun_Y = function(x) plnorm(x, 0, 1) * 10 }
+  Y <- fun_Y(xb_gamma_a) + rnorm(n, 0, 0.01)
   
 }
 
 A <- rbinom(n, 1, p$probs_tanh)
 xb_gamma_a <- as.matrix(cbind(1,X))%*%beta_Y + gamma * A
-Y_sq <- gen_Y(gamma = 0.6, X=X, A=A, beta_Y, "square")
 Y_expo <- gen_Y(gamma = 0.6, X=X, A=A, beta_Y, "expo")
 Y_sig <- gen_Y(gamma = 0.6, X=X, A=A, beta_Y, "sigmoid")
-Y_atan <- gen_Y(gamma = 0.6, X=X, A=A, beta_Y, "atan")
-
-
+Y_gamma <- gen_Y(gamma = 0.6, X=X, A=A, beta_Y, "gamma")
+Y_lognormal <- gen_Y(gamma = 0.6, X=X, A=A, beta_Y, "lognormal")
 plot(y=Y_expo, x=xb_gamma_a, col = "black", xlim = c(-4,6), ylim = c(0,10))
-points(y=Y_sq, x=xb_gamma_a, col = "blue4")
-points(y=Y_sig, x=xb_gamma_a, col = "red4")
-points(y=Y_atan, x=xb_gamma_a, col = "green4")
+points(y=Y_sig, x=xb_gamma_a, col = "blue4")
+points(y=Y_gamma, x=xb_gamma_a, col = "red4")
+points(y=Y_lognormal, x=xb_gamma_a, col = "green4")
 
 
-jpeg("images/expo_vs_sigmoid.jpeg", width = 1000, height = 750)
-par(mar = c(5, 6, 4, 2))
-curve(exp(x), 
-      from=-4, to=4, 
-      lwd = 6,
-      col = "skyblue3",      
-      main = "Comparison of exponential and scaled logit functions",
-      ylab = "Y",
-      xlab = expression(x[i]^T * beta + gamma * A),
-      cex.lab = 2, cex.main = 2.25, cex.axis = 1.75) 
-curve(1/(1+exp(-x)) * 10,
-      add = TRUE,
-      from=-4, to=4, 
-      lwd = 6,
-      col = "darkred",      
-      cex.lab = 2) 
-legend("topleft", legend = c("exponential", "scaled logit"), fill=c("skyblue3", "darkred"),
-       cex=2)
-dev.off()
 
-
-jpeg("images/expo_vs_sigmoid_AND_logit_vs_tanh.jpeg", width = 1000, height = 750)
+# expo vs sigmoid  AND  logit vs rest
+jpeg("images/expo_vs_sigmoid_AND_logit_vs_rest.jpeg", width = 1000, height = 750)
 par(mfrow=c(1,2))
 
 # left panel
@@ -151,9 +114,10 @@ legend("bottomright", legend = c("logit", "tanh"), fill=c("skyblue3", "darkred")
        cex=2)
 
 # right panel
+shape = 3; scale = 2
 par(mar = c(5, 6, 4, 2))
 curve(exp(x), 
-      from=-4, to=4, 
+      from=-3, to=3, 
       lwd = 6,
       col = "skyblue3",      
       main = "Outcome model",
@@ -162,11 +126,25 @@ curve(exp(x),
       cex.lab = 2, cex.main = 2.25, cex.axis = 1.75) 
 curve(1/(1+exp(-x)) * 10,
       add = TRUE,
-      from=-4, to=4, 
+      from=-3, to=3, 
       lwd = 6,
       col = "darkred",      
+      cex.lab = 2)
+curve((exp(shape*x) * exp(-exp(x)/scale)) / (gamma(shape) * scale^shape) * 10,
+      add = TRUE,
+      from=-3, to=3, 
+      lwd = 6,
+      col = "#8b0046",      
       cex.lab = 2) 
-legend("topleft", legend = c("exponential", "scaled logit"), fill=c("skyblue3", "darkred"),
+curve((1 / (exp(x) * sqrt(2 * pi))) * exp(-0.5 * x^2) * 10,
+      add = TRUE,
+      from=-3, to=3, 
+      lwd = 6,
+      col = "#8b4600",      
+      cex.lab = 2) 
+legend("topleft", 
+       legend = c("exponential", "sigmoid", "gamma", "lognormal"), 
+       fill=c("skyblue3", "darkred", "#8b0046","#8b4600"),
        cex=2)
 dev.off()
 
