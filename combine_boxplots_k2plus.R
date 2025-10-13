@@ -20,15 +20,11 @@ simk3_tanh_gamma <- read_csv("tables/simk3_tanh_gamma.csv")
 #simk5_tanh_gamma <- read_csv("tables/simk5_tanh_gamma.csv")
 
 
-flavor_ops <- c("tanh","gamma")
-mytable <- simk2_tanh_gamma
-
-
 # Function to create dataset for ggplot
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 df_boxplot <- function(mytable, m, Anames, models) {
-  mytable <- mytable |> dplyr::select(-starts_with("pval"))
+  mytable <- mytable |> dplyr::select(-contains("pval"))
   colnames(mytable) <- c("dataset","model", Anames)
   #drop_datasets <- unique(mytable$dataset[is.na(mytable$A_01)])
   #mytable <- mytable[!(mytable$dataset %in% drop_datasets), ]
@@ -75,14 +71,19 @@ df_boxplot <- function(mytable, m, Anames, models) {
 # ~~~~~~~~ #
 
 # params
-k = 2
+flavor_ops <- c("tanh","gamma")
+mytable <- simk3_tanh_gamma
+k = 3
 m <- combn(k, 2)-1
 Anames <- paste0("A_", apply(m, 2, function(x) paste(x, collapse = "")))
 models <- c("Naive","LogitExpo","NN")
 
 mytable_long <- df_boxplot(mytable, m, Anames, models)
 mytitle <- bquote(paste("True model is ", .(flavor_ops[[1]]), "-", .(flavor_ops[[2]])))
-ggplot2::ggplot(mytable_long, aes(x = model, y = diffs)) +
+
+# all pooled
+p1 <-
+  ggplot2::ggplot(mytable_long, aes(x = model, y = diffs)) +
   geom_boxplot(fill = "skyblue") + 
   #ylim(c(-0.75,0.75)) +
   theme_minimal() +
@@ -91,11 +92,41 @@ ggplot2::ggplot(mytable_long, aes(x = model, y = diffs)) +
         axis.text = element_text(size = 12)) + 
   labs(title = mytitle, y = "diff", x="") -> p1
 
+# by trt level
+plist <- list()
+i = 0
+for(A in Anames){
+  i <- i + 1
+  plist[[i]] <- 
+    ggplot2::ggplot(mytable_long[mytable_long$delta==A,], aes(x = model, y = diffs)) +
+    geom_boxplot(fill = "skyblue") + 
+    #ylim(c(-0.75,0.75)) +
+    theme_minimal() +
+    theme(plot.title = element_text(hjust = 0.5, size = 16),
+          axis.title.y = element_text(size = 12),
+          axis.text = element_text(size = 12)) + 
+    labs(title = paste0("For ", A), y = "diff", x="")
+  plist[i]
+}
+
+
+# Saving plots
 p1
+ggsave(paste0("images/simk",k,"_",flavor_ops[1],flavor_ops[2],"_boxplot_pooled.jpeg"),
+       width = 7.15, height = 4.95, dpi = 150)
+
+combined_plot <- 
+  wrap_plots(plist, ncol = k) +
+  plot_annotation(title = mytitle)
+combined_plot
 ggsave(paste0("images/simk",k,"_",flavor_ops[1],flavor_ops[2],"_boxplot.jpeg"),
        width = 7.15, height = 4.95, dpi = 150)
 
-#### combine two sets of boxplots
+
+
+
+#### DEPRECATED
+#### Combine two sets of boxplots
 ### flavor_ops <- c("tanh","sigmoid", function(x) 1/(1+exp(-x)) * 10)
 ### mytable <- simk3_tanh_sigmoid
 ### mytable_long <- df_boxplot(mytable, m, Anames, models)
@@ -116,52 +147,4 @@ ggsave(paste0("images/simk",k,"_",flavor_ops[1],flavor_ops[2],"_boxplot.jpeg"),
 ### 
 ### ggsave(paste0("images/simk",k,"_combined_side_by_side.jpeg"),
 ###        width = 7.15, height = 4.95, dpi = 150)
-
-
-# ~~~~~~~~ #
-# K=5 plot #
-# ~~~~~~~~ #
-
-# params
-k = 5
-m <- combn(k, 2)-1
-Anames <- paste0("A_", apply(m, 2, function(x) paste(x, collapse = "")))
-models <- c("Naive","LogitExpo","NN")
-flavor_ops <- c("logit","expo", exp)
-
-flavor_ops <- c("logit","expo", exp)
-mytable <- simk5_logit_expo
-mytable_long <- df_boxplot(mytable, m, Anames, models)
-mytitle <- bquote(paste("True model is ", .(flavor_ops[[1]]), "-", .(flavor_ops[[2]])))
-ggplot2::ggplot(mytable_long, aes(x = model, y = diffs)) +
-  geom_boxplot(fill = "skyblue") + 
-  ylim(c(-1,1.2)) +
-  theme_minimal() +
-  theme(plot.title = element_text(hjust = 0.5, size = 12),
-        axis.title.y = element_text(size = 12),
-        axis.text = element_text(size = 12)) + 
-  labs(title = mytitle, y = "diff", x="") -> p1
-
-flavor_ops <- c("tanh","sigmoid", function(x) 1/(1+exp(-x)) * 10)
-mytable <- simk5_tanh_sigmoid
-mytable_long <- df_boxplot(mytable, m, Anames, models)
-mytitle <- bquote(paste("True model is ", .(flavor_ops[[1]]), "-", .(flavor_ops[[2]])))
-ggplot2::ggplot(mytable_long, aes(x = model, y = diffs)) +
-  geom_boxplot(fill = "skyblue") + 
-  ylim(c(-1,1.2)) +
-  theme_minimal() +
-  theme(plot.title = element_text(hjust = 0.5, size = 12),
-        axis.title.y = element_text(size = 12),
-        axis.text = element_text(size = 12)) + 
-  labs(title = mytitle, y = "diff", x="") -> p2
-
-
-combined_side <- (p1+p2) + 
-  plot_annotation(title = bquote(paste("Errors between ", Delta, " and ", hat(Delta), " per model for k=", .(k))),
-                  theme = theme(plot.title = element_text(size=16, hjust = 0.5)))
-
-ggsave(paste0("images/simk",k,"_combined_side_by_side.jpeg"),
-       width = 7.15, height = 4.95, dpi = 150)
-
-
 
