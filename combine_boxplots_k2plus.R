@@ -3,25 +3,10 @@ library(ggplot2)
 library(patchwork)
 
 rm(list = ls())
-simk2_logit_expo <- read_csv("tables/simk2_logit_expo.csv")
-simk3_logit_expo <- read_csv("tables/simk3_logit_expo.csv")
-#simk5_logit_expo <- read_csv("tables/simk5_logit_expo.csv")
 
-simk2_tanh_sigmoid <- read_csv("tables/simk2_tanh_sigmoid.csv")
-simk3_tanh_sigmoid <- read_csv("tables/simk3_tanh_sigmoid.csv")
-#simk5_tanh_sigmoid <- read_csv("tables/simk5_tanh_sigmoid.csv")
-
-simk2_tanh_lognormal <- read_csv("tables/simk2_tanh_lognormal.csv")
-simk3_tanh_lognormal <- read_csv("tables/simk3_tanh_lognormal.csv")
-#simk5_tanh_lognormal <- read_csv("tables/simk5_tanh_lognormal.csv")
-
-simk2_tanh_gamma <- read_csv("tables/simk2_tanh_gamma.csv")
-simk3_tanh_gamma <- read_csv("tables/simk3_tanh_gamma.csv")
-#simk5_tanh_gamma <- read_csv("tables/simk5_tanh_gamma.csv")
-
-
-# Function to create dataset for ggplot
-# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
+# Function to create dataset for ggplot #
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
 
 df_boxplot <- function(mytable, m, Anames, models) {
   mytable <- mytable |> dplyr::select(-contains("pval"))
@@ -61,8 +46,6 @@ df_boxplot <- function(mytable, m, Anames, models) {
     mutate(model = factor(model, 
                           levels = c("naive","logitexpo","nn"),
                           labels = c("naive", "logistic-expo", "NN")))
-  
-  
   mytable_long
 }
 
@@ -71,10 +54,13 @@ df_boxplot <- function(mytable, m, Anames, models) {
 # ~~~~~~~~ #
 
 # params
-flavor_ops <- c("tanh","gamma")
-mytable <- simk3_tanh_gamma
-k = 3
-m <- combn(k, 2)-1
+flavor_ops <- c("logit","expo",3)
+k <- flavor_ops[3]
+mytable <- readr::read_csv(paste0("tables/simk",
+                                  flavor_ops[3],"_",
+                                  flavor_ops[1],"_",
+                                  flavor_ops[2],".csv"))
+m <- combn(as.numeric(k), 2)-1
 Anames <- paste0("A_", apply(m, 2, function(x) paste(x, collapse = "")))
 models <- c("Naive","LogitExpo","NN")
 
@@ -110,13 +96,15 @@ for(A in Anames){
 }
 
 
-# Saving plots
+# ~~~~~~~~~~~~ #
+# Saving plots #
+# ~~~~~~~~~~~~ #
 p1
 ggsave(paste0("images/simk",k,"_",flavor_ops[1],flavor_ops[2],"_boxplot_pooled.jpeg"),
        width = 7.15, height = 4.95, dpi = 150)
 
 combined_plot <- 
-  wrap_plots(plist, ncol = k) +
+  wrap_plots(plist, ncol = as.numeric(k)) +
   plot_annotation(title = mytitle)
 combined_plot
 ggsave(paste0("images/simk",k,"_",flavor_ops[1],flavor_ops[2],"_boxplot.jpeg"),
@@ -125,7 +113,39 @@ ggsave(paste0("images/simk",k,"_",flavor_ops[1],flavor_ops[2],"_boxplot.jpeg"),
 
 
 
-#### DEPRECATED
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+### simk2_logit_expo <- read_csv("tables/simk2_logit_expo.csv")
+### simk3_logit_expo <- read_csv("tables/simk3_logit_expo.csv")
+### simk5_logit_expo <- read_csv("tables/simk5_logit_expo.csv")
+### 
+### simk2_tanh_sigmoid <- read_csv("tables/simk2_tanh_sigmoid.csv")
+### simk3_tanh_sigmoid <- read_csv("tables/simk3_tanh_sigmoid.csv")
+### simk5_tanh_sigmoid <- read_csv("tables/simk5_tanh_sigmoid.csv")
+### 
+### simk2_tanh_lognormal <- read_csv("tables/simk2_tanh_lognormal.csv")
+### simk3_tanh_lognormal <- read_csv("tables/simk3_tanh_lognormal.csv")
+### simk5_tanh_lognormal <- read_csv("tables/simk5_tanh_lognormal.csv")
+### 
+### simk2_tanh_gamma <- read_csv("tables/simk2_tanh_gamma.csv")
+### simk3_tanh_gamma <- read_csv("tables/simk3_tanh_gamma.csv")
+### simk5_tanh_gamma <- read_csv("tables/simk5_tanh_gamma.csv")
+###
 #### Combine two sets of boxplots
 ### flavor_ops <- c("tanh","sigmoid", function(x) 1/(1+exp(-x)) * 10)
 ### mytable <- simk3_tanh_sigmoid

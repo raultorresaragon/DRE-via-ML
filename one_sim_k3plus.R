@@ -11,15 +11,14 @@
 # PARAMERTERS FOR DEBUGGING
 
  ### rm(list = ls())
- ### set.seed(1609)
- ### set.seed(1810)
+ ### set.seed(1609) #set.seed(1810) #set.seed(505)
  ### M <- 1
- ### k <- 2
+ ### k <- 5
  ### if(k==2){ p<-3}
  ### if(k==3){ p<-8}
  ### if(k==5){ p<-12}
  ### n <- k*200
- ### Y_flavor = "lognormal"
+ ### Y_flavor = "gamma"
  ### A_flavor = "tanh"
  ### beta_Y_scalar = 1
  ### #flavor_ops <- c("tanh","sigmoid", function(x) 1/(1+exp(-x)) * 10, 1, 1)
@@ -56,7 +55,7 @@ one_sim <- function(n, p, Xmu, beta_A, beta_Y, gamma, k,
   A <- gen_A(X=X, beta=beta_A, flavor_A=A_flavor)
   Y <- gen_Y(X=X, A=A, beta_Y=beta_Y, gamma=gamma, flavor_Y=Y_flavor)$Y
   dat <- cbind(Y,A,X) 
-  stopifnot(Y>0)
+  stopifnot(Y>=0)
   
   # plot Y
   main <- paste0("k=",k,"  flavor:", A_flavor, "-", Y_flavor, "\nN=",n, "  dim(X)=", p)

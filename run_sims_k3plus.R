@@ -15,13 +15,14 @@ par(mfrow=c(1,1))
 export_tables <- TRUE
 export_images <- TRUE
 M <- 10
-K <- c(2) #c(2,3,5)   
-pflavs <- c("l","t")
-oflavs <- c("e","s","l","g")
+K <- c(5) #c(2,3,5)   
+pflavs <- "l" #c("l","t")
+oflavs <- "e" #c("e","s","l","g")
 flavors <- #pairwise combination of flavors
   tidyr::expand_grid(pflavs, oflavs) |> 
   dplyr::mutate(l = paste0(pflavs, oflavs)) |> 
   dplyr::pull("l")  
+if(length(flavors)==8) flavors <- flavors[c(1,6,7,8)]
 
 source("YAX_funs.R")
 source("outcome_models.R")
