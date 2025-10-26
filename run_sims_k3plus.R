@@ -14,10 +14,11 @@ par(mfrow=c(1,1))
 # ---------------------------------
 export_tables <- TRUE
 export_images <- TRUE
+zero_gamma <- 0
 M <- 10
-K <- c(5) #c(2,3,5)   
-pflavs <- "l" #c("l","t")
-oflavs <- "e" #c("e","s","l","g")
+K <- c(2,3,5)   
+pflavs <- c("l","t")
+oflavs <- c("e","s","l","g")
 flavors <- #pairwise combination of flavors
   tidyr::expand_grid(pflavs, oflavs) |> 
   dplyr::mutate(l = paste0(pflavs, oflavs)) |> 
@@ -60,7 +61,7 @@ for(k in K) {
     if(flav == "tl") flavor_ops <- c("tanh", "lognormal", 1, 1)
     if(flav == "tg") flavor_ops <- c("tanh", "gamma", 1, 1)
   
-    # Iterate over number of dasets
+    # Iterate over number of datasets
     for(i in 1:M) {
       cat(paste0("\niteration ", i))
   
@@ -71,7 +72,8 @@ for(k in K) {
         matrix(rep(1,(k-1)), nrow=1) |> 
         rbind(matrix(round(runif(p*(k-1), -2, 2),1), nrow=p))
       beta_Y <- c(1, round(runif(p, -1, 1), 1)) * as.numeric(flavor_ops[[4]])
-      gamma <- c(0.6, 0.4, 0.75, 0.17)[1:(k-1)] * as.numeric(flavor_ops[[3]])
+      gamma <- c(0.6, 0.4, 0.75, 0.17)[1:(k-1)] * as.numeric(flavor_ops[[3]]) * zero_gamma
+      gamma <- c(1.1, 2.2, 3, -1.1)[1:(k-1)] * zero_gamma
   
       # estimation
       tic("")

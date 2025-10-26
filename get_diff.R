@@ -16,7 +16,7 @@ get_diff <- function(ghat_B, delta_B, ghat_A, delta_A, pi_hat, Y) {
   muhat_B <- ghat_B + (delta_B*(Y - ghat_B)/(pi_hat))/(mean(delta_B/pi_hat))
   muhat_A <- ghat_A + (delta_A*(Y - ghat_A)/(1-pi_hat))/(mean(delta_A/(1-pi_hat)))
   diff_means <- mean(muhat_B - muhat_A)
-  diff_var <- var(muhat_B - muhat_A)
+  diff_var <- var(muhat_B - muhat_A)/length(muhat_B)
   o <-list(diff_means = diff_means, 
            muhat_B = muhat_B, 
            muhat_A = muhat_A,
