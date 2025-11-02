@@ -18,8 +18,9 @@ zero_effect = FALSE
 root = paste0(getwd(),"/_", as.numeric(!zero_effect), "trt_effect/")
 M <- 10
 K <- c(2,3,5)   
-pflavs <- "l" #c("l","t")
-oflavs <- "e" #c("e","s","l","g")
+Y_param = "ols" #"expo"
+pflavs <- c("l","t")
+oflavs <- c("e","s","l","g")
 flavors <- #pairwise combination of flavors
   tidyr::expand_grid(pflavs, oflavs) |> 
   dplyr::mutate(l = paste0(pflavs, oflavs)) |> 
@@ -81,6 +82,7 @@ for(k in K) {
       r <- one_sim(n = n, p = p, Xmu = Xmu, iter = i, k = k, verbose = TRUE, 
                    A_flavor = flavor_ops[[1]], beta_A = beta_A, gamma = gamma[1:(k-1)], 
                    Y_flavor = flavor_ops[[2]], beta_Y = beta_Y,
+                   Y_param = Y_param,
                    hidunits = hidunits, eps = eps, penals = penals, 
                    export_images = export_images)
       )
@@ -128,10 +130,12 @@ for(k in K) {
         mytable$pval <- as.numeric(unname(unlist(mytable$pval)))
       }
       readr::write_csv(mytable, 
-               paste0(root,"tables/simk",k,"_",flavor_ops[[1]],"_",flavor_ops[[2]],".csv"))
+               paste0(root,"tables/logit_",Y_param,
+                      "/simk",k,"_",flavor_ops[[1]],"_",flavor_ops[[2]],".csv"))
       
       readr::write_csv(otr_table, 
-               paste0(root,"tables/OTR_simk",k,"_",flavor_ops[[1]],"_",flavor_ops[[2]],".csv"))
+               paste0(root,"tables/logit_",Y_param,
+                      "/OTR_simk",k,"_",flavor_ops[[1]],"_",flavor_ops[[2]],".csv"))
       
       #Generate LaTeX for a table: 
       cat("\n\n")

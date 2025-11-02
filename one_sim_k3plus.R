@@ -70,16 +70,16 @@ one_sim <- function(n, p, Xmu, beta_A, beta_Y, gamma, k,
   par(mfrow=c(1,1))
   jpeg(paste0(root,"images/genYplots/genY_", k, A_flavor, Y_flavor, "_dset", iter, ".jpeg"), 
        width = 1000, height = 510)
-      par(mfrow=c(1,2)) 
-      plot(Y~xb_Y, main=main, cex.main=2, col=as.factor(A))
-      legend("topright", legend = paste0("A=", 0:(k-1)), col=mycols[1:k], pch=1)
-      i=0
-      plot(sort(Y[A==i]), main="sorted", cex.main=2, col=mycols[i+1], 
-           ylim=c(min(Y), max(Y)), xlim=c(0, n))
-      for(i in 0:(k-1)){
-        points(sort(Y[A==i]), main=main, cex.main=2, col=mycols[i+1])
-      }
-      legend("topright", legend = paste0("A=", 0:(k-1)), col=mycols[1:k], pch=1)
+      #par(mfrow=c(1,2)) 
+       plot(Y~xb_Y, main=main, cex.main=2, col=as.factor(A))
+       legend("topright", legend = paste0("A=", 0:(k-1)), col=mycols[1:k], pch=1)
+      #i=0
+      #plot(sort(Y[A==i]), main="sorted", cex.main=2, col=mycols[i+1], 
+      #     ylim=c(min(Y), max(Y)), xlim=c(0, n))
+      #for(i in 0:(k-1)){
+      #  points(sort(Y[A==i]), main=main, cex.main=2, col=mycols[i+1])
+      #}
+      #legend("topright", legend = paste0("A=", 0:(k-1)), col=mycols[1:k], pch=1)
   dev.off()
   par(mfrow=c(1,1))
   
