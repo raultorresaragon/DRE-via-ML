@@ -14,11 +14,12 @@ par(mfrow=c(1,1))
 # ---------------------------------
 export_tables <- TRUE
 export_images <- TRUE
-zero_gamma <- 0
+zero_effect = FALSE
+root = paste0(getwd(),"/_", as.numeric(zero_effect), "trt_effects/")
 M <- 10
 K <- c(2,3,5)   
-pflavs <- c("l","t")
-oflavs <- c("e","s","l","g")
+pflavs <- "l" #c("l","t")
+oflavs <- "e" #c("e","s","l","g")
 flavors <- #pairwise combination of flavors
   tidyr::expand_grid(pflavs, oflavs) |> 
   dplyr::mutate(l = paste0(pflavs, oflavs)) |> 
@@ -51,12 +52,12 @@ for(k in K) {
   for(flav in flavors) {
   
     # Iterate over DGP flavor
-    if(flav == "le") flavor_ops <- c("logit","expo", 3, 0.5) 
+    if(flav == "le") flavor_ops <- c("logit","expo", 1, 0.5) 
     if(flav == "ls") flavor_ops <- c("logit","sigmoid", 1, 1) 
     if(flav == "ll") flavor_ops <- c("logit","lognormal", 1, 1)
     if(flav == "lg") flavor_ops <- c("logit","gamma", 1, 1)
     
-    if(flav == "te") flavor_ops <- c("tanh", "expo", 3, 0.5)
+    if(flav == "te") flavor_ops <- c("tanh", "expo", 1, 0.5)
     if(flav == "ts") flavor_ops <- c("tanh", "sigmoid", 1, 1)
     if(flav == "tl") flavor_ops <- c("tanh", "lognormal", 1, 1)
     if(flav == "tg") flavor_ops <- c("tanh", "gamma", 1, 1)
@@ -72,9 +73,8 @@ for(k in K) {
         matrix(rep(1,(k-1)), nrow=1) |> 
         rbind(matrix(round(runif(p*(k-1), -2, 2),1), nrow=p))
       beta_Y <- c(1, round(runif(p, -1, 1), 1)) * as.numeric(flavor_ops[[4]])
-      gamma <- c(0.6, 0.4, 0.75, 0.17)[1:(k-1)] * as.numeric(flavor_ops[[3]]) * zero_gamma
-      gamma <- c(1.1, 2.2, 3, -1.1)[1:(k-1)] * zero_gamma
-  
+      gamma <- c(0.6, 0.4, 0.75, 0.17)[1:(k-1)] * as.numeric(!zero_effect)
+
       # estimation
       tic("")
       suppressWarnings(
@@ -128,10 +128,10 @@ for(k in K) {
         mytable$pval <- as.numeric(unname(unlist(mytable$pval)))
       }
       readr::write_csv(mytable, 
-                     paste0("tables/simk",k,"_",flavor_ops[[1]],"_",flavor_ops[[2]],".csv"))
+               paste0(root,"tables/simk",k,"_",flavor_ops[[1]],"_",flavor_ops[[2]],".csv"))
       
       readr::write_csv(otr_table, 
-                     paste0("tables/OTR_simk",k,"_",flavor_ops[[1]],"_",flavor_ops[[2]],".csv"))
+               paste0(root,"tables/OTR_simk",k,"_",flavor_ops[[1]],"_",flavor_ops[[2]],".csv"))
       
       #Generate LaTeX for a table: 
       cat("\n\n")
