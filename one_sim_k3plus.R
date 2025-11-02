@@ -14,7 +14,7 @@
     set.seed(1609) #set.seed(1810) #set.seed(505)
     M <- 1
     k <- 3
-    zero_effect = TRUE
+    zero_effect = FALSE
     if(k==2){ p<-3}
     if(k==3){ p<-8}
     if(k==5){ p<-12}
@@ -42,7 +42,7 @@
     source("Y_Yhat_sorted_plots.R")
     verbose=FALSE
     export_images = FALSE
-    root = paste0(getwd(),"/_", as.numeric(zero_effect), "trt_effects/")
+    root = paste0(getwd(),"/_", as.numeric(!zero_effect), "trt_effect/")
 
 # ---------------------------
 

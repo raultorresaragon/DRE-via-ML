@@ -15,7 +15,7 @@ par(mfrow=c(1,1))
 export_tables <- TRUE
 export_images <- TRUE
 zero_effect = FALSE
-root = paste0(getwd(),"/_", as.numeric(zero_effect), "trt_effects/")
+root = paste0(getwd(),"/_", as.numeric(!zero_effect), "trt_effect/")
 M <- 10
 K <- c(2,3,5)   
 pflavs <- "l" #c("l","t")
