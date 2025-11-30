@@ -10,11 +10,11 @@
 
 # TABLE
 mytable <- 
-  readr::read_csv("tables/simk5_tanh_gamma.csv") |>
+  readr::read_csv("_0trt_effect/tables/simk3_logit_expo.csv") |>
   dplyr::select(!ends_with("pval"))
   
 myOTR <- 
-  readr::read_csv("tables/OTR_simk5_tanh_gamma.csv")
+  readr::read_csv("_0trt_effect/tables/OTR_simk2_logit_expo.csv")
   #View(myOTR)
 
 print(xtable::xtable(mytable, include.rownames = FALSE))

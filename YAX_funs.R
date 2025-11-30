@@ -86,10 +86,10 @@ gen_Y <- function(gamma, X, A, beta_Y, flavor_Y) {
   xb_gamma_a <- as.matrix(cbind(1,X))%*%beta_Y + (A_mat %*% gamma)
   
   if(flavor_Y == "expo") { 
-    fun_Y = function(x) exp(x) + rnorm(n, 0, 0.1)
+    fun_Y = function(x) exp(x) + rnorm(n, 0, 0.5)
   }
   if(flavor_Y == "sigmoid"){ 
-    fun_Y = function(x) 1/(1+exp(-x)) * 10 + rnorm(n, 0, 0.1)
+    fun_Y = function(x) 1/(1+exp(-x)) * 10 + rnorm(n, 0, 0.5)
   }
   if(flavor_Y == "gamma") { 
     #fun_Y = function(x) {
@@ -104,7 +104,7 @@ gen_Y <- function(gamma, X, A, beta_Y, flavor_Y) {
     fun_Y = function(x) {
       shape <- 2
       scale <- 3
-      (exp(shape*x) * exp(-exp(x)/scale)) / (gamma(shape) * scale^shape) * 10
+      (exp(shape*x) * exp(-exp(x)/scale)) / (gamma(shape) * scale^shape) * 10 + rnorm(n, 0, 0.5) + 0.1
     }
   }
   if(flavor_Y == "lognormal") { 
@@ -118,13 +118,15 @@ gen_Y <- function(gamma, X, A, beta_Y, flavor_Y) {
     #  plnorm(x, 0, 1) * 100 + rnorm(n, 0 , 0.1)
     #}
     fun_Y <- function(x) {
-      (1 / (exp(x) * sqrt(2 * pi))) * exp(-0.5 * x^2) * 10
+      (1 / (exp(x) * sqrt(2 * pi))) * exp(-0.5 * x^2) * 10 + rnorm(n, 0, 0.5)
     }
   }
 
   Y <- fun_Y(xb_gamma_a)
   Y[Y<=0] <- abs(Y[Y<=0])
-  threshold <- qexp(0.999, rate = 1/mean(Y))  # 99.5th percentile cutoff
-  Y[Y>threshold] <- threshold
+  if(flavor_Y == "expo") {
+    threshold <- qexp(0.9995, rate = 1/mean(Y)) #percentile cutoff for expo
+    Y[Y>threshold] <- threshold
+  }
   list(Y=Y, fun_Y = fun_Y)
 }

@@ -15,10 +15,10 @@ par(mfrow=c(1,1))
 export_tables <- TRUE
 export_images <- TRUE
 zero_effect = FALSE
+Y_param = "ols" #"expo"
 root = paste0(getwd(),"/_", as.numeric(!zero_effect), "trt_effect/")
 M <- 10
-K <- c(2,3,5)   
-Y_param = "ols" #"expo"
+K <- 5   
 pflavs <- c("l","t")
 oflavs <- c("e","s","l","g")
 flavors <- #pairwise combination of flavors
@@ -56,12 +56,12 @@ for(k in K) {
     if(flav == "le") flavor_ops <- c("logit","expo", 1, 0.5) 
     if(flav == "ls") flavor_ops <- c("logit","sigmoid", 1, 1) 
     if(flav == "ll") flavor_ops <- c("logit","lognormal", 1, 1)
-    if(flav == "lg") flavor_ops <- c("logit","gamma", 1, 1)
+    if(flav == "lg") flavor_ops <- c("logit","gamma", 1, 0.5)
     
     if(flav == "te") flavor_ops <- c("tanh", "expo", 1, 0.5)
     if(flav == "ts") flavor_ops <- c("tanh", "sigmoid", 1, 1)
     if(flav == "tl") flavor_ops <- c("tanh", "lognormal", 1, 1)
-    if(flav == "tg") flavor_ops <- c("tanh", "gamma", 1, 1)
+    if(flav == "tg") flavor_ops <- c("tanh", "gamma", 1, 0.5)
   
     # Iterate over number of datasets
     for(i in 1:M) {
@@ -130,18 +130,18 @@ for(k in K) {
         mytable$pval <- as.numeric(unname(unlist(mytable$pval)))
       }
       readr::write_csv(mytable, 
-               paste0(root,"tables/logit_",Y_param,
-                      "/simk",k,"_",flavor_ops[[1]],"_",flavor_ops[[2]],".csv"))
+             paste0(root,"tables",
+             "/simk",k,"_",flavor_ops[[1]],"_",flavor_ops[[2]],"_est_with_",Y_param,".csv"))
       
       readr::write_csv(otr_table, 
-               paste0(root,"tables/logit_",Y_param,
-                      "/OTR_simk",k,"_",flavor_ops[[1]],"_",flavor_ops[[2]],".csv"))
+             paste0(root,"tables/",
+             "/OTR_simk",k,"_",flavor_ops[[1]],"_",flavor_ops[[2]],"_est_with_",Y_param,".csv"))
       
       #Generate LaTeX for a table: 
-      cat("\n\n")
-      print("LaTeX code")
-      print(paste0("Estimates table for k=",k, "_", flavor_ops[[1]],"_",flavor_ops[[2]]))
-      print(xtable::xtable(mytable, include.rownames = FALSE))
+      #cat("\n\n")
+      #print("LaTeX code")
+      #print(paste0("Estimates table for k=",k, "_", flavor_ops[[1]],"_",flavor_ops[[2]]))
+      #print(xtable::xtable(mytable, include.rownames = FALSE))
       ##cat("\n\n")
       ##print(paste0("OTR table for k=",k, "_", flavor_ops[[1]],"_",flavor_ops[[2]]))
       ##print(xtable::xtable(otr_table, include.rownames = FALSE))

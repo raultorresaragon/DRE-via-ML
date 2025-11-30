@@ -9,9 +9,9 @@
 plot_predicted_A_Y <-function(beta_A, beta_Y, dat, 
                               fit_Y_nn, fit_Y_expo, gamma, 
                               fit_A_nn, fit_A_logit, A_flavor, Y_flavor, ds, k, save=TRUE, 
-                              blue = TRUE){
+                              blue = TRUE, root){
   if(save==TRUE){
-    jpeg(paste0("images/YYhat_sorted/YYhat_sorted_k", 
+    jpeg(paste0(root,"images/YYhat_sorted/YYhat_sorted_k", 
          k, A_flavor, Y_flavor, "_dset", ds, ".jpeg"), width = 1000, height = 510)
   }
   
