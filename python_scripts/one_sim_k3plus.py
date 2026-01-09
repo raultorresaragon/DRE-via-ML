@@ -1,7 +1,7 @@
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Author: Raul
 # File name: one_sim_k3plus.py
-# Date: 2025-01-08
+# Date: 2026-01-08
 # Note: This script creates a function
 #       to run one iteration of k3 plus sims
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -29,25 +29,25 @@ def one_sim(n, p, Xmu, beta_A, beta_Y, gamma, k,
     """
     Run one simulation iteration for k>=3 treatments
     
-    Parameters:
-    - n: sample size
-    - p: number of covariates
-    - Xmu: mean vector for X
-    - beta_A: treatment model coefficients
-    - beta_Y: outcome model coefficients
-    - gamma: treatment effects
-    - k: number of treatment levels
-    - A_flavor: treatment model type ("logit" or "tanh")
-    - Y_flavor: outcome model type ("expo", "sigmoid", "gamma", "lognormal")
-    - Y_param: parametric model type ("ols" or "expo")
-    - hidunits: hidden units for NN
-    - eps: epochs for NN
-    - penals: regularization parameters
-    - verbose: print details
-    - iter: iteration number
-    - export_images: save plots
-    - root: root directory
-    - rho: correlation parameter for X
+    # Parameters:
+    n = sample size
+    p = number of covariates
+    Xmu = mean vector for X
+    beta_A = treatment model coefficients
+    beta_Y = outcome model coefficients
+    gamma = treatment effects
+    k = number of treatment levels
+    A_flavor = treatment model type ("logit" or "tanh")
+    Y_flavor = outcome model type ("expo", "sigmoid", "gamma", "lognormal")
+    Y_param = parametric model type ("ols" or "expo")
+    hidunits = hidden units for NN
+    eps = epochs for NN
+    penals = regularization parameters
+    verbose = print details
+    iter = iteration number
+    export_images = save plots
+    root = root directory
+    rho = correlation parameter for X
     
     Returns:
     - Dictionary with results
