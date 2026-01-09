@@ -23,12 +23,12 @@ export_tables = True
 export_images = True
 zero_effect = False
 Y_param = "ols"  # "expo"
-root = f"./_{'1' if not zero_effect else '0'}_trt_effect/"
+root = f"./_{'1' if not zero_effect else '0'}trt_effect/"
 
 M = 10  # Number of simulations
-K = [5]  # Treatment levels to test
-pflavs = ["l", "t"]  # Propensity model flavors: logit, tanh
-oflavs = ["e", "s", "l", "g"]  # Outcome model flavors: expo, sigmoid, lognormal, gamma
+K = [2] #[2,3,5]  # Treatment levels to test
+pflavs = "l" #["l", "t"]  # Propensity model flavors: logit, tanh
+oflavs = "l"  #["e", "s", "l", "g"]  # Outcome model flavors: expo, sigmoid, lognormal, gamma
 
 # Create flavor combinations
 flavors = [p + o for p, o in product(pflavs, oflavs)]
@@ -38,6 +38,7 @@ if len(flavors) == 8:
 print(f"Testing flavors: {flavors}")
 
 # Create output directories
+os.makedirs(f"{root}/datasets", exist_ok=True)
 os.makedirs(f"{root}/tables", exist_ok=True)
 os.makedirs(f"{root}/images", exist_ok=True)
 
@@ -49,8 +50,6 @@ for k in K:
         p = 8
     elif k == 5:
         p = 12
-    else:
-        p = 8
     
     n = k * 300
     eps = [120, 180]

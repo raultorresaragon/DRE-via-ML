@@ -44,7 +44,7 @@ beta_Y = np.concatenate([
         ]) * 1
 gamma = np.array([0.6, 0.4, 0.75, 0.17])[:(k-1)] * (1 if not zero_effect else 0)
 A_flavor = "logit" #"logit" "tanh")
-Y_flavor = "lognormal" #"expo", "sigmoid", "gamma", "lognormal"
+Y_flavor = "sigmoid" #"expo", "sigmoid", "gamma", "lognormal"
 Y_param = "ols"
 hidunits = [5, 20]
 eps = [100, 250]
@@ -135,7 +135,7 @@ print(f"Y model time: {time.time() - start_time:.2f}s")
     
 # Plot predictions
 plot_predicted_A_Y(beta_A, beta_Y, dat, fit_Y_nn, fit_Y_param, gamma,
-                   fit_A_nn, fit_A_logit, A_flavor, Y_flavor, iter, k,
+                   fit_A_nn, fit_A_logit, A_flavor, Y_flavor, iter, k, expo_or_ols=Y_param,
                    save=export_images, root=root)
     
 # Extract results
