@@ -1,0 +1,164 @@
+# --------------------------------------------
+# Author: Raul
+# Date: 2025-01-08
+# Script: outcome_models.py
+# Note: This script fits models for estimating 
+#       outcome Y
+# --------------------------------------------
+
+import numpy as np
+import pandas as pd
+from sklearn.linear_model import LinearRegression
+from sklearn.ensemble import RandomForestRegressor
+from itertools import combinations
+from Y_nn_tuning import Y_model_nn
+from get_diff import get_diff
+
+def estimate_Y_ols(dat, pscores_df, k):
+    """
+    Estimate outcome models using OLS regression
+    
+    Parameters:
+    - dat: full dataset
+    - pscores_df: propensity scores DataFrame
+    - k: number of treatment levels
+    
+    Returns:
+    - Dictionary of results for each treatment comparison
+    """
+    Y = dat['Y'].values
+    
+    # Compute pairwise comparisons
+    m = list(combinations(range(k), 2))
+    
+    def get_d_ij(comparison):
+        j, i = comparison  # j < i
+        
+        # Get propensity scores for treatment i
+        pi_hat_i = pscores_df.iloc[:, i].values if k > 2 else pscores_df.iloc[:, 0].values
+        
+        # Create binary treatment indicator
+        A_binary = np.where(dat['A'] == i, 1, 
+                           np.where(dat['A'] == j, 0, 99))
+        
+        delta_i = (A_binary == 1).astype(int)
+        delta_j = (A_binary == 0).astype(int)
+        
+        # Fit outcome models
+        # Model for treatment i
+        dat_i = dat[A_binary == 1].drop('A', axis=1)
+        g_i = LinearRegression()
+        g_i.fit(dat_i.drop('Y', axis=1), dat_i['Y'])
+        ghat_i = g_i.predict(dat.drop(['Y', 'A'], axis=1))
+        
+        # Model for treatment j
+        dat_j = dat[A_binary == 0].drop('A', axis=1)
+        g_j = LinearRegression()
+        g_j.fit(dat_j.drop('Y', axis=1), dat_j['Y'])
+        ghat_j = g_j.predict(dat.drop(['Y', 'A'], axis=1))
+        
+        # Compute difference
+        d_ij = get_diff(ghat_i, delta_i, ghat_j, delta_j, pi_hat_i, Y)
+        
+        print(f"  logit-ols est diff means [a={j} vs. a={i}]={d_ij['diff_means']:.3f}")
+        
+        # Rename results
+        result_names = {
+            'diff_means': f'diff_means_{j}{i}',
+            'muhat_B': f'muhat_{i}',
+            'muhat_A': f'muhat_{j}',
+            'diff_var': f'diff_var_{j}{i}',
+            'pval': f'pval_{j}{i}'
+        }
+        
+        renamed_result = {result_names[k]: v for k, v in d_ij.items()}
+        
+        return [renamed_result, g_i, g_j, ghat_j, ghat_i]
+    
+    # Apply to all comparisons
+    results = {}
+    for comp in m:
+        j, i = comp
+        results[f'A_{j}{i}'] = get_d_ij(comp)
+    
+    return results
+
+def estimate_Y_expo(dat, pscores_df, k, link="identity"):
+    """
+    Estimate outcome models using exponential family regression
+    Note: Using OLS with identity link as sklearn doesn't have exponential family GLMs
+    """
+    return estimate_Y_ols(dat, pscores_df, k)
+
+def estimate_Y_nn(dat, pscores_df, hidunits, eps, penals, k, verbose=False):
+    """
+    Estimate outcome models using neural networks
+    
+    Parameters:
+    - dat: full dataset
+    - pscores_df: propensity scores DataFrame
+    - hidunits: hidden units for NN
+    - eps: epochs for NN
+    - penals: regularization parameters
+    - k: number of treatment levels
+    - verbose: print details
+    
+    Returns:
+    - Dictionary of results for each treatment comparison
+    """
+    Y = dat['Y'].values
+    
+    # Compute pairwise comparisons
+    m = list(combinations(range(k), 2))
+    
+    def get_d_ij(comparison):
+        j, i = comparison  # j < i
+        
+        # Get propensity scores for treatment i
+        pi_hat_i = pscores_df.iloc[:, i].values if k > 2 else pscores_df.iloc[:, 0].values
+        
+        # Create binary treatment indicator
+        A_binary = np.where(dat['A'] == i, 1, 
+                           np.where(dat['A'] == j, 0, 99))
+        
+        delta_i = (A_binary == 1).astype(int)
+        delta_j = (A_binary == 0).astype(int)
+        
+        # Fit neural network models
+        # Model for treatment i
+        dat_i = dat[A_binary == 1].drop('A', axis=1)
+        g_i = Y_model_nn(dat=dat_i, hidunits=hidunits, eps=eps, 
+                        penals=penals, verbose=verbose)
+        ghat_i = g_i.predict(dat.drop(['Y', 'A'], axis=1))
+        
+        # Model for treatment j
+        dat_j = dat[A_binary == 0].drop('A', axis=1)
+        g_j = Y_model_nn(dat=dat_j, hidunits=hidunits, eps=eps, 
+                        penals=penals, verbose=verbose)
+        ghat_j = g_j.predict(dat.drop(['Y', 'A'], axis=1))
+        
+        # Compute difference
+        d_ij = get_diff(ghat_i, delta_i, ghat_j, delta_j, pi_hat_i, Y)
+        
+        print(f"  NN est diff means [a={j} vs. a={i}]={d_ij['diff_means']:.3f}")
+        
+        # Rename results
+        result_names = {
+            'diff_means': f'diff_means_{j}{i}',
+            'muhat_B': f'muhat_{i}',
+            'muhat_A': f'muhat_{j}',
+            'diff_var': f'diff_var_{j}{i}',
+            'pval': f'pval_{j}{i}'
+        }
+        
+        renamed_result = {result_names[k]: v for k, v in d_ij.items()}
+        
+        return [renamed_result, g_i, g_j, ghat_j, ghat_i]
+    
+    # Apply to all comparisons
+    results = {}
+    for comp in m:
+        j, i = comp
+        results[f'A_{j}{i}'] = get_d_ij(comp)
+    
+    return results

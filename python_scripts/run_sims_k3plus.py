@@ -1,0 +1,185 @@
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# Author: Raul
+# File name: run_sims_k3plus.py
+# Date: 2025-01-08
+# Note: This script runs M simulations of
+#       k=3+ treatment regime with DRE via NN
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+import numpy as np
+import pandas as pd
+import time
+import os
+from itertools import product
+
+# Import custom functions
+from one_sim_k3plus import one_sim
+
+# Set random seed
+np.random.seed(1857)
+
+# Set parameters
+export_tables = True
+export_images = True
+zero_effect = False
+Y_param = "ols"  # "expo"
+root = f"./_{'1' if not zero_effect else '0'}_trt_effect/"
+
+M = 10  # Number of simulations
+K = [5]  # Treatment levels to test
+pflavs = ["l", "t"]  # Propensity model flavors: logit, tanh
+oflavs = ["e", "s", "l", "g"]  # Outcome model flavors: expo, sigmoid, lognormal, gamma
+
+# Create flavor combinations
+flavors = [p + o for p, o in product(pflavs, oflavs)]
+if len(flavors) == 8:
+    flavors = [flavors[i] for i in [0, 5, 6, 7]]  # Select subset
+
+print(f"Testing flavors: {flavors}")
+
+# Create output directories
+os.makedirs(f"{root}/tables", exist_ok=True)
+os.makedirs(f"{root}/images", exist_ok=True)
+
+for k in K:
+    # Set parameters based on k
+    if k == 2:
+        p = 3
+    elif k == 3:
+        p = 8
+    elif k == 5:
+        p = 12
+    else:
+        p = 8
+    
+    n = k * 300
+    eps = [120, 180]
+    penals = [0.001, 0.005]
+    hidunits = [2, 8]
+    
+    print(f"\n{'='*50}")
+    print(f"Running simulations for k={k}, n={n}, p={p}")
+    print(f"{'='*50}")
+    
+    # Run simulations for each flavor
+    for flav in flavors:
+        print(f"\nProcessing flavor: {flav}")
+        
+        # Set flavor options
+        if flav == "le":
+            flavor_ops = ["logit", "expo", 1, 0.5]
+        elif flav == "ls":
+            flavor_ops = ["logit", "sigmoid", 1, 1]
+        elif flav == "ll":
+            flavor_ops = ["logit", "lognormal", 1, 1]
+        elif flav == "lg":
+            flavor_ops = ["logit", "gamma", 1, 0.5]
+        elif flav == "te":
+            flavor_ops = ["tanh", "expo", 1, 0.5]
+        elif flav == "ts":
+            flavor_ops = ["tanh", "sigmoid", 1, 1]
+        elif flav == "tl":
+            flavor_ops = ["tanh", "lognormal", 1, 1]
+        elif flav == "tg":
+            flavor_ops = ["tanh", "gamma", 1, 0.5]
+        
+        A_flavor, Y_flavor = flavor_ops[0], flavor_ops[1]
+        beta_Y_scalar = flavor_ops[3]
+        
+        print(f"A_flavor: {A_flavor}, Y_flavor: {Y_flavor}")
+        
+        # Initialize results storage
+        mytable = None
+        otr_table = None
+        
+        total_start_time = time.time()
+        
+        # Run M iterations
+        for i in range(1, M + 1):
+            print(f"\nIteration {i}/{M}")
+            
+            # Generate random parameters for this iteration
+            rho = round(np.random.uniform(0.4, 0.6), 1)
+            Xmu = np.round(np.random.uniform(-1, 1, p), 1)
+            
+            # Treatment model coefficients
+            beta_A = np.vstack([
+                np.ones((1, k-1)),
+                np.round(np.random.uniform(-2, 2, (p, k-1)), 1)
+            ])
+            
+            # Outcome model coefficients
+            beta_Y = np.concatenate([
+                [1], 
+                np.round(np.random.uniform(-1, 1, p), 1)
+            ]) * beta_Y_scalar
+            
+            # Treatment effects
+            gamma = np.array([0.6, 0.4, 0.75, 0.17])[:(k-1)] * (1 if not zero_effect else 0)
+            
+            # Run simulation
+            iter_start_time = time.time()
+            
+            try:
+                r = one_sim(
+                    n=n, p=p, Xmu=Xmu, iter=i, k=k, verbose=True,
+                    A_flavor=A_flavor, beta_A=beta_A, gamma=gamma,
+                    Y_flavor=Y_flavor, beta_Y=beta_Y,
+                    Y_param=Y_param,
+                    hidunits=hidunits, eps=eps, penals=penals,
+                    export_images=export_images, root=root, rho=rho
+                )
+                
+                iter_time = time.time() - iter_start_time
+                print(f"  ...run time: {iter_time/60:.2f} mins")
+                
+                # Store results
+                print("Results:")
+                print(r['Vn_df'])
+                
+                if mytable is None:
+                    mytable = r['my_k_row'].copy()
+                    otr_table = pd.concat([r['Xnew_Vn'], r['Vn_df']], axis=1)
+                else:
+                    mytable = pd.concat([mytable, r['my_k_row']], ignore_index=True)
+                    new_otr = pd.concat([r['Xnew_Vn'], r['Vn_df']], axis=1)
+                    otr_table = pd.concat([otr_table, new_otr], ignore_index=True)
+                
+                # Clean up OTR table columns
+                otr_cols = ['dataset', 'OTR'] + [col for col in otr_table.columns 
+                                               if col.startswith('X') or col.startswith('V_')]
+                otr_table = otr_table[[col for col in otr_cols if col in otr_table.columns]]
+                
+            except Exception as e:
+                print(f"Error in iteration {i}: {str(e)}")
+                continue
+        
+        total_time = time.time() - total_start_time
+        print(f"\nTotal run time: {total_time/60:.2f} mins")
+        
+        if mytable is not None:
+            print(f"\nResults for k={k}_{A_flavor}_{Y_flavor}")
+            print(mytable)
+            
+            # Export results
+            if export_tables:
+                # Convert numeric columns
+                numeric_cols = [col for col in mytable.columns 
+                              if col not in ['dataset', 'estimate']]
+                for col in numeric_cols:
+                    mytable[col] = pd.to_numeric(mytable[col], errors='coerce')
+                
+                # Save tables
+                mytable.to_csv(
+                    f"{root}/tables/simk{k}_{A_flavor}_{Y_flavor}_est_with_{Y_param}.csv",
+                    index=False
+                )
+                
+                otr_table.to_csv(
+                    f"{root}/tables/OTR_simk{k}_{A_flavor}_{Y_flavor}_est_with_{Y_param}.csv",
+                    index=False
+                )
+                
+                print(f"Tables saved for k={k}_{A_flavor}_{Y_flavor}")
+
+print("\nAll simulations completed!")
