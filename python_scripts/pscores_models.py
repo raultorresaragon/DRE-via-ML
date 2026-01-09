@@ -1,9 +1,9 @@
 # --------------------------------------------
 # Author: Raul
-# Date: 2025-01-08
+# Date: 2026-01-08
 # Script: pscores_models.py
 # Note: This script fits models for estimating 
-#       propensity score for k>2
+#       propensity score using NN and logistic/multinomial
 # --------------------------------------------
 
 import numpy as np
@@ -76,8 +76,8 @@ def estimate_A_logit(X, dat, k, verbose=False):
     if k == 2:
         H_logit = LogisticRegression(random_state=42, max_iter=1000)
     else:
-        H_logit = LogisticRegression(random_state=42, max_iter=1000, 
-                                   multi_class='multinomial', solver='lbfgs')
+        H_logit = LogisticRegression(random_state=42, max_iter=1000)#, 
+                                    # multi_class='multinomial', solver='lbfgs') it automatically scales to multiclass
     
     H_logit.fit(X_pred, y)
     

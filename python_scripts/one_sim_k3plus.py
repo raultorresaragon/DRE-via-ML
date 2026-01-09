@@ -133,7 +133,7 @@ def one_sim(n, p, Xmu, beta_A, beta_Y, gamma, k,
     
     # Plot predictions
     plot_predicted_A_Y(beta_A, beta_Y, dat, fit_Y_nn, fit_Y_param, gamma,
-                      fit_A_nn, fit_A_logit, A_flavor, Y_flavor, iter, k,
+                      fit_A_nn, fit_A_logit, A_flavor, Y_flavor, iter, k, expo_or_ols=Y_param,
                       save=export_images, root=root)
     
     # Extract results
