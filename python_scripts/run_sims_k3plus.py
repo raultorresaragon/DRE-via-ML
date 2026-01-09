@@ -27,8 +27,8 @@ root = f"./_{'1' if not zero_effect else '0'}trt_effect/"
 
 M = 10  # Number of simulations
 K = [2] #[2,3,5]  # Treatment levels to test
-pflavs = "l" #["l", "t"]  # Propensity model flavors: logit, tanh
-oflavs = "l"  #["e", "s", "l", "g"]  # Outcome model flavors: expo, sigmoid, lognormal, gamma
+pflavs = ["l", "t"]  # Propensity model flavors: logit, tanh
+oflavs = ["e", "s", "l", "g"]  # Outcome model flavors: expo, sigmoid, lognormal, gamma
 
 # Create flavor combinations
 flavors = [p + o for p, o in product(pflavs, oflavs)]

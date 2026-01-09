@@ -43,7 +43,7 @@ beta_Y = np.concatenate([
             np.round(np.random.uniform(-1, 1, p), 1)
         ]) * 1
 gamma = np.array([0.6, 0.4, 0.75, 0.17])[:(k-1)] * (1 if not zero_effect else 0)
-A_flavor = "logit" #"logit" "tanh")
+A_flavor = "tanh" #"logit" "tanh")
 Y_flavor = "sigmoid" #"expo", "sigmoid", "gamma", "lognormal"
 Y_param = "ols"
 hidunits = [5, 20]

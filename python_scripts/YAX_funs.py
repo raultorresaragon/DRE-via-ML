@@ -75,19 +75,19 @@ def gen_A(X, beta_A, flavor_A="logit", k=None):
         
     elif flavor_A == "tanh":
         raw_scores = 0.5 * (np.tanh(xb) + 1)
-        
-        # Add dummy columns for k<=3 compatibility
-        if raw_scores.shape[1] < 2:
-            raw_scores = np.column_stack([raw_scores, np.zeros((n, 2))])
-        
-        probs = np.zeros((n, raw_scores.shape[1] + 1))
-        
-        for i in range(raw_scores.shape[1]):
-            other_classes = np.sum(raw_scores[:, [j for j in range(raw_scores.shape[1]) if j != i]], axis=1)
-            probs[:, i] = raw_scores[:, i] / (1 + other_classes)
-        
-        # Last class probability
-        probs[:, -1] = 1 - np.sum(probs[:, :-1], axis=1)
+    
+        if k == 2:
+        # Binary case: only need 2 classes
+            prob_1 = raw_scores[:, 0]
+            prob_0 = 1 - prob_1
+            probs = np.column_stack([prob_0, prob_1])
+        else:
+        # Multi-class case
+            probs = np.zeros((n, k))
+            for i in range(min(raw_scores.shape[1], k-1)):
+                other_classes = np.sum(raw_scores[:, [j for j in range(raw_scores.shape[1]) if j != i]], axis=1)
+                probs[:, i] = raw_scores[:, i] / (1 + other_classes)
+            probs[:, -1] = 1 - np.sum(probs[:, :-1], axis=1)
     
     # Sample treatment assignments
     if probs.shape[1] > 2:  # Multi-class
@@ -96,6 +96,8 @@ def gen_A(X, beta_A, flavor_A="logit", k=None):
         A = np.random.binomial(1, probs[:, 1])
     
     return A
+
+
 
 # ------------
 # Generate Y 
