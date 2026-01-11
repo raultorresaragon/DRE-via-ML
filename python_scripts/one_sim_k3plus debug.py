@@ -24,7 +24,7 @@ from Y_Yhat_sorted_plots import plot_predicted_A_Y
 # Run one simulation iteration for k>=3 treatments
 # Parameters:
 zero_effect = False
-k = 2
+k = 3
 n = 300 * k
 if k == 2:
     p = 3
@@ -44,7 +44,7 @@ beta_Y = np.concatenate([
         ]) * 1
 gamma = np.array([0.6, 0.4, 0.75, 0.17])[:(k-1)] * (1 if not zero_effect else 0)
 A_flavor = "tanh" #"logit" "tanh")
-Y_flavor = "sigmoid" #"expo", "sigmoid", "gamma", "lognormal"
+Y_flavor = "gamma" #"expo", "sigmoid", "gamma", "lognormal"
 Y_param = "ols" #"expo"
 hidunits = [5, 20]
 eps = [100, 250]
@@ -68,6 +68,7 @@ dat = pd.concat([
         pd.Series(A, name='A'),
         X
     ], axis=1)
+dat['A'].value_counts(normalize=True) * 100
     
 # Ensure positive outcomes
 assert np.all(Y >= 0), "All Y values must be non-negative"
@@ -111,26 +112,21 @@ for comparison in combinations(range(k), 2):
     
 # Estimate propensity scores
 print("\nEstimating propensity scores...")
-start_time = time.time()
-    
+start_time = time.time()    
 fit_A_nn = estimate_A_nn(X=None, dat=dat, k=k, 
                          hidunits=hidunits, eps=eps, penals=penals, verbose=verbose)
 fit_A_logit = estimate_A_logit(X=None, dat=dat, k=k, verbose=verbose)
-    
 print(f"A model time: {time.time() - start_time:.2f}s")
     
 # Estimate outcome models
 print("Estimating outcome models...")
 start_time = time.time()
-    
 fit_Y_nn = estimate_Y_nn(dat, pscores_df=fit_A_nn['pscores'], k=k,
                          hidunits=hidunits, eps=eps, penals=penals, verbose=verbose)
-    
 if Y_param == "expo":
     fit_Y_param = estimate_Y_expo(dat, pscores_df=fit_A_logit['pscores'], k=k)
 else:
     fit_Y_param = estimate_Y_ols(dat, pscores_df=fit_A_logit['pscores'], k=k)
-    
 print(f"Y model time: {time.time() - start_time:.2f}s")
     
 # Plot predictions
@@ -185,6 +181,7 @@ for idx, name in enumerate(comparison_names):
     ]
     
 my_k_rows = pd.DataFrame(results_data)
+print(my_k_rows)
     
 # Compute OTR
 X_new = pd.DataFrame(np.random.uniform(-8, 8, (5, p)), 
@@ -193,3 +190,4 @@ X_new = pd.DataFrame(np.random.uniform(-8, 8, (5, p)),
 Vn_df = get_Vn(fit_Y_nn, X_new)
 Vn_df['dataset'] = iter
 Vn_df = Vn_df[['dataset'] + [col for col in Vn_df.columns if col != 'dataset']]   
+print(Vn_df)

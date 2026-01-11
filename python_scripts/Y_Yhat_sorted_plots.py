@@ -4,7 +4,7 @@
 # Date: 2025-01-08
 # Note: This script creates plots comparing predicted vs actual outcomes
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
+import os
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -139,6 +139,7 @@ def plot_predicted_A_Y(beta_A, beta_Y, dat, fit_Y_nn, fit_Y_expo, gamma,
     plt.tight_layout()
     
     if save:
+        os.makedirs(f"{root}/images/YYhat_sorted", exist_ok=True)
         plt.savefig(f"{root}images/YYhat_sorted/YYhat_sorted_k{k}{A_flavor}{Y_flavor}_dset{ds}.jpeg", 
                    dpi=100, bbox_inches='tight')
     
