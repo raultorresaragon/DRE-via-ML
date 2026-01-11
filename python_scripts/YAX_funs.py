@@ -7,6 +7,7 @@
 #       in means are compared pairwise: combn(k,2)
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+import math
 import numpy as np
 import pandas as pd
 from scipy.stats import multivariate_normal
@@ -136,7 +137,7 @@ def gen_Y(gamma, X, A, beta_Y, flavor_Y="expo"):
         shape = 2
         scale = 3
         Y = (np.exp(shape * xb_gamma_a) * np.exp(-np.exp(xb_gamma_a)/scale)) / \
-            (np.math.gamma(shape) * scale**shape) * 10 + np.random.normal(0, 0.5, n) + 0.1
+            (math.gamma(shape) * scale**shape) * 10 + np.random.normal(0, 0.5, n) + 0.1
             
     elif flavor_Y == "lognormal":
         Y = (1 / (np.exp(xb_gamma_a) * np.sqrt(2 * np.pi))) * \

@@ -34,19 +34,23 @@ def plot_predicted_A_Y(beta_A, beta_Y, dat, fit_Y_nn, fit_Y_expo, gamma,
     if A_flavor == "tanh":
         xb = np.column_stack([np.ones(len(X)), X]) @ beta_A
         raw_scores = pd.DataFrame(0.5 * (np.tanh(xb) + 1))
-        raw_scores = pd.concat([raw_scores, pd.DataFrame(np.zeros((len(raw_scores), 2)))], axis=1)
-        
-        probs = pd.DataFrame()
-        for i in range(xb.shape[1]):
-            probs[f'class{i+1}'] = raw_scores.iloc[:, i] / (1 + raw_scores.drop(columns=raw_scores.columns[i]).sum(axis=1))
-        
+        #raw_scores = pd.concat([raw_scores, pd.DataFrame(np.zeros((len(raw_scores), 2)))], axis=1)
+
         if k == 2:
-            sum_other = 1 - probs['class1']
+            # Binary case: only need 2 classes
+            prob_1 = raw_scores.iloc[:, 0]
+            prob_0 = 1 - prob_1
+            probs = pd.DataFrame({'true_pscores0': prob_0, 'true_pscores1':prob_1})
         else:
+            # Multi-class case
+            probs = pd.DataFrame()
+            for i in range(xb.shape[1]):            
+                #probs[f'class{i+1}'] = raw_scores.iloc[:, i] / (1 + raw_scores.drop(columns=raw_scores.columns[i]).sum(axis=1))
+                probs[f'class{i}'] = raw_scores.iloc[:, i] / (1 + raw_scores.drop(columns=raw_scores.columns[i]).sum(axis=1))
             sum_other = 1 - probs.sum(axis=1)
-        probs[f'class{k}'] = sum_other
+            probs[f'class{k}'] = sum_other
+            probs.columns = [f'true_pscores{i}' for i in range(k)] #(range(1, k+1) if k == 2 else range(k))]
         
-        probs.columns = [f'true_pscores{i}' for i in (range(1, k+1) if k == 2 else range(k))]
         legposY = "lower right"
     
     elif A_flavor == "logit":
