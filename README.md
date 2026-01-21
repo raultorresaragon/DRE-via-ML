@@ -1,4 +1,4 @@
-# Project Title
+# Doubly Robust Estimation via ML for Optimal Treatment Regimes
 
 This project test the performance of doubly robust estimators for finding the optimal dynamic treatment regimes where the propensity and outcome models are non-parametric.
 
