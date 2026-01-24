@@ -16,7 +16,7 @@ import time
 # Import custom functions
 from YAX_funs import gen_X, gen_A, gen_Y
 from pscores_models import estimate_A_nn, estimate_A_logit
-from outcome_models import estimate_Y_nn, estimate_Y_ols, estimate_Y_expo
+from outcome_models import estimate_Y_nn, estimate_Y_ols, estimate_Y_expo, estimate_Y_lognormal
 from get_true_diff import get_true_diff
 from compute_Vn import get_Vn
 from Y_Yhat_sorted_plots import plot_predicted_A_Y
@@ -39,7 +39,7 @@ def one_sim(n, p, Xmu, beta_A, beta_Y, gamma, k,
     k = number of treatment levels
     A_flavor = treatment model type ("logit" or "tanh")
     Y_flavor = outcome model type ("expo", "sigmoid", "gamma", "lognormal")
-    Y_param = parametric model type ("ols" or "expo")
+    Y_param = parametric model type ("ols", "expo", or "lognormal")
     hidunits = hidden units for NN
     eps = epochs for NN
     penals = regularization parameters
@@ -126,6 +126,8 @@ def one_sim(n, p, Xmu, beta_A, beta_Y, gamma, k,
     
     if Y_param == "expo":
         fit_Y_param = estimate_Y_expo(dat, pscores_df=fit_A_logit['pscores'], k=k)
+    elif Y_param == "lognormal":
+        fit_Y_param = estimate_Y_lognormal(dat, pscores_df=fit_A_logit['pscores'], k=k)
     else:
         fit_Y_param = estimate_Y_ols(dat, pscores_df=fit_A_logit['pscores'], k=k)
     

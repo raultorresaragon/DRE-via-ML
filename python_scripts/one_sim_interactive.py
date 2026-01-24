@@ -13,10 +13,11 @@ from itertools import combinations
 import os
 import time
 
+
 # Import custom functions
 from YAX_funs import gen_X, gen_A, gen_Y
 from pscores_models import estimate_A_nn, estimate_A_logit
-from outcome_models import estimate_Y_nn, estimate_Y_ols, estimate_Y_expo
+from outcome_models import estimate_Y_nn, estimate_Y_ols, estimate_Y_expo, estimate_Y_lognormal
 from get_true_diff import get_true_diff
 from compute_Vn import get_Vn
 from Y_Yhat_sorted_plots import plot_predicted_A_Y
@@ -24,7 +25,7 @@ from Y_Yhat_sorted_plots import plot_predicted_A_Y
 # Run one simulation iteration for k>=3 treatments
 # Parameters:
 zero_effect = False
-k = 3
+k = 2
 n = 300 * k
 if k == 2:
     p = 3
@@ -43,9 +44,9 @@ beta_Y = np.concatenate([
             np.round(np.random.uniform(-1, 1, p), 1)
         ]) * 1
 gamma = np.array([0.6, 0.4, 0.75, 0.17])[:(k-1)] * (1 if not zero_effect else 0)
-A_flavor = "tanh" #"logit" "tanh")
-Y_flavor = "gamma" #"expo", "sigmoid", "gamma", "lognormal"
-Y_param = "ols" #"expo"
+A_flavor = "logit" #"logit" "tanh"
+Y_flavor = "lognormal" #"expo", "sigmoid", "gamma", "lognormal"
+Y_param = "lognormal" #"ols", "expo", "lognormal"
 hidunits = [5, 20]
 eps = [100, 250]
 penals = [0.001, 0.01]
@@ -125,6 +126,8 @@ fit_Y_nn = estimate_Y_nn(dat, pscores_df=fit_A_nn['pscores'], k=k,
                          hidunits=hidunits, eps=eps, penals=penals, verbose=verbose)
 if Y_param == "expo":
     fit_Y_param = estimate_Y_expo(dat, pscores_df=fit_A_logit['pscores'], k=k)
+elif Y_param == "lognormal":
+    fit_Y_param = estimate_Y_lognormal(dat, pscores_df=fit_A_logit['pscores'], k=k)
 else:
     fit_Y_param = estimate_Y_ols(dat, pscores_df=fit_A_logit['pscores'], k=k)
 print(f"Y model time: {time.time() - start_time:.2f}s")

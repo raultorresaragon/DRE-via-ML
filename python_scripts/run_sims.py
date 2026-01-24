@@ -13,7 +13,7 @@ import os
 from itertools import product
 
 # Import custom functions
-from one_sim_k3plus import one_sim
+from one_sim import one_sim
 
 # Set random seed
 np.random.seed(1857)
@@ -22,7 +22,7 @@ np.random.seed(1857)
 export_tables = True
 export_images = True
 zero_effect = True
-Y_param = "ols"  # "expo"
+Y_param = "ols"  # "ols", "expo", "lognormal"
 root = f"./_{'1' if not zero_effect else '0'}trt_effect/"
 
 M = 25  # Number of simulations

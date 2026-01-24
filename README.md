@@ -1,6 +1,9 @@
 # Doubly Robust Estimation via ML for Optimal Treatment Regimes
 
-This project test the performance of doubly robust estimators for finding the optimal dynamic treatment regimes where the propensity and outcome models are non-parametric.
+This project tests the performance of doubly robust estimators (DRE) for finding the optimal dynamic treatment regimes (DTR) where:  
+- the propensity and outcome models are non-parametric, 
+- the conditional expectation function of the outcome given the treatment and covariates is non-linear,
+- and the treatment variable has more than two levels. 
 
 ---
 
@@ -23,15 +26,19 @@ The primary focus is on **causal inference and dynamic treatment regimes**.
 ```text
 .
 ├── README.md                 # Project documentation
-├── R scripts/                # R scripts for data generation, models, analysis
+├── R_scripts/                # R scripts for data generation, models, analysis
 │   ├── run_sims.R
 │   ├── run_one_sim.R
+|   ├── pscores_models.R
+|   ├── outcome_models.R
 │   ├── utils.R
 │   └── plots.R
-├── python/                   # Python scripts (if applicable)
+├── python_scripts/                   # Python scripts
 │   ├── run_sims.py
 │   ├── run_one_sim.py
+|   ├── pscores_models.py
+|   ├── outcome_models.py
 │   ├── utils.py
 │   └── plots.py
-├── output/                   # Generated figures, tables, results
+├── output/                   # Generated datasets and tables
 └── figures/                  # Saved plots
