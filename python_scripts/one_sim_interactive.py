@@ -127,7 +127,7 @@ fit_Y_nn = estimate_Y_nn(dat, pscores_df=fit_A_nn['pscores'], k=k,
 if Y_param == "expo":
     fit_Y_param = estimate_Y_expo(dat, pscores_df=fit_A_logit['pscores'], k=k)
 elif Y_param == "lognormal":
-    fit_Y_param = estimate_Y_lognormal(dat, pscores_df=fit_A_logit['pscores'], k=k)
+    fit_Y_param = estimate_Y_lognormal(dat, pscores_df=fit_A_logit['pscores'], k=k, sigma2=0.25)
 else:
     fit_Y_param = estimate_Y_ols(dat, pscores_df=fit_A_logit['pscores'], k=k)
 print(f"Y model time: {time.time() - start_time:.2f}s")

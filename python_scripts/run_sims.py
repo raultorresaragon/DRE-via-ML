@@ -21,14 +21,14 @@ np.random.seed(1857)
 # Set parameters
 export_tables = True
 export_images = True
-zero_effect = True
-Y_param = "ols"  # "ols", "expo", "lognormal"
+zero_effect = False
+Y_param = "expo"  # "ols", "expo", "lognormal"
 root = f"./_{'1' if not zero_effect else '0'}trt_effect/"
 
-M = 25  # Number of simulations
-K = [2,3,5] #[2,3,5]  # Treatment levels to test
-pflavs = ["l", "t"]  # Propensity model flavors: logit, tanh
-oflavs = ["e", "s", "l", "g"]  # Outcome model flavors: expo, sigmoid, lognormal, gamma
+M = 10  # Number of simulations
+K = [2,3]  #[2] #[2,3,5]  # Treatment levels to test
+pflavs = "l" #["l", "t"]  # Propensity model flavors: logit, tanh
+oflavs = "l" #["e", "s", "l", "g"]  # Outcome model flavors: expo, sigmoid, lognormal, gamma
 
 # Create flavor combinations
 flavors = [p + o for p, o in product(pflavs, oflavs)]

@@ -140,7 +140,7 @@ def plot_predicted_A_Y(beta_A, beta_Y, dat, fit_Y_nn, fit_Y_expo, gamma,
     
     if save:
         os.makedirs(f"{root}/images/YYhat_sorted", exist_ok=True)
-        plt.savefig(f"{root}images/YYhat_sorted/YYhat_sorted_k{k}{A_flavor}{Y_flavor}_dset{ds}.jpeg", 
+        plt.savefig(f"{root}images/YYhat_sorted/YYhat_sorted_k{k}{A_flavor}{Y_flavor}_dset{ds}.jpeg",
                    dpi=100, bbox_inches='tight')
     
     plt.show()

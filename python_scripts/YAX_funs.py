@@ -140,8 +140,13 @@ def gen_Y(gamma, X, A, beta_Y, flavor_Y="expo"):
             (math.gamma(shape) * scale**shape) * 10 + np.random.normal(0, 0.5, n) + 0.1
             
     elif flavor_Y == "lognormal":
-        Y = (1 / (np.exp(xb_gamma_a) * np.sqrt(2 * np.pi))) * \
-            np.exp(-0.5 * xb_gamma_a**2) * 10 + np.random.normal(0, 0.5, n)
+        # If log(Y) ~ N(μ, σ²), then Y ~ Lognormal
+        sigma = 0.5
+        Y = np.exp(xb_gamma_a + np.random.normal(0, sigma, n))
+
+        # bell-curve transform 
+        #Y = (1 / (np.exp(xb_gamma_a) * np.sqrt(2 * np.pi))) * \
+        #    np.exp(-0.5 * xb_gamma_a**2) * 10 + np.random.normal(0, 0.5, n) 
     
     # Ensure positive outcomes
     Y = np.abs(Y)

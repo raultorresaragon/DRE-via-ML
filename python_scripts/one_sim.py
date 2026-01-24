@@ -92,7 +92,7 @@ def one_sim(n, p, Xmu, beta_A, beta_Y, gamma, k,
     
     if export_images:
         os.makedirs(f"{root}/images/genYplots", exist_ok=True)
-        plt.savefig(f"{root}/images/genYplots/genY_k{k}{A_flavor}{Y_flavor}_dset{iter}.png", 
+        plt.savefig(f"{root}/images/genYplots/genY_k{k}{A_flavor}{Y_flavor}_dset{iter}.png",
                    dpi=150, bbox_inches='tight')
     plt.show()
     

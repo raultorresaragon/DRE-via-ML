@@ -39,9 +39,13 @@ def get_true_diff(a_lvl, xb_Y, gamma_vals, Y_flavor):
         EY_i = np.mean(10 * logistic(xb_Y + gamma_i))
         
     elif Y_flavor == "lognormal":
-        fun_Y = lambda x: (1 / (np.exp(x) * np.sqrt(2 * np.pi))) * np.exp(-0.5 * x**2) * 10
-        EY_j = np.mean(fun_Y(xb_Y + gamma_j))
-        EY_i = np.mean(fun_Y(xb_Y + gamma_i))
+        #fun_Y = lambda x: (1 / (np.exp(x) * np.sqrt(2 * np.pi))) * np.exp(-0.5 * x**2) * 10              
+        #EY_j = np.mean(fun_Y(xb_Y + gamma_j))                                                            
+        #EY_i = np.mean(fun_Y(xb_Y + gamma_i)) 
+        # For lognormal: if log(Y) ~ N(μ, σ²), then E[Y] = exp(μ + σ²/2)
+        sigma = 0.5
+        EY_j = np.mean(np.exp(xb_Y + gamma_j + sigma**2 / 2))
+        EY_i = np.mean(np.exp(xb_Y + gamma_i + sigma**2 / 2))
         
     elif Y_flavor == "gamma":
         shape = 2

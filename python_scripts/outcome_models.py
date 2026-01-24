@@ -164,7 +164,7 @@ def estimate_Y_expo(dat, pscores_df, k, link="log"):
 
     return results
 
-def estimate_Y_lognormal(dat, pscores_df, k, bias_correction=True):
+def estimate_Y_lognormal(dat, pscores_df, k, bias_correction=True, sigma2=None):
     """
     Estimate outcome models using lognormal regression
 
@@ -178,11 +178,23 @@ def estimate_Y_lognormal(dat, pscores_df, k, bias_correction=True):
     - k: number of treatment levels
     - bias_correction: if True, applies exp(σ²/2) correction for E[Y]
                        (otherwise predicts median)
+    - sigma2: if provided, uses this value for σ² instead of estimating
+              (useful for simulation studies where true σ² is known)
 
     Returns:
     - Dictionary of results for each treatment comparison
     """
     Y = dat['Y'].values
+
+    # Estimate pooled σ² from full data (log(Y) ~ X + A)
+    if sigma2 is None and bias_correction:
+        X_pooled = sm.add_constant(dat.drop(['Y', 'A'], axis=1).copy())
+       #X_pooled['A'] = dat['A'].values
+        log_y_pooled = np.log(dat['Y'])
+        pooled_model = sm.OLS(log_y_pooled, X_pooled).fit()
+        sigma2_pooled = pooled_model.mse_resid
+    else:
+        sigma2_pooled = sigma2
 
     # Compute pairwise comparisons
     m = list(combinations(range(k), 2))
@@ -209,10 +221,9 @@ def estimate_Y_lognormal(dat, pscores_df, k, bias_correction=True):
         log_y_i = np.log(dat_i['Y'])
         g_i = sm.OLS(log_y_i, X_i).fit()
         log_ghat_i = g_i.predict(X_full)
-        # Transform back to original scale
+        # Transform back to original scale using pooled σ²
         if bias_correction:
-            sigma2_i = g_i.mse_resid  # estimated σ²
-            ghat_i = np.exp(log_ghat_i + sigma2_i / 2)
+            ghat_i = np.exp(log_ghat_i + sigma2_pooled / 2)
         else:
             ghat_i = np.exp(log_ghat_i)
 
@@ -222,10 +233,9 @@ def estimate_Y_lognormal(dat, pscores_df, k, bias_correction=True):
         log_y_j = np.log(dat_j['Y'])
         g_j = sm.OLS(log_y_j, X_j).fit()
         log_ghat_j = g_j.predict(X_full)
-        # Transform back to original scale
+        # Transform back to original scale using pooled σ²
         if bias_correction:
-            sigma2_j = g_j.mse_resid  # estimated σ²
-            ghat_j = np.exp(log_ghat_j + sigma2_j / 2)
+            ghat_j = np.exp(log_ghat_j + sigma2_pooled / 2)
         else:
             ghat_j = np.exp(log_ghat_j)
 
