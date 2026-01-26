@@ -36,7 +36,7 @@ elif k == 5:
 
 Xmu = np.round(np.random.uniform(-1, 1, p), 1)
 beta_A = np.vstack([
-            np.ones((1, k-1)),
+            np.full((1, k-1), 0.1),
             np.round(np.random.uniform(-2, 2, (p, k-1)), 1)
         ])
 beta_Y = np.concatenate([

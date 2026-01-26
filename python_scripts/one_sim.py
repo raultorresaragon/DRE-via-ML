@@ -27,7 +27,7 @@ def one_sim(n, p, Xmu, beta_A, beta_Y, gamma, k,
             hidunits=[5, 20], eps=[100, 250], penals=[0.001, 0.01], 
             verbose=False, iter=1, export_images=False, root="./", rho=0.5):
     """
-    Run one simulation iteration for k>=3 treatments
+    Run one simulation iteration for k treatments
     
     # Parameters:
     n = sample size

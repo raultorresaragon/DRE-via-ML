@@ -3,7 +3,7 @@
 # File name: run_sims_k3plus.py
 # Date: 2026-01-08
 # Note: This script runs M simulations of
-#       k=3+ treatment regime with DRE via NN
+#       k=k given DGPs and gamma trt effect
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 import numpy as np
@@ -21,19 +21,20 @@ np.random.seed(1857)
 # Set parameters
 export_tables = True
 export_images = True
-zero_effect = False
+zero_effect = True
 Y_param = "expo"  # "ols", "expo", "lognormal"
 root = f"./_{'1' if not zero_effect else '0'}trt_effect/"
 
-M = 10  # Number of simulations
+M = 20  # Number of simulations
 K = [2,3]  #[2] #[2,3,5]  # Treatment levels to test
-pflavs = "l" #["l", "t"]  # Propensity model flavors: logit, tanh
-oflavs = "l" #["e", "s", "l", "g"]  # Outcome model flavors: expo, sigmoid, lognormal, gamma
+pflavs = ["l", "t"]  # Propensity model flavors: logit, tanh
+oflavs = ["e", "s", "l", "g"]  # Outcome model flavors: expo, sigmoid, lognormal, gamma
 
 # Create flavor combinations
 flavors = [p + o for p, o in product(pflavs, oflavs)]
 if len(flavors) == 8:
     flavors = [flavors[i] for i in [0, 5, 6, 7]]  # Select subset
+    flavors = flavors.append("ll") #<-TEMP LINE
 
 print(f"Testing flavors: {flavors}")
 
@@ -51,7 +52,7 @@ for k in K:
     elif k == 5:
         p = 12
     
-    n = k * 300
+    n = k * 200
     eps = [120, 180]
     penals = [0.001, 0.005]
     hidunits = [2, 8]
@@ -103,8 +104,8 @@ for k in K:
             
             # Treatment model coefficients
             beta_A = np.vstack([
-                np.ones((1, k-1)),
-                np.round(np.random.uniform(-2, 2, (p, k-1)), 1)
+                np.full((1, k-1), -0.1),
+                np.round(np.random.uniform(-1.5, 1.5, (p, k-1)), 1)
             ])
             
             # Outcome model coefficients

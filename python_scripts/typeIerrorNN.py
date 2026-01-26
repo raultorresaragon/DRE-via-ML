@@ -8,29 +8,20 @@
 #       (false positive rate).
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+import re
 import pandas as pd
 from typing import Dict
 
 # All possible pairwise comparison suffixes
-A_SUFFIXES = ['01', '02', '12', '03', '04', '13', '14', '23', '24', '34']
+#A_SUFFIXES = ['01', '02', '12', '03', '04', '13', '14', '23', '24', '34']
 
 
-def calc_nn_rejection_rate(file_path: str) -> Dict[str, float]:
+def calc_nn_fpe_rate(file_path: str) -> Dict[str, float]:
     """
     Calculate the proportion of simulated datasets where NN has p-value <= 0.05.
-
-    Parameters
-    ----------
-    file_path : str
-        Path to a CSV file containing simulation results.
-
-    Returns
-    -------
-    Dict[str, float]
-        Dictionary mapping each A_XX suffix to the proportion of datasets where
-        NN_est has A_XX_pval <= 0.05.
     """
     df = pd.read_csv(file_path)
+    suffs = [re.search(r'A_(\d{2})$', col).group(1) for col in df.columns if re.match(r'^A_\d{2}$',col)] 
 
     # Filter to only NN_est rows
     nn_df = df[df['estimate'] == 'NN_est'].copy()
@@ -38,7 +29,7 @@ def calc_nn_rejection_rate(file_path: str) -> Dict[str, float]:
     n_sims = len(nn_df)
     results = {}
 
-    for suffix in A_SUFFIXES:
+    for suffix in suffs:
         col_pval = f'A_{suffix}_pval'
 
         # Check if this column exists in the file
