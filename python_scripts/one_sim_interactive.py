@@ -194,3 +194,15 @@ Vn_df = get_Vn(fit_Y_nn, X_new)
 Vn_df['dataset'] = iter
 Vn_df = Vn_df[['dataset'] + [col for col in Vn_df.columns if col != 'dataset']]   
 print(Vn_df)
+
+# Extract muhat vectors by treatment level
+muhat_dict = {'dataset': iter}
+for key in fit_Y_nn.keys():
+    result_dict = fit_Y_nn[key][0]
+    j, i = key[2], key[3]  # Extract treatment indices from key like 'A_01'
+    muhat_dict[f'pooled_A{j}'] = result_dict[f'muhat_{j}']
+    muhat_dict[f'pooled_A{i}'] = result_dict[f'muhat_{i}']
+
+muhat_pooled = pd.DataFrame(muhat_dict)
+print("\nPooled muhat by treatment:")
+print(muhat_pooled.head())

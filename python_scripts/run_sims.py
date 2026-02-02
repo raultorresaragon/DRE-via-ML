@@ -91,6 +91,7 @@ for k in K:
         # Initialize results storage
         mytable = None
         otr_table = None
+        muhat_pooled_all = None
         
         total_start_time = time.time()
         
@@ -140,10 +141,12 @@ for k in K:
                 if mytable is None:
                     mytable = r['my_k_row'].copy()
                     otr_table = pd.concat([r['Xnew_Vn'], r['Vn_df']], axis=1)
+                    muhat_pooled_all = r['muhat_pooled'].copy()
                 else:
                     mytable = pd.concat([mytable, r['my_k_row']], ignore_index=True)
                     new_otr = pd.concat([r['Xnew_Vn'], r['Vn_df']], axis=1)
                     otr_table = pd.concat([otr_table, new_otr], ignore_index=True)
+                    muhat_pooled_all = pd.concat([muhat_pooled_all, r['muhat_pooled']], ignore_index=True)
                 
                 # Clean up OTR table columns
                 otr_cols = ['dataset', 'OTR'] + [col for col in otr_table.columns 
@@ -177,6 +180,11 @@ for k in K:
                 
                 otr_table.to_csv(
                     f"{root}/tables/OTR_simk{k}_{A_flavor}_{Y_flavor}_est_with_{Y_param}.csv",
+                    index=False
+                )
+                
+                muhat_pooled_all.to_csv(
+                    f"{root}/tables/muhat_pooled_simk{k}_{A_flavor}_{Y_flavor}_est_with_{Y_param}.csv",
                     index=False
                 )
                 
