@@ -11,9 +11,12 @@ import pandas as pd
 import time
 import os
 from itertools import product
+from scipy.stats import norm
+from itertools import combinations
 
 # Import custom functions
 from one_sim import one_sim
+from get_type1error import get_type1error
 
 # Set random seed
 np.random.seed(1857)
@@ -25,10 +28,10 @@ zero_effect = True
 Y_param = "expo"  # "ols", "expo", "lognormal"
 root = f"./_{'1' if not zero_effect else '0'}trt_effect/"
 
-M = 20  # Number of simulations
-K = [2,3]  #[2] #[2,3,5]  # Treatment levels to test
-pflavs = ["l", "t"]  # Propensity model flavors: logit, tanh
-oflavs = ["e", "s", "l", "g"]  # Outcome model flavors: expo, sigmoid, lognormal, gamma
+M = 50  # Number of simulations
+K = [2,3]  #[2,3] #[2,3,5]  # Treatment levels to test
+pflavs = ["l"] #, "t"]  # Propensity model flavors: logit, tanh
+oflavs = ["e","l"] #, "s", "l", "g"]  # Outcome model flavors: expo, sigmoid, lognormal, gamma
 
 # Create flavor combinations
 flavors = [p + o for p, o in product(pflavs, oflavs)]
@@ -189,5 +192,7 @@ for k in K:
                 )
                 
                 print(f"Tables saved for k={k}_{A_flavor}_{Y_flavor}")
+
+        get_type1error(k, A_flavor, Y_flavor, Y_param, zero_effect)
 
 print("\nAll simulations completed!")
