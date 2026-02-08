@@ -194,7 +194,7 @@ def one_sim(n, p, Xmu, beta_A, beta_Y, gamma, k,
     Vn_df['dataset'] = iter
     Vn_df = Vn_df[['dataset'] + [col for col in Vn_df.columns if col != 'dataset']]
     
-    # Extract muhat vectors by treatment level
+    # Extract muhat vectors by treatment level from NN
     muhat_dict = {'dataset': iter}
     for key in fit_Y_nn.keys():
         result_dict = fit_Y_nn[key][0]
@@ -203,10 +203,21 @@ def one_sim(n, p, Xmu, beta_A, beta_Y, gamma, k,
         muhat_dict[f'pooled_A{i}'] = result_dict[f'muhat_{i}']
     
     muhat_pooled = pd.DataFrame(muhat_dict)
+
+    # Extract muhat vectors by treatment level from Parametric
+    muhat_dict_param = {'dataset': iter}
+    for key in fit_Y_param.keys():
+        result_dict_param = fit_Y_param[key][0]
+        j, i = key[2], key[3]  # Extract treatment indices from key like 'A_01'
+        muhat_dict_param[f'pooled_A{j}'] = result_dict_param[f'muhat_{j}']
+        muhat_dict_param[f'pooled_A{i}'] = result_dict_param[f'muhat_{i}']
+    
+    muhat_pooled_param = pd.DataFrame(muhat_dict_param)
     
     return {
         'my_k_row': my_k_rows,
         'Vn_df': Vn_df,
         'Xnew_Vn': X_new,
-        'muhat_pooled': muhat_pooled
+        'muhat_pooled': muhat_pooled,
+        'muhat_pooled_param': muhat_pooled_param
     }

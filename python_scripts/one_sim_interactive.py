@@ -25,7 +25,7 @@ from Y_Yhat_sorted_plots import plot_predicted_A_Y
 # Run one simulation iteration for k>=3 treatments
 # Parameters:
 zero_effect = False
-k = 2
+k = 5
 n = 300 * k
 if k == 2:
     p = 3
@@ -34,10 +34,13 @@ elif k == 3:
 elif k == 5:
     p = 12
 
+# Start timer for a single run
+total_start_time = time.time()
+
 Xmu = np.round(np.random.uniform(-1, 1, p), 1)
 beta_A = np.vstack([
-            np.full((1, k-1), 0.1),
-            np.round(np.random.uniform(-2, 2, (p, k-1)), 1)
+            np.full((1, k-1), -0.1),
+            np.round(np.random.uniform(-1.5, 1.5, (p, k-1)), 1)
         ])
 beta_Y = np.concatenate([
             [1], 
@@ -50,9 +53,9 @@ Y_param = "lognormal" #"ols", "expo", "lognormal"
 hidunits = [5, 20]
 eps = [100, 250]
 penals = [0.001, 0.01]
-verbose = True
+verbose = False
 iter = 1
-export_images = True
+export_images = False
 root = f"./_{'1' if not zero_effect else '0'}trt_effect/"
 rho = round(np.random.uniform(0.4, 0.6), 1)
     
@@ -75,8 +78,8 @@ dat['A'].value_counts(normalize=True) * 100
 assert np.all(Y >= 0), "All Y values must be non-negative"
     
 # Save dataset
-os.makedirs(f"{root}/datasets", exist_ok=True)
-dat.to_csv(f"{root}/datasets/df_k{k}{A_flavor}{Y_flavor}_dset{iter}.csv", index=False)
+# os.makedirs(f"{root}/datasets", exist_ok=True)
+# dat.to_csv(f"{root}/datasets/df_k{k}{A_flavor}{Y_flavor}_dset{iter}.csv", index=False)
     
 # Plot generated Y
 X_with_intercept = np.column_stack([np.ones(n), X.values])
@@ -121,13 +124,13 @@ print(f"A model time: {time.time() - start_time:.2f}s")
     
 # Estimate outcome models
 print("Estimating outcome models...")
-start_time = time.time()
+start_time = time.time()  
 fit_Y_nn = estimate_Y_nn(dat, pscores_df=fit_A_nn['pscores'], k=k,
                          hidunits=hidunits, eps=eps, penals=penals, verbose=verbose)
 if Y_param == "expo":
     fit_Y_param = estimate_Y_expo(dat, pscores_df=fit_A_logit['pscores'], k=k)
 elif Y_param == "lognormal":
-    fit_Y_param = estimate_Y_lognormal(dat, pscores_df=fit_A_logit['pscores'], k=k, sigma2=0.25)
+    fit_Y_param = estimate_Y_lognormal(dat, pscores_df=fit_A_logit['pscores'], k=k)
 else:
     fit_Y_param = estimate_Y_ols(dat, pscores_df=fit_A_logit['pscores'], k=k)
 print(f"Y model time: {time.time() - start_time:.2f}s")
@@ -195,7 +198,7 @@ Vn_df['dataset'] = iter
 Vn_df = Vn_df[['dataset'] + [col for col in Vn_df.columns if col != 'dataset']]   
 print(Vn_df)
 
-# Extract muhat vectors by treatment level
+# Extract muhat vectors by treatment level from NN
 muhat_dict = {'dataset': iter}
 for key in fit_Y_nn.keys():
     result_dict = fit_Y_nn[key][0]
@@ -204,5 +207,20 @@ for key in fit_Y_nn.keys():
     muhat_dict[f'pooled_A{i}'] = result_dict[f'muhat_{i}']
 
 muhat_pooled = pd.DataFrame(muhat_dict)
-print("\nPooled muhat by treatment:")
+print("\nPooled muhat by treatment (NN):")
 print(muhat_pooled.head())
+
+# Extract muhat vectors by treatment level from Parametric
+muhat_dict_param = {'dataset': iter}
+for key in fit_Y_param.keys():
+    result_dict_param = fit_Y_param[key][0]
+    j, i = key[2], key[3]  # Extract treatment indices from key like 'A_01'
+    muhat_dict_param[f'pooled_A{j}'] = result_dict_param[f'muhat_{j}']
+    muhat_dict_param[f'pooled_A{i}'] = result_dict_param[f'muhat_{i}']
+
+muhat_pooled_param = pd.DataFrame(muhat_dict_param)
+print("\nPooled muhat by treatment (Parametric):")
+print(muhat_pooled_param.head())
+
+
+print(f"This run took: {time.time() - total_start_time:.2f} seconds")

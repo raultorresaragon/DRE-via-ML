@@ -24,20 +24,19 @@ np.random.seed(1857)
 # Set parameters
 export_tables = True
 export_images = True
-zero_effect = False
+zero_effect = True
 root = f"./_{'1' if not zero_effect else '0'}trt_effect/"
 
 M = 50  # Number of simulations
-K = [2,3]  #[2,3]             #[2,3,5]               # Treatment levels to test
-Y_params = ["ols"]            #["ols", "expo", "lognormal"] # Parametric model for outcome model
-pflavs = ["l","t"]            #["l", "t"]            # DGP Propensity model flavors: logit, tanh
-oflavs = ["e", "s", "l", "g"] #["e", "s", "l", "g"]  # DGP Outcome model flavors: expo, sigmoid, lognormal, gamma
+K = [2]              #[2,3,5]               # Treatment levels to test
+Y_params = ["expo"]  #["ols", "expo", "lognormal"] # Parametric model for outcome model
+pflavs = ["l"]       #["l", "t"]            # DGP Propensity model flavors: logit, tanh
+oflavs = ["e", "l"]  #["e", "s", "l", "g"]  # DGP Outcome model flavors: expo, sigmoid, lognormal, gamma
 
 # Create flavor combinations
 flavors = [p + o for p, o in product(pflavs, oflavs)]
 if len(flavors) == 8:
     flavors = [flavors[i] for i in [0, 5, 6, 7]]  # Select subset
-    flavors = flavors.append("ll") #<-TEMP LINE
 
 print(f"Testing flavors: {flavors}")
 
@@ -89,13 +88,20 @@ for Y_param in Y_params:
         
             A_flavor, Y_flavor = flavor_ops[0], flavor_ops[1]
             beta_Y_scalar = flavor_ops[3]
-        
-            print(f"A_flavor: {A_flavor}, Y_flavor: {Y_flavor}")
+            
+            ### TEMPORARY ###
+            if zero_effect and flav == "ll" and Y_param == "lognormal":
+                continue
+            if zero_effect and flav == "le" and Y_param == "expo":
+                continue
+
+            print(f"DGP A_flavor: {A_flavor}, DGP Y_flavor: {Y_flavor}, Param outcome model: {Y_param}")
         
             # Initialize results storage
             mytable = None
             otr_table = None
             muhat_pooled_all = None
+            muhat_pooled_all_param = None
         
             total_start_time = time.time()
         
@@ -141,16 +147,18 @@ for Y_param in Y_params:
                     # Store results
                     print("Results:")
                     print(r['Vn_df'])
-                
+                    
                     if mytable is None:
                         mytable = r['my_k_row'].copy()
                         otr_table = pd.concat([r['Xnew_Vn'], r['Vn_df']], axis=1)
                         muhat_pooled_all = r['muhat_pooled'].copy()
+                        muhat_pooled_all_param = r['muhat_pooled_param'].copy()
                     else:
                         mytable = pd.concat([mytable, r['my_k_row']], ignore_index=True)
                         new_otr = pd.concat([r['Xnew_Vn'], r['Vn_df']], axis=1)
                         otr_table = pd.concat([otr_table, new_otr], ignore_index=True)
                         muhat_pooled_all = pd.concat([muhat_pooled_all, r['muhat_pooled']], ignore_index=True)
+                        muhat_pooled_all_param = pd.concat([muhat_pooled_all_param, r['muhat_pooled_param']], ignore_index=True)
                 
                     # Clean up OTR table columns
                     otr_cols = ['dataset', 'OTR'] + [col for col in otr_table.columns 
@@ -188,7 +196,12 @@ for Y_param in Y_params:
                     )
                 
                     muhat_pooled_all.to_csv(
-                        f"{root}/tables/muhat_pooled_simk{k}_{A_flavor}_{Y_flavor}_est_with_{Y_param}.csv",
+                        f"{root}/tables/muhat_pooled_simk{k}_{A_flavor}_{Y_flavor}_est_with_{Y_param}_nn.csv",
+                        index=False
+                    )
+
+                    muhat_pooled_all_param.to_csv(
+                        f"{root}/tables/muhat_pooled_simk{k}_{A_flavor}_{Y_flavor}_est_with_{Y_param}_param.csv",
                         index=False
                     )
                 
