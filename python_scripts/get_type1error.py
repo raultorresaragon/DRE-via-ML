@@ -34,13 +34,13 @@ def get_type1error(k, A_flavor, Y_flavor, Y_param, zero_effect):
     
         # P-values with dataset-specific variance
         pvals = pooled_df.groupby('dataset')[f'delta_{comp_name}'].apply(
-            lambda x: 2*(1 - norm.cdf(np.abs(np.mean(x))/np.sqrt(np.var(x))))
+            lambda x: 2*(1 - norm.cdf(np.abs(np.mean(x))/np.sqrt(np.var(x)/len(x))))
         )
     
         # P-values with pooled variance
         pooled_var = np.var(pooled_df[f'delta_{comp_name}'])
         pvals_pooled_var = pooled_df.groupby('dataset')[f'delta_{comp_name}'].apply(
-            lambda x: 2*(1 - norm.cdf(np.abs(np.mean(x))/np.sqrt(pooled_var)))
+            lambda x: 2*(1 - norm.cdf(np.abs(np.mean(x))/np.sqrt(pooled_var/len(x))))
         )
     
         # Type I error rates
