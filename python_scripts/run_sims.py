@@ -28,15 +28,15 @@ zero_effect = True
 root = f"./_{'1' if not zero_effect else '0'}trt_effect/"
 
 M = 50  # Number of simulations
-K = [2]              #[2,3,5]               # Treatment levels to test
-Y_params = ["expo"]  #["ols", "expo", "lognormal"] # Parametric model for outcome model
-pflavs = ["l"]       #["l", "t"]            # DGP Propensity model flavors: logit, tanh
-oflavs = ["e", "l"]  #["e", "s", "l", "g"]  # DGP Outcome model flavors: expo, sigmoid, lognormal, gamma
+K = [2,3,5]                    #[2,3,5]               # Treatment levels to test
+Y_params = ["ols", "expo", "lognormal"]     #["ols", "expo", "lognormal"] # Parametric model for outcome model
+pflavs = ["l","t"]             #["l", "t"]            # DGP Propensity model flavors: logit, tanh
+oflavs = ["e", "s", "l", "g"]  #["e", "s", "l", "g"]  # DGP Outcome model flavors: expo, sigmoid, lognormal, gamma
 
 # Create flavor combinations
 flavors = [p + o for p, o in product(pflavs, oflavs)]
 if len(flavors) == 8:
-    flavors = [flavors[i] for i in [0, 5, 6, 7]]  # Select subset
+    flavors = [flavors[i] for i in [0, 2, 5, 6, 7]]  # Select subset
 
 print(f"Testing flavors: {flavors}")
 
@@ -89,11 +89,10 @@ for Y_param in Y_params:
             A_flavor, Y_flavor = flavor_ops[0], flavor_ops[1]
             beta_Y_scalar = flavor_ops[3]
             
-            ### TEMPORARY ###
-            if zero_effect and flav == "ll" and Y_param == "lognormal":
+            ### Only run DGP 'll' under outcome model lognormal ###
+            if Y_param == "lognormal" and flav != "ll":
                 continue
-            if zero_effect and flav == "le" and Y_param == "expo":
-                continue
+            
 
             print(f"DGP A_flavor: {A_flavor}, DGP Y_flavor: {Y_flavor}, Param outcome model: {Y_param}")
         

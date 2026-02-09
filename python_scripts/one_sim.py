@@ -23,7 +23,7 @@ from Y_Yhat_sorted_plots import plot_predicted_A_Y
 
 def one_sim(n, p, Xmu, beta_A, beta_Y, gamma, k,
             A_flavor, Y_flavor, 
-            Y_param="ols",
+            Y_param,
             hidunits=[5, 20], eps=[100, 250], penals=[0.001, 0.01], 
             verbose=False, iter=1, export_images=False, root="./", rho=0.5):
     """
