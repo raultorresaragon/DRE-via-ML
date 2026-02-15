@@ -28,10 +28,10 @@ zero_effect = True
 root = f"./_{'1' if not zero_effect else '0'}trt_effect/"
 
 M = 50  # Number of simulations
-K = [2,3,5]                    #[2,3,5]               # Treatment levels to test
-Y_params = ["ols", "expo", "lognormal"]     #["ols", "expo", "lognormal"] # Parametric model for outcome model
-pflavs = ["l","t"]             #["l", "t"]            # DGP Propensity model flavors: logit, tanh
-oflavs = ["e", "s", "l", "g"]  #["e", "s", "l", "g"]  # DGP Outcome model flavors: expo, sigmoid, lognormal, gamma
+K = [3]                    #[2,3,5]               # Treatment levels to test
+Y_params = ["lognormal"]     #["ols", "expo", "lognormal"] # Parametric model for outcome model
+pflavs = ["l"]             #["l", "t"]            # DGP Propensity model flavors: logit, tanh
+oflavs = ["l"]  #["e", "s", "l", "g"]  # DGP Outcome model flavors: expo, sigmoid, lognormal, gamma
 
 # Create flavor combinations
 flavors = [p + o for p, o in product(pflavs, oflavs)]

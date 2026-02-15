@@ -26,6 +26,8 @@ def get_typeIerror_rate(file_path):
 
 
 get_typeIerror_rate('./_0trt_effect/tables/Results/Type I error rates/type_1_error_simk2_logit_expo_est_with_expo_nn.csv')
+get_typeIerror_rate('./_0trt_effect/tables/Results/Type I error rates/type_1_error_simk3_logit_lognormal_est_with_lognormal_nn.csv')
+get_typeIerror_rate('./_0trt_effect/tables/Results/Type I error rates/type_1_error_simk3_logit_lognormal_est_with_lognormal_param.csv')
 
 for file_path in glob.glob('./_0trt_effect/tables/Results/Type I error rates/*.csv'):                              
     result = get_typeIerror_rate(file_path)                                                                        
