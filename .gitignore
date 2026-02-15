@@ -1,0 +1,24 @@
+.Rproj.user
+.Rhistory
+.RData
+.Ruserdata
+
+# ignore images folder
+Images/
+
+# ignore
+*.Rproj
+*.RData
+*.log
+
+# ignore output/data folders
+__deprecated/
+_proposal/
+**/_0trt_effect/
+**/_1trt_effect/
+
+# ignore data files
+*.csv
+*.png
+*.jpg
+.DS_Store

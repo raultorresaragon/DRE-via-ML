@@ -10,8 +10,8 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.colors import to_rgba
 
-def plot_predicted_A_Y(beta_A, beta_Y, dat, fit_Y_nn, fit_Y_expo, gamma, 
-                      fit_A_nn, fit_A_logit, A_flavor, Y_flavor, ds, k, expo_or_ols,
+def plot_predicted_A_Y(beta_A, beta_Y, dat, fit_Y_nn, fit_Y_param, gamma,
+                      fit_A_nn, fit_A_logit, A_flavor, Y_flavor, ds, k, Y_param,
                       save=True, blue=True, root=""):
     
     if save:
@@ -77,18 +77,18 @@ def plot_predicted_A_Y(beta_A, beta_Y, dat, fit_Y_nn, fit_Y_expo, gamma,
     
     # Add predicted Y values
     Yhat_nn = np.full(len(Y), np.nan)
-    Yhat_expo = np.full(len(Y), np.nan)
-    
+    Yhat_param = np.full(len(Y), np.nan)
+
     Yhat_nn[A == 0] = fit_Y_nn['A_01'][3][A == 0]
-    Yhat_expo[A == 0] = fit_Y_expo['A_01'][3][A == 0]
-    
+    Yhat_param[A == 0] = fit_Y_param['A_01'][3][A == 0]
+
     for i in range(1, k):
         mask = A == i
         Yhat_nn[mask] = fit_Y_nn[f'A_0{i}'][4][mask]
-        Yhat_expo[mask] = fit_Y_expo[f'A_0{i}'][4][mask]
-    
+        Yhat_param[mask] = fit_Y_param[f'A_0{i}'][4][mask]
+
     dat['Yhat_nn'] = Yhat_nn
-    dat['Yhat_expo'] = Yhat_expo
+    dat['Yhat_param'] = Yhat_param
     
     dat_sample = dat.iloc[sample_idx]
     dat_pA = dat_sample.sample(100)
@@ -125,9 +125,9 @@ def plot_predicted_A_Y(beta_A, beta_Y, dat, fit_Y_nn, fit_Y_expo, gamma,
         ax.plot(sorted_Y, color=mycols[0], linewidth=2, label='observed' if d == 0 else "")
         
         Y_order = dat['Y'].argsort()
-        ax.scatter(range(sum(mask)), dat.iloc[Y_order].loc[mask, 'Yhat_expo'], 
-                  color=mycols[1], marker='^', label=expo_or_ols if d == 0 else "")
-        ax.scatter(range(sum(mask)), dat.iloc[Y_order].loc[mask, 'Yhat_nn'], 
+        ax.scatter(range(sum(mask)), dat.iloc[Y_order].loc[mask, 'Yhat_param'],
+                  color=mycols[1], marker='^', label=Y_param if d == 0 else "")
+        ax.scatter(range(sum(mask)), dat.iloc[Y_order].loc[mask, 'Yhat_nn'],
                   color=mycols[2], marker='x', label='nn' if d == 0 else "")
         
         ax.set_ylabel(f'observed Y[A={d}]')
@@ -140,7 +140,7 @@ def plot_predicted_A_Y(beta_A, beta_Y, dat, fit_Y_nn, fit_Y_expo, gamma,
     
     if save:
         os.makedirs(f"{root}/images/YYhat_sorted", exist_ok=True)
-        plt.savefig(f"{root}images/YYhat_sorted/YYhat_sorted_k{k}{A_flavor}{Y_flavor}_dset{ds}.jpeg",
+        plt.savefig(f"{root}images/YYhat_sorted/YYhat_sorted_k{k}{A_flavor}{Y_flavor}_est_with_{Y_param}_dset{ds}.jpeg",
                    dpi=100, bbox_inches='tight')
     
     plt.show()
