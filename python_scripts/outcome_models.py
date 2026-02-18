@@ -51,12 +51,14 @@ def estimate_Y_ols(dat, pscores_df, k):
         g_i = LinearRegression()
         g_i.fit(dat_i.drop('Y', axis=1), dat_i['Y'])
         ghat_i = g_i.predict(dat.drop(['Y', 'A'], axis=1))
+        n_params_i = g_i.coef_.size + 1  # coefficients + intercept
         
         # Model for treatment j
         dat_j = dat[A_binary == 0].drop('A', axis=1)
         g_j = LinearRegression()
         g_j.fit(dat_j.drop('Y', axis=1), dat_j['Y'])
         ghat_j = g_j.predict(dat.drop(['Y', 'A'], axis=1))
+        n_params_j = g_j.coef_.size + 1  # coefficients + intercept
         
         # Compute difference
         d_ij = get_diff(ghat_i, delta_i, ghat_j, delta_j, pi_hat_i, Y)
@@ -73,6 +75,7 @@ def estimate_Y_ols(dat, pscores_df, k):
         }
         
         renamed_result = {result_names[k]: v for k, v in d_ij.items()}
+        renamed_result['n_params'] = n_params_i + n_params_j
         
         return [renamed_result, g_i, g_j, ghat_j, ghat_i]
     
@@ -130,6 +133,7 @@ def estimate_Y_expo(dat, pscores_df, k, link="log"):
         y_i = dat_i['Y']
         g_i = sm.GLM(y_i, X_i, family=sm.families.Gaussian(link_func)).fit()
         ghat_i = g_i.predict(X_full)
+        n_params_i = len(g_i.params)
 
         # Model for treatment j
         dat_j = dat[A_binary == 0]
@@ -137,6 +141,7 @@ def estimate_Y_expo(dat, pscores_df, k, link="log"):
         y_j = dat_j['Y']
         g_j = sm.GLM(y_j, X_j, family=sm.families.Gaussian(link_func)).fit()
         ghat_j = g_j.predict(X_full)
+        n_params_j = len(g_j.params)
 
         # Compute difference
         d_ij = get_diff(ghat_i.values, delta_i, ghat_j.values, delta_j, pi_hat_i, Y)
@@ -153,6 +158,7 @@ def estimate_Y_expo(dat, pscores_df, k, link="log"):
         }
 
         renamed_result = {result_names[k]: v for k, v in d_ij.items()}
+        renamed_result['n_params'] = n_params_i + n_params_j
 
         return [renamed_result, g_i, g_j, ghat_j, ghat_i]
 
@@ -221,6 +227,7 @@ def estimate_Y_lognormal(dat, pscores_df, k, bias_correction=True, sigma2=None):
         log_y_i = np.log(dat_i['Y'])
         g_i = sm.OLS(log_y_i, X_i).fit()
         log_ghat_i = g_i.predict(X_full)
+        n_params_i = len(g_i.params)
         # Transform back to original scale using pooled σ²
         if bias_correction:
             ghat_i = np.exp(log_ghat_i + sigma2_pooled / 2)
@@ -233,6 +240,7 @@ def estimate_Y_lognormal(dat, pscores_df, k, bias_correction=True, sigma2=None):
         log_y_j = np.log(dat_j['Y'])
         g_j = sm.OLS(log_y_j, X_j).fit()
         log_ghat_j = g_j.predict(X_full)
+        n_params_j = len(g_j.params)
         # Transform back to original scale using pooled σ²
         if bias_correction:
             ghat_j = np.exp(log_ghat_j + sigma2_pooled / 2)
@@ -254,6 +262,7 @@ def estimate_Y_lognormal(dat, pscores_df, k, bias_correction=True, sigma2=None):
         }
 
         renamed_result = {result_names[k]: v for k, v in d_ij.items()}
+        renamed_result['n_params'] = n_params_i + n_params_j
 
         return [renamed_result, g_i, g_j, ghat_j, ghat_i]
 
@@ -305,12 +314,16 @@ def estimate_Y_nn(dat, pscores_df, hidunits, eps, penals, k, verbose=False):
         g_i = Y_model_nn(dat=dat_i, hidunits=hidunits, eps=eps, 
                         penals=penals, verbose=verbose)
         ghat_i = g_i.predict(dat.drop(['Y', 'A'], axis=1))
+        mlp_i = g_i.named_steps['mlp']
+        n_params_i = sum(coef.size for coef in mlp_i.coefs_) + sum(intercept.size for intercept in mlp_i.intercepts_)
         
         # Model for treatment j
         dat_j = dat[A_binary == 0].drop('A', axis=1)
         g_j = Y_model_nn(dat=dat_j, hidunits=hidunits, eps=eps, 
                         penals=penals, verbose=verbose)
         ghat_j = g_j.predict(dat.drop(['Y', 'A'], axis=1))
+        mlp_j = g_j.named_steps['mlp']
+        n_params_j = sum(coef.size for coef in mlp_j.coefs_) + sum(intercept.size for intercept in mlp_j.intercepts_)
         
         # Compute difference
         d_ij = get_diff(ghat_i, delta_i, ghat_j, delta_j, pi_hat_i, Y)
@@ -327,6 +340,7 @@ def estimate_Y_nn(dat, pscores_df, hidunits, eps, penals, k, verbose=False):
         }
         
         renamed_result = {result_names[k]: v for k, v in d_ij.items()}
+        renamed_result['n_params'] = n_params_i + n_params_j
         
         return [renamed_result, g_i, g_j, ghat_j, ghat_i]
     

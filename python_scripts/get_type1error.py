@@ -46,13 +46,17 @@ def get_type1error(k, A_flavor, Y_flavor, zero_effect):
             # Compute delta for this comparison
             pooled_df[f'delta_{comp_name}'] = pooled_df[f'pooled_A{j}'] - pooled_df[f'pooled_A{i}']
 
-            # P-values with dataset-specific variance
+            # Get parameter count
+            n_params = pooled_df['n_params'].iloc[0] if 'n_params' in pooled_df.columns else 0
+
+            # P-values with dataset-specific variance (adjusted for n-p)
             pvals = pooled_df.groupby('dataset')[f'delta_{comp_name}'].apply(
-                lambda x: 2*(1 - norm.cdf(np.abs(np.mean(x))/np.sqrt(np.var(x)/len(x))))
+                lambda x: 2*(1 - norm.cdf(np.abs(np.mean(x))/np.sqrt(np.var(x, ddof=0) * len(x) / (len(x) - n_params) / len(x))))
             )
 
-            # P-values with pooled variance
-            pooled_var = np.var(pooled_df[f'delta_{comp_name}'])
+            # P-values with pooled variance (adjusted for n-p)
+            n_total = len(pooled_df[f'delta_{comp_name}'])
+            pooled_var = np.var(pooled_df[f'delta_{comp_name}'], ddof=0) * n_total / (n_total - n_params)
             pvals_pooled_var = pooled_df.groupby('dataset')[f'delta_{comp_name}'].apply(
                 lambda x: 2*(1 - norm.cdf(np.abs(np.mean(x))/np.sqrt(pooled_var/len(x))))
             )

@@ -218,12 +218,21 @@ def one_sim(n, p, Xmu, beta_A, beta_Y, gamma, k,
     # Helper function to extract muhat pooled from a fitted model
     def extract_muhat_pooled(fit_Y_model, iter_num):
         muhat_dict = {'dataset': iter_num}
+        n_params_dict = {}
+        
         for key in fit_Y_model.keys():
             result_dict = fit_Y_model[key][0]
             j, i = key[2], key[3]  # Extract treatment indices from key like 'A_01'
             muhat_dict[f'pooled_A{j}'] = result_dict[f'muhat_{j}']
             muhat_dict[f'pooled_A{i}'] = result_dict[f'muhat_{i}']
-        return pd.DataFrame(muhat_dict)
+            
+            # Store parameter count (same for all comparisons in this model)
+            if 'n_params' not in n_params_dict:
+                n_params_dict['n_params'] = result_dict.get('n_params', np.nan)
+        
+        df = pd.DataFrame(muhat_dict)
+        df['n_params'] = n_params_dict['n_params']
+        return df
 
     # Extract muhat vectors by treatment level from all models
     muhat_pooled_nn = extract_muhat_pooled(fit_Y_nn, iter)
