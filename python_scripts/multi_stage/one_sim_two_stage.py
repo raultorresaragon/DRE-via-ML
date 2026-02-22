@@ -177,9 +177,9 @@ def one_sim_two_stage(n, p1, p2, k1, k2,
     
     print(f"  Q-learning time: {time.time() - start_time:.2f}s")
     
-    # ========================================
-    # Compute true optimal regime (optional)
-    # ========================================
+    # ============================
+    # Compute true optimal regime 
+    # ============================
     true_regime_result = None
     accuracy_results = None
     
