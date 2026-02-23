@@ -128,12 +128,13 @@ def compute_true_Q1(X1, a1, k2, gamma1_X2, beta_X2, gamma1_Y, gamma2_Y, beta_Y,
     X1_with_intercept = np.column_stack([np.ones(n), X1_vals])
     
     # Mean of X2 given X1 and A1=a1
-    X2_mean = X1_with_intercept @ beta_X2
+    X2_linear = X1_with_intercept @ beta_X2
     if a1 > 0:  # Add treatment effect
-        X2_mean += gamma1_X2[a1 - 1]
+        X2_linear += gamma1_X2[a1 - 1]
     
-    # Covariance matrix for X2
-    Sigma = np.array([[rho**abs(i-j) for j in range(p2)] for i in range(p2)])
+    # Covariance matrix for remaining X2 covariates (if p2 > 1)
+    if p2 > 1:
+        Sigma = np.array([[rho**abs(i-j) for j in range(p2-1)] for i in range(p2-1)])
     
     Q1_values = np.zeros(n)
     
@@ -143,10 +144,34 @@ def compute_true_Q1(X1, a1, k2, gamma1_X2, beta_X2, gamma1_Y, gamma2_Y, beta_Y,
         
         for _ in range(n_samples):
             # Sample X2 | X1, A1=a1
-            X2_sample = multivariate_normal.rvs(
-                mean=np.full(p2, X2_mean[i]), 
-                cov=Sigma
-            ).reshape(1, -1)
+            X2_sample = np.zeros(p2)
+            
+            # X2_1: Intermediate outcome matching Y flavor
+            if flavor_Y == "expo":
+                X2_sample[0] = np.exp(X2_linear[i]) + np.random.normal(0, 0.5)
+            elif flavor_Y == "sigmoid":
+                X2_sample[0] = 1/(1 + np.exp(-X2_linear[i])) * 10 + np.random.normal(0, 0.5)
+            elif flavor_Y == "gamma":
+                import math
+                shape = 2
+                scale = 3
+                X2_sample[0] = (np.exp(shape * X2_linear[i]) * np.exp(-np.exp(X2_linear[i])/scale)) / \
+                               (math.gamma(shape) * scale**shape) * 10 + np.random.normal(0, 0.5) + 0.1
+            elif flavor_Y == "lognormal":
+                sigma = 0.5
+                X2_sample[0] = np.exp(X2_linear[i] + np.random.normal(0, sigma))
+            
+            # Ensure X2_1 is non-negative
+            X2_sample[0] = max(X2_sample[0], 0.01)
+            
+            # Remaining X2 covariates: correlated normal (if p2 > 1)
+            if p2 > 1:
+                X2_sample[1:] = multivariate_normal.rvs(
+                    mean=np.full(p2-1, X2_linear[i]), 
+                    cov=Sigma
+                )
+            
+            X2_sample = X2_sample.reshape(1, -1)
             
             # Compute Q2 for all A2 values
             A1_sample = np.array([a1])

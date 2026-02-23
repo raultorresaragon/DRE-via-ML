@@ -75,7 +75,8 @@ def one_sim_two_stage(n, p1, p2, k1, k2,
     # STAGE 2: Generate intermediate data
     # ========================================
     print("\nStage 2: Generating intermediate data...")
-    X2 = gen_X2(X1=X1, A1=A1, p2=p2, gamma1_X2=gamma1_X2, beta_X2=beta_X2, rho=rho, p_bin=1)
+    X2 = gen_X2(X1=X1, A1=A1, p2=p2, gamma1_X2=gamma1_X2, beta_X2=beta_X2, 
+                flavor_X2=Y_flavor, rho=rho, p_bin=1)
 
     # Stage 2 treatment depends on full history + stay-probability
     # If X2 is high (patient responding), increase P(A2 = A1)

@@ -31,7 +31,8 @@ A1 = gen_A(X=X1, beta_A=beta_A1, flavor_A="logit", k=k1)
 
 gamma1_X2 = np.array([0.5, 1.0])
 beta_X2 = np.array([0.0, 0.3, 0.2, 0.1])
-X2 = gen_X2(X1=X1, A1=A1, p2=p2, gamma1_X2=gamma1_X2, beta_X2=beta_X2, rho=0.5, p_bin=1)
+X2 = gen_X2(X1=X1, A1=A1, p2=p2, gamma1_X2=gamma1_X2, beta_X2=beta_X2, 
+            flavor_X2="expo", rho=0.5, p_bin=1)
 
 X_history = pd.concat([X1, pd.Series(A1, name='A1'), X2], axis=1)
 beta_A2 = np.array([[0.3, 0.2], [-0.2, 0.3], [0.1, -0.1], [0.2, 0.1], [0.4, -0.2], [-0.3, 0.5], [0.1, -0.2]])
