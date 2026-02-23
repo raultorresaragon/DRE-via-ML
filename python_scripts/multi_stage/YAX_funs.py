@@ -165,6 +165,92 @@ def gen_Y(gamma, X, A, beta_Y, flavor_Y="expo"):
 # ========================================
 
 # --------------------------
+# Generate A2 (stage 2 treatment with stay-probability)
+# --------------------------
+def gen_A2(X1, A1, X2, beta_A2, gamma_stay, flavor_A="logit", k2=None):
+    """
+    Generate stage 2 treatment assignments with stay-probability mechanism.
+
+    If X2 is high (patient responding well to A1), increase P(A2 = A1).
+
+    Parameters:
+    - X1: stage 1 covariates (DataFrame)
+    - A1: stage 1 treatment (array)
+    - X2: stage 2 covariates (DataFrame)
+    - beta_A2: coefficient matrix for A2 model, shape (1 + p1 + 1 + p2, k2-1)
+              rows: intercept, X1 cols, A1, X2 cols
+    - gamma_stay: scalar controlling how strongly X2 influences staying on A1
+                  higher gamma_stay -> stronger tendency to stay when X2 is high
+    - flavor_A: "logit" or "tanh"
+    - k2: number of stage 2 treatment levels
+
+    Returns:
+    - A2: array of stage 2 treatment assignments
+    """
+    n = X1.shape[0]
+
+    # Build history matrix: [1, X1, A1, X2]
+    X_history = np.column_stack([
+        np.ones(n),
+        X1.values,
+        A1,
+        X2.values
+    ])
+
+    if beta_A2.ndim == 1:
+        beta_A2 = beta_A2.reshape(-1, 1)
+
+    # Linear predictor for each non-reference treatment
+    xb = X_history @ beta_A2  # shape (n, k2-1)
+
+    # Compute X2 summary for each patient (mean across X2 columns)
+    X2_mean = X2.mean(axis=1).values  # shape (n,)
+
+    # Add stay bonus: for each treatment level, add gamma_stay * X2_mean if A1 == that level
+    # xb has k2-1 columns for treatments 1, 2, ..., k2-1 (treatment 0 is reference)
+    for j in range(1, k2):
+        # Patients whose A1 == j get a bonus in the j-th column (index j-1)
+        stay_bonus = gamma_stay * X2_mean * (A1 == j)
+        xb[:, j-1] += stay_bonus
+
+    # For A1 == 0 patients, add bonus to reference category (handled via normalization)
+    # We need to subtract from all non-reference categories to effectively boost P(A2=0)
+    stay_bonus_ref = gamma_stay * X2_mean * (A1 == 0)
+    xb -= stay_bonus_ref.reshape(-1, 1)  # subtract from all non-reference
+
+    if flavor_A == "logit":
+        exp_xb = np.exp(xb)
+        denom = 1 + np.sum(exp_xb, axis=1, keepdims=True)
+        probs = np.column_stack([1/denom.flatten(), (exp_xb/denom)])
+
+    elif flavor_A == "tanh":
+        raw_scores = 0.5 * (np.tanh(xb) + 1)
+
+        if k2 == 2:
+            prob_1 = raw_scores[:, 0]
+            prob_0 = 1 - prob_1
+            probs = np.column_stack([prob_0, prob_1])
+        else:
+            probs = np.zeros((n, k2))
+            for i in range(min(raw_scores.shape[1], k2-1)):
+                other_classes = np.sum(raw_scores[:, [j for j in range(raw_scores.shape[1]) if j != i]], axis=1)
+                probs[:, i] = raw_scores[:, i] / (1 + other_classes)
+            probs[:, -1] = 1 - np.sum(probs[:, :-1], axis=1)
+
+    # Clip probabilities to valid range
+    probs = np.clip(probs, 0.001, 0.999)
+    probs = probs / probs.sum(axis=1, keepdims=True)  # renormalize
+
+    # Sample treatment assignments
+    if probs.shape[1] > 2:
+        A2 = np.array([np.random.multinomial(1, prob).argmax() for prob in probs])
+    else:
+        A2 = np.random.binomial(1, probs[:, 1])
+
+    return A2
+
+
+# --------------------------
 # Generate X2 (stage 2 covariates)
 # --------------------------
 def gen_X2(X1, A1, p2, gamma1_X2, beta_X2, rho=0.5, p_bin=1):

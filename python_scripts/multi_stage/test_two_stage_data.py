@@ -4,7 +4,7 @@
 
 import numpy as np
 import pandas as pd
-from YAX_funs import gen_X, gen_A, gen_X2, gen_Y_two_stage
+from YAX_funs import gen_X, gen_A, gen_A2, gen_X2, gen_Y_two_stage
 
 # Set seed for reproducibility
 np.random.seed(42)
@@ -58,9 +58,8 @@ for a in range(k1):
     print(f"  A1={a}: {X2[mask].mean().values}")
 print()
 
-# Stage 2 treatment model (depends on full history)
+# Stage 2 treatment model (depends on full history + stay-probability)
 # beta_A2 should be (p1 + 1 + p2 + 1) x (k2-1) = 7 x 2
-X_history = pd.concat([X1, pd.Series(A1, name='A1'), X2], axis=1)
 beta_A2 = np.array([
     [0.3, 0.2],    # Intercept
     [-0.2, 0.3],   # X1 effect
@@ -70,8 +69,10 @@ beta_A2 = np.array([
     [-0.3, 0.5],   # X2_1 effect
     [0.1, -0.2]    # X2_2 effect
 ])
+gamma_stay = 0.5  # stay-probability: higher X2 -> more likely to stay on A1
 
-A2 = gen_A(X=X_history, beta_A=beta_A2, flavor_A="logit", k=k2)
+A2 = gen_A2(X1=X1, A1=A1, X2=X2, beta_A2=beta_A2, gamma_stay=gamma_stay,
+            flavor_A="logit", k2=k2)
 print(f"A2 distribution: {np.bincount(A2)}")
 print(f"A2 proportions: {np.bincount(A2) / n}\n")
 

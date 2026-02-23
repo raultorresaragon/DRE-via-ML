@@ -11,13 +11,13 @@ import matplotlib.pyplot as plt
 import os
 import time
 
-from YAX_funs import gen_X, gen_A, gen_X2, gen_Y_two_stage
+from YAX_funs import gen_X, gen_A, gen_A2, gen_X2, gen_Y_two_stage
 from pscores_models import estimate_A_nn, estimate_A_logit
 from outcome_models import estimate_optimal_regime_two_stage
 from get_true_optimal_regime import compute_true_optimal_regime, evaluate_regime_accuracy
 
 def one_sim_two_stage(n, p1, p2, k1, k2,
-                      beta_A1, beta_A2, 
+                      beta_A1, beta_A2, gamma_stay,
                       gamma1_X2, beta_X2,
                       gamma1_Y, gamma2_Y, beta_Y,
                       A_flavor, Y_flavor,
@@ -26,7 +26,7 @@ def one_sim_two_stage(n, p1, p2, k1, k2,
                       compute_true_regime=False, n_samples_true=500):
     """
     Run one simulation iteration for two-stage DTR
-    
+
     Parameters:
     n = sample size
     p1 = number of stage 1 covariates
@@ -35,6 +35,7 @@ def one_sim_two_stage(n, p1, p2, k1, k2,
     k2 = number of stage 2 treatment levels
     beta_A1 = stage 1 treatment model coefficients
     beta_A2 = stage 2 treatment model coefficients
+    gamma_stay = stay-probability parameter (higher -> more likely to stay on A1 when X2 is high)
     gamma1_X2 = effect of A1 on X2
     beta_X2 = effect of X1 on X2
     gamma1_Y = effect of A1 on Y
@@ -75,10 +76,11 @@ def one_sim_two_stage(n, p1, p2, k1, k2,
     # ========================================
     print("\nStage 2: Generating intermediate data...")
     X2 = gen_X2(X1=X1, A1=A1, p2=p2, gamma1_X2=gamma1_X2, beta_X2=beta_X2, rho=rho, p_bin=1)
-    
-    # Stage 2 treatment depends on full history
-    X_history = pd.concat([X1, pd.Series(A1, name='A1'), X2], axis=1)
-    A2 = gen_A(X=X_history, beta_A=beta_A2, flavor_A=A_flavor, k=k2)
+
+    # Stage 2 treatment depends on full history + stay-probability
+    # If X2 is high (patient responding), increase P(A2 = A1)
+    A2 = gen_A2(X1=X1, A1=A1, X2=X2, beta_A2=beta_A2, gamma_stay=gamma_stay,
+                flavor_A=A_flavor, k2=k2)
     
     print(f"  A2 distribution: {np.bincount(A2)}")
     for i in range(k2):
@@ -281,7 +283,8 @@ if __name__ == "__main__":
     # Coefficients
     beta_A1 = np.array([[0.5, 0.3], [-0.3, 0.4], [0.2, -0.1], [0.1, 0.2]])
     beta_A2 = np.array([[0.3, 0.2], [-0.2, 0.3], [0.1, -0.1], [0.2, 0.1], [0.4, -0.2], [-0.3, 0.5], [0.1, -0.2]])
-    
+    gamma_stay = 0.5  # stay-probability: higher X2 -> more likely to stay on A1
+
     gamma1_X2 = np.array([0.5, 1.0])
     beta_X2 = np.array([0.0, 0.3, 0.2, 0.1])
     
@@ -292,7 +295,7 @@ if __name__ == "__main__":
     # Run simulation
     result = one_sim_two_stage(
         n=n, p1=p1, p2=p2, k1=k1, k2=k2,
-        beta_A1=beta_A1, beta_A2=beta_A2,
+        beta_A1=beta_A1, beta_A2=beta_A2, gamma_stay=gamma_stay,
         gamma1_X2=gamma1_X2, beta_X2=beta_X2,
         gamma1_Y=gamma1_Y, gamma2_Y=gamma2_Y, beta_Y=beta_Y,
         A_flavor="logit", Y_flavor="expo",
