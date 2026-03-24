@@ -180,35 +180,39 @@ def one_sim(n, p, Xmu, beta_A, beta_Y, delta, k,
     if Y_flavor == "lognormal":
         lognormal_estimates, lognormal_pvals = extract_param_estimates(fit_Y_lognormal)
 
-    # Create results DataFrames for each model type
+    # Create single consolidated results DataFrame
     comparison_names = [f"A_{j}{i}" for j, i in combinations(range(k), 2)]
 
-    # Helper function to create results dataframe for a specific parametric model
-    def create_results_df(Y_param_name, param_estimates, param_pvals):
+    def create_results_df():
+        # For lognormal flavor use lognormal instead of expo
+        if Y_flavor == "lognormal":
+            param_name, param_ests, param_pvs = 'lognormal', lognormal_estimates, lognormal_pvals
+        else:
+            param_name, param_ests, param_pvs = 'expo', expo_estimates, expo_pvals
+
+        estimate_labels = ['True_diff', 'NN_est', f'Logit{param_name}_est', 'Logitols_est', 'Naive_est']
         results_data = {
-            'dataset': [iter] * 4,
-            'estimate': ['True_diff', 'NN_est', f'Logit{Y_param_name}_est', 'Naive_est'],
+            'dataset': [iter] * len(estimate_labels),
+            'estimate': estimate_labels,
         }
         for idx, name in enumerate(comparison_names):
             results_data[name] = [
                 true_diffs[idx],
                 nn_estimates[idx],
-                param_estimates[idx],
+                param_ests[idx],
+                ols_estimates[idx],
                 naive_est[idx]
             ]
             results_data[f"{name}_pval"] = [
                 np.nan,
                 nn_pvals[idx],
-                param_pvals[idx],
+                param_pvs[idx],
+                ols_pvals[idx],
                 np.nan
             ]
         return pd.DataFrame(results_data)
 
-    my_k_rows_ols = create_results_df('ols', ols_estimates, ols_pvals)
-    my_k_rows_expo = create_results_df('expo', expo_estimates, expo_pvals)
-    my_k_rows_lognormal = None
-    if Y_flavor == "lognormal":
-        my_k_rows_lognormal = create_results_df('lognormal', lognormal_estimates, lognormal_pvals)
+    my_k_rows = create_results_df()
 
     # Compute OTR
     X_new = gen_X(n=5, p=p, rho=rho, mu=Xmu, p_bin=1)
@@ -246,9 +250,7 @@ def one_sim(n, p, Xmu, beta_A, beta_Y, delta, k,
         muhat_pooled_lognormal = extract_muhat_pooled(fit_Y_lognormal, iter)
 
     return {
-        'my_k_rows_ols': my_k_rows_ols,
-        'my_k_rows_expo': my_k_rows_expo,
-        'my_k_rows_lognormal': my_k_rows_lognormal,
+        'my_k_rows': my_k_rows,
         'Vn_df': Vn_df,
         'Xnew_Vn': X_new,
         'muhat_pooled_nn': muhat_pooled_nn,

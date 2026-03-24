@@ -92,10 +92,8 @@ for k in K:
 
         print(f"DGP A_flavor: {A_flavor}, DGP Y_flavor: {Y_flavor}")
 
-        # Initialize results storage for all model types
-        mytable_ols = None
-        mytable_expo = None
-        mytable_lognormal = None
+        # Initialize results storage
+        mytable = None
         otr_table = None
         muhat_pooled_all_nn = None
         muhat_pooled_all_ols = None
@@ -149,25 +147,17 @@ for k in K:
                 print("Results:")
                 print(r['Vn_df'])
 
-                if mytable_ols is None:
-                    # First iteration - initialize all tables
-                    mytable_ols = r['my_k_rows_ols'].copy()
-                    mytable_expo = r['my_k_rows_expo'].copy()
-                    if Y_flavor == "lognormal":
-                        mytable_lognormal = r['my_k_rows_lognormal'].copy()
-                    otr_table = pd.concat([r['Xnew_Vn'], r['Vn_df']], axis=1)
+                new_otr = pd.concat([r['Xnew_Vn'], r['Vn_df']], axis=1)
+                if mytable is None:
+                    mytable = r['my_k_rows'].copy()
+                    otr_table = new_otr
                     muhat_pooled_all_nn = r['muhat_pooled_nn'].copy()
                     muhat_pooled_all_ols = r['muhat_pooled_ols'].copy()
                     muhat_pooled_all_expo = r['muhat_pooled_expo'].copy()
                     if Y_flavor == "lognormal":
                         muhat_pooled_all_lognormal = r['muhat_pooled_lognormal'].copy()
                 else:
-                    # Subsequent iterations - concatenate
-                    mytable_ols = pd.concat([mytable_ols, r['my_k_rows_ols']], ignore_index=True)
-                    mytable_expo = pd.concat([mytable_expo, r['my_k_rows_expo']], ignore_index=True)
-                    if Y_flavor == "lognormal":
-                        mytable_lognormal = pd.concat([mytable_lognormal, r['my_k_rows_lognormal']], ignore_index=True)
-                    new_otr = pd.concat([r['Xnew_Vn'], r['Vn_df']], axis=1)
+                    mytable = pd.concat([mytable, r['my_k_rows']], ignore_index=True)
                     otr_table = pd.concat([otr_table, new_otr], ignore_index=True)
                     muhat_pooled_all_nn = pd.concat([muhat_pooled_all_nn, r['muhat_pooled_nn']], ignore_index=True)
                     muhat_pooled_all_ols = pd.concat([muhat_pooled_all_ols, r['muhat_pooled_ols']], ignore_index=True)
@@ -187,27 +177,19 @@ for k in K:
         total_time = time.time() - total_start_time
         print(f"\nTotal run time: {total_time/60:.2f} mins")
 
-        if mytable_ols is not None:
+        if mytable is not None:
             print(f"\nResults for k={k}_{A_flavor}_{Y_flavor}")
 
             # Export results
             if export_tables:
-                # Helper function to convert numeric columns and save
-                def save_results_table(df, Y_param_name):
-                    numeric_cols = [col for col in df.columns
-                                  if col not in ['dataset', 'estimate']]
-                    for col in numeric_cols:
-                        df[col] = pd.to_numeric(df[col], errors='coerce')
-                    df.to_csv(
-                        f"{root}/tables/Results/simk{k}_{A_flavor}_{Y_flavor}_est_with_{Y_param_name}.csv",
-                        index=False
-                    )
-
-                # Save main results tables
-                save_results_table(mytable_ols, 'ols')
-                save_results_table(mytable_expo, 'expo')
-                if Y_flavor == "lognormal":
-                    save_results_table(mytable_lognormal, 'lognormal')
+                numeric_cols = [col for col in mytable.columns
+                                if col not in ['dataset', 'estimate']]
+                for col in numeric_cols:
+                    mytable[col] = pd.to_numeric(mytable[col], errors='coerce')
+                mytable.to_csv(
+                    f"{root}/tables/Results/simk{k}_{A_flavor}_{Y_flavor}.csv",
+                    index=False
+                )
 
                 # Save OTR table (same for all models since based on NN)
                 otr_table.to_csv(
