@@ -129,7 +129,7 @@ def save_boxplots(filepath, save=True, show=True, ncols=None):
     Y_flavor = parsed['Y_flavor']
     Y_param = parsed['Y_param']
 
-    print(f"Parsed: k={k}, A_flavor={A_flavor}, Y_flavor={Y_flavor}, Y_param={Y_param}")
+    print(f"Parsed: |A|={k}, A_flavor={A_flavor}, Y_flavor={Y_flavor}, Y_param={Y_param}")
 
     # Read data
     df = pd.read_csv(filepath)
@@ -198,7 +198,7 @@ def save_boxplots(filepath, save=True, show=True, ncols=None):
         # Labels and title
         ax.set_xticks(range(1, len(model_order) + 1))
         ax.set_xticklabels(model_order, fontsize=9)
-        ax.set_title(f'Estimation errors of {A_col}\nDGP = {A_flavor}_{Y_flavor}, k={k}',
+        ax.set_title(f'Estimation errors of {A_col}\nDGP = {A_flavor}_{Y_flavor}, |A|={k}',
                      fontsize=10, fontweight='bold')
         ax.set_ylabel('Error (True - Est)', fontsize=9)
         ax.grid(axis='y', alpha=0.3)
