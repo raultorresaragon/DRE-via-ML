@@ -10,7 +10,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.colors import to_rgba
 
-def plot_predicted_A_Y(beta_A, beta_Y, dat, fit_Y_nn, fit_Y_param, gamma,
+def plot_predicted_A_Y(beta_A, beta_Y, dat, fit_Y_nn, fit_Y_param, delta,
                       fit_A_nn, fit_A_logit, A_flavor, Y_flavor, ds, k, Y_param,
                       save=True, blue=True, root=""):
     

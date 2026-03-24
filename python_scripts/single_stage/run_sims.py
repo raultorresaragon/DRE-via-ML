@@ -3,7 +3,7 @@
 # File name: run_sims_k3plus.py
 # Date: 2026-01-08
 # Note: This script runs M simulations of
-#       k=k given DGPs and gamma trt effect
+#       k=k given DGPs and delta trt effect
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 import numpy as np
@@ -24,11 +24,11 @@ np.random.seed(1857)
 # Set parameters
 export_tables = True
 export_images = True
-zero_effect = True
+zero_effect = False
 root = f"./_{'1' if not zero_effect else '0'}trt_effect/"
 
-M = 3  # Number of simulations
-K = [2, 3, 5]                 #[2,3,5]               # Treatment levels to test
+M = 30  # Number of simulations
+K = [2]                 #[2,3,5]               # Treatment levels to test
 pflavs = ["l","t"]             #["l", "t"]            # DGP Propensity model flavors: logit, tanh
 oflavs = ["e", "s", "l", "g"]  #["e", "s", "l", "g"]  # DGP Outcome model flavors: expo, sigmoid, lognormal, gamma
 
@@ -124,8 +124,11 @@ for k in K:
                 np.round(np.random.uniform(-1, 1, p), 1)
             ]) * beta_Y_scalar
 
-            # Treatment effects
-            gamma = np.array([0.6, 0.4, 0.75, 0.17])[:(k-1)] * (1 if not zero_effect else 0)
+            # Main treatment effects
+            delta = np.array([0.6, 0.4, 0.75, 0.17])[:(k-1)] * (1 if not zero_effect else 0)
+
+            # Interaction (effect modification) coefficients with binary covariate
+            Delta = np.array([-1.2, 1.0, -1.0, 0.8])[:(k-1)] * (1 if not zero_effect else 0)
 
             # Run simulation
             iter_start_time = time.time()
@@ -133,7 +136,7 @@ for k in K:
             try:
                 r = one_sim(
                     n=n, p=p, Xmu=Xmu, iter=i, k=k, verbose=True,
-                    A_flavor=A_flavor, beta_A=beta_A, gamma=gamma,
+                    A_flavor=A_flavor, beta_A=beta_A, delta=delta, Delta=Delta,
                     Y_flavor=Y_flavor, beta_Y=beta_Y,
                     hidunits=hidunits, eps=eps, penals=penals,
                     export_images=export_images, root=root, rho=rho

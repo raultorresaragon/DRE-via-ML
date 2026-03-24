@@ -103,57 +103,63 @@ def gen_A(X, beta_A, flavor_A="logit", k=None):
 # ------------
 # Generate Y 
 # ------------
-def gen_Y(gamma, X, A, beta_Y, flavor_Y="expo"):
+def gen_Y(delta, X, A, beta_Y, Delta=None, flavor_Y="expo"):
     """
     Generate outcomes
-    
+
     Parameters:
-    - gamma: treatment effects
+    - delta: main treatment effects (shape k-1)
     - X: design matrix
     - A: treatment assignments
     - beta_Y: outcome model coefficients
+    - Delta: interaction (effect modification) coefficients with binary covariate (shape k-1), optional
     - flavor_Y: functional form for outcome
     """
     n = X.shape[0]
     X_with_intercept = np.column_stack([np.ones(n), X.values])
-    
+
     # Create treatment indicators (excluding baseline A=0)
     unique_A = np.unique(A)
     A_mat = np.column_stack([np.where(A == a, 1, 0) for a in unique_A[1:]])
-    
-    # Linear predictor
-    xb_gamma_a = X_with_intercept @ beta_Y
-    if A_mat.shape[1] > 0 and len(gamma) > 0:
-        xb_gamma_a += A_mat @ gamma
-    
+
+    # Linear predictor: main effects
+    xb_delta_a = X_with_intercept @ beta_Y
+    if A_mat.shape[1] > 0 and len(delta) > 0:
+        xb_delta_a += A_mat @ delta
+
+    # Interaction: treatment x binary covariate (last column of X)
+    if Delta is not None and len(Delta) > 0:
+        X_bin = X.iloc[:, -1].values
+        xb_delta_a += (A_mat * X_bin.reshape(-1, 1)) @ Delta
+
     # Apply functional form
     if flavor_Y == "expo":
-        Y = np.exp(xb_gamma_a) + np.random.normal(0, 0.5, n)
-        
+        Y = np.exp(xb_delta_a) + np.random.normal(0, 0.5, n)
+
     elif flavor_Y == "sigmoid":
-        Y = 1/(1 + np.exp(-xb_gamma_a)) * 10 + np.random.normal(0, 0.5, n)
-        
+        Y = 1/(1 + np.exp(-xb_delta_a)) * 10 + np.random.normal(0, 0.5, n)
+
     elif flavor_Y == "gamma":
         shape = 2
         scale = 3
-        Y = (np.exp(shape * xb_gamma_a) * np.exp(-np.exp(xb_gamma_a)/scale)) / \
+        Y = (np.exp(shape * xb_delta_a) * np.exp(-np.exp(xb_delta_a)/scale)) / \
             (math.gamma(shape) * scale**shape) * 10 + np.random.normal(0, 0.5, n) + 0.1
-            
+
     elif flavor_Y == "lognormal":
         # If log(Y) ~ N(μ, σ²), then Y ~ Lognormal
         sigma = 0.5
-        Y = np.exp(xb_gamma_a + np.random.normal(0, sigma, n))
+        Y = np.exp(xb_delta_a + np.random.normal(0, sigma, n))
 
-        # bell-curve transform 
-        #Y = (1 / (np.exp(xb_gamma_a) * np.sqrt(2 * np.pi))) * \
-        #    np.exp(-0.5 * xb_gamma_a**2) * 10 + np.random.normal(0, 0.5, n) 
-    
+        # bell-curve transform
+        #Y = (1 / (np.exp(xb_delta_a) * np.sqrt(2 * np.pi))) * \
+        #    np.exp(-0.5 * xb_delta_a**2) * 10 + np.random.normal(0, 0.5, n)
+
     # Ensure positive outcomes
     Y = np.abs(Y)
-    
+
     # Handle extreme values for exponential
     if flavor_Y == "expo":
         threshold = np.percentile(Y, 99.95)
         Y = np.minimum(Y, threshold)
-    
-    return {'Y': Y, 'xb_gamma_a': xb_gamma_a}
+
+    return {'Y': Y, 'xb_delta_a': xb_delta_a}

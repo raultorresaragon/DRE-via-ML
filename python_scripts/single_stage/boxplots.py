@@ -232,12 +232,17 @@ def save_boxplots(filepath, save=True, show=True, ncols=None):
     return fig, parsed
 
 
-# Example usage
 if __name__ == "__main__":
-    test_path = "./_1trt_effect/tables/simk2_logit_lognormal_est_with_lognormal.csv"
+    import glob
+    tables_dir = "./_1trt_effect/tables/Results"
+    files = sorted(glob.glob(f"{tables_dir}/simk2_*.csv"))
 
-    if os.path.exists(test_path):
-        print("Creating combined boxplots...")
-        save_boxplots(test_path, save=True, show=True)
+    if not files:
+        print(f"No simk2_*.csv files found in {tables_dir}")
     else:
-        print(f"Test file not found: {test_path}")
+        print(f"Found {len(files)} files:")
+        for f in files:
+            print(f"  {f}")
+        for filepath in files:
+            print(f"\nProcessing: {os.path.basename(filepath)}")
+            save_boxplots(filepath, save=True, show=False)

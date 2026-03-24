@@ -24,7 +24,7 @@ from Y_Yhat_sorted_plots import plot_predicted_A_Y
 # Run one simulation iteration for k>=3 treatments
 # Parameters:
 zero_effect = False
-k = 5
+k = 2
 n = 300 * k
 if k == 2:
     p = 3
@@ -45,9 +45,10 @@ beta_Y = np.concatenate([
             [1],
             np.round(np.random.uniform(-1, 1, p), 1)
         ]) * 1
-gamma = np.array([0.6, 0.4, 0.75, 0.17])[:(k-1)] * (1 if not zero_effect else 0)
+delta = np.array([0.6, 0.4, 0.75, 0.17])[:(k-1)] * (1 if not zero_effect else 0)
+Delta = np.array([-1.2, 1.0, -1.0, 0.8])[:(k-1)] * (1 if not zero_effect else 0)
 A_flavor = "logit"  # "logit" "tanh"
-Y_flavor = "lognormal"  # "expo", "sigmoid", "gamma", "lognormal"
+Y_flavor = "expo"  # "expo", "sigmoid", "gamma", "lognormal"
 hidunits = [5, 20]
 eps = [100, 250]
 penals = [0.001, 0.01]
@@ -61,7 +62,7 @@ rho = round(np.random.uniform(0.4, 0.6), 1)
 # Generate data
 X = gen_X(n=n, p=p, rho=rho, mu=Xmu, p_bin=1)
 A = gen_A(X=X, beta_A=beta_A, flavor_A=A_flavor, k=k)
-Y_result = gen_Y(gamma=gamma, X=X, A=A, beta_Y=beta_Y, flavor_Y=Y_flavor)
+Y_result = gen_Y(delta=delta, X=X, A=A, beta_Y=beta_Y, Delta=Delta, flavor_Y=Y_flavor)
 Y = Y_result['Y']
 
 # Create dataset
@@ -82,6 +83,7 @@ assert np.all(Y >= 0), "All Y values must be non-negative"
 # Plot generated Y
 X_with_intercept = np.column_stack([np.ones(n), X.values])
 xb_Y = X_with_intercept @ beta_Y
+X_bin = X.iloc[:, -1].values
 
 colors = ['black', 'darkred', 'green', 'blue', 'skyblue']
 
@@ -93,7 +95,7 @@ for a_val in range(k):
 
 plt.xlabel('xb_Y')
 plt.ylabel('Y')
-plt.title(f'k={k} flavor:{A_flavor}-{Y_flavor}\nN={n} dim(X)={p}')
+plt.title(f'|A|={k} flavor:{A_flavor}-{Y_flavor}\nN={n} dim(X)={p}')
 plt.legend()
 
 if export_images:
@@ -109,7 +111,7 @@ for i in range(k):
 # Calculate true differences
 true_diffs = []
 for comparison in combinations(range(k), 2):
-    true_diff = get_true_diff(comparison, xb_Y, gamma, Y_flavor)
+    true_diff = get_true_diff(comparison, xb_Y, delta, Y_flavor, Delta=Delta, X_bin=X_bin)
     true_diffs.append(true_diff)
 
 # Estimate propensity scores
@@ -145,7 +147,7 @@ if Y_flavor == "lognormal":
     param_models.append(('lognormal', fit_Y_lognormal))
 
 for Y_param, fit_Y_param in param_models:
-    plot_predicted_A_Y(beta_A, beta_Y, dat, fit_Y_nn, fit_Y_param, gamma,
+    plot_predicted_A_Y(beta_A, beta_Y, dat, fit_Y_nn, fit_Y_param, delta,
                       fit_A_nn, fit_A_logit, A_flavor, Y_flavor, iter, k, Y_param=Y_param,
                       save=export_images, root=root)
 
@@ -221,8 +223,7 @@ if Y_flavor == "lognormal":
     print(my_k_rows_lognormal)
 
 # Compute OTR
-X_new = pd.DataFrame(np.random.uniform(-8, 8, (5, p)),
-                     columns=[f'X{i+1}' for i in range(p)])
+X_new = gen_X(n=5, p=p, rho=rho, mu=Xmu, p_bin=1)
 
 Vn_df = get_Vn(fit_Y_nn, X_new)
 Vn_df['dataset'] = iter

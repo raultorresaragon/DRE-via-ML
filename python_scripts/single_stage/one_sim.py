@@ -21,8 +21,9 @@ from get_true_diff import get_true_diff
 from compute_Vn import get_Vn
 from Y_Yhat_sorted_plots import plot_predicted_A_Y
 
-def one_sim(n, p, Xmu, beta_A, beta_Y, gamma, k,
+def one_sim(n, p, Xmu, beta_A, beta_Y, delta, k,
             A_flavor, Y_flavor,
+            Delta=None,
             hidunits=[5, 20], eps=[100, 250], penals=[0.001, 0.01],
             verbose=False, iter=1, export_images=False, root="./", rho=0.5):
     """
@@ -34,7 +35,8 @@ def one_sim(n, p, Xmu, beta_A, beta_Y, gamma, k,
     Xmu = mean vector for X
     beta_A = treatment model coefficients
     beta_Y = outcome model coefficients
-    gamma = treatment effects
+    delta = main treatment effects (shape k-1)
+    Delta = interaction (effect modification) coefficients with binary covariate (shape k-1), optional
     k = number of treatment levels
     A_flavor = treatment model type ("logit" or "tanh")
     Y_flavor = outcome model type ("expo", "sigmoid", "gamma", "lognormal")
@@ -54,7 +56,7 @@ def one_sim(n, p, Xmu, beta_A, beta_Y, gamma, k,
     # Generate data
     X = gen_X(n=n, p=p, rho=rho, mu=Xmu, p_bin=1)
     A = gen_A(X=X, beta_A=beta_A, flavor_A=A_flavor, k=k)
-    Y_result = gen_Y(gamma=gamma, X=X, A=A, beta_Y=beta_Y, flavor_Y=Y_flavor)
+    Y_result = gen_Y(delta=delta, X=X, A=A, beta_Y=beta_Y, Delta=Delta, flavor_Y=Y_flavor)
     Y = Y_result['Y']
 
     # Create dataset
@@ -74,6 +76,7 @@ def one_sim(n, p, Xmu, beta_A, beta_Y, gamma, k,
     # Plot generated Y
     X_with_intercept = np.column_stack([np.ones(n), X.values])
     xb_Y = X_with_intercept @ beta_Y
+    X_bin = X.iloc[:, -1].values
 
     colors = ['black', 'darkred', 'green', 'blue', 'skyblue']
 
@@ -85,7 +88,7 @@ def one_sim(n, p, Xmu, beta_A, beta_Y, gamma, k,
 
     plt.xlabel('Linear predictor')
     plt.ylabel('Y')
-    plt.title(f'k={k} flavor:{A_flavor}-{Y_flavor}\nN={n} dim(X)={p}')
+    plt.title(f'|A|={k} flavor:{A_flavor}-{Y_flavor}\nN={n} dim(X)={p}')
     plt.legend()
 
     if export_images:
@@ -102,7 +105,7 @@ def one_sim(n, p, Xmu, beta_A, beta_Y, gamma, k,
     # Calculate true differences
     true_diffs = []
     for comparison in combinations(range(k), 2):
-        true_diff = get_true_diff(comparison, xb_Y, gamma, Y_flavor)
+        true_diff = get_true_diff(comparison, xb_Y, delta, Y_flavor, Delta=Delta, X_bin=X_bin)
         true_diffs.append(true_diff)
 
     # Estimate propensity scores
@@ -140,7 +143,7 @@ def one_sim(n, p, Xmu, beta_A, beta_Y, gamma, k,
         param_models.append(('lognormal', fit_Y_lognormal))
 
     for Y_param, fit_Y_param in param_models:
-        plot_predicted_A_Y(beta_A, beta_Y, dat, fit_Y_nn, fit_Y_param, gamma,
+        plot_predicted_A_Y(beta_A, beta_Y, dat, fit_Y_nn, fit_Y_param, delta,
                           fit_A_nn, fit_A_logit, A_flavor, Y_flavor, iter, k, Y_param=Y_param,
                           save=export_images, root=root)
 
@@ -208,8 +211,7 @@ def one_sim(n, p, Xmu, beta_A, beta_Y, gamma, k,
         my_k_rows_lognormal = create_results_df('lognormal', lognormal_estimates, lognormal_pvals)
 
     # Compute OTR
-    X_new = pd.DataFrame(np.random.uniform(-8, 8, (5, p)),
-                        columns=[f'X{i+1}' for i in range(p)])
+    X_new = gen_X(n=5, p=p, rho=rho, mu=Xmu, p_bin=1)
 
     Vn_df = get_Vn(fit_Y_nn, X_new)
     Vn_df['dataset'] = iter
