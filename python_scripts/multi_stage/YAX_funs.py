@@ -104,12 +104,12 @@ def gen_A(X, beta_A, flavor_A="logit", k=None):
 # ------------
 # Generate Y 
 # ------------
-def gen_Y(gamma, X, A, beta_Y, flavor_Y="expo"):
+def gen_Y(delta, X, A, beta_Y, flavor_Y="expo"):
     """
     Generate outcomes
-    
+
     Parameters:
-    - gamma: treatment effects
+    - delta: treatment effects
     - X: design matrix
     - A: treatment assignments
     - beta_Y: outcome model coefficients
@@ -117,47 +117,47 @@ def gen_Y(gamma, X, A, beta_Y, flavor_Y="expo"):
     """
     n = X.shape[0]
     X_with_intercept = np.column_stack([np.ones(n), X.values])
-    
+
     # Create treatment indicators (excluding baseline A=0)
     unique_A = np.unique(A)
     A_mat = np.column_stack([np.where(A == a, 1, 0) for a in unique_A[1:]])
-    
+
     # Linear predictor
-    xb_gamma_a = X_with_intercept @ beta_Y
-    if A_mat.shape[1] > 0 and len(gamma) > 0:
-        xb_gamma_a += A_mat @ gamma
-    
+    xb_delta_a = X_with_intercept @ beta_Y
+    if A_mat.shape[1] > 0 and len(delta) > 0:
+        xb_delta_a += A_mat @ delta
+
     # Apply functional form
     if flavor_Y == "expo":
-        Y = np.exp(xb_gamma_a) + np.random.normal(0, 0.5, n)
-        
+        Y = np.exp(xb_delta_a) + np.random.normal(0, 0.5, n)
+
     elif flavor_Y == "sigmoid":
-        Y = 1/(1 + np.exp(-xb_gamma_a)) * 10 + np.random.normal(0, 0.5, n)
-        
+        Y = 1/(1 + np.exp(-xb_delta_a)) * 10 + np.random.normal(0, 0.5, n)
+
     elif flavor_Y == "gamma":
         shape = 2
         scale = 3
-        Y = (np.exp(shape * xb_gamma_a) * np.exp(-np.exp(xb_gamma_a)/scale)) / \
+        Y = (np.exp(shape * xb_delta_a) * np.exp(-np.exp(xb_delta_a)/scale)) / \
             (math.gamma(shape) * scale**shape) * 10 + np.random.normal(0, 0.5, n) + 0.1
-            
+
     elif flavor_Y == "lognormal":
         # If log(Y) ~ N(μ, σ²), then Y ~ Lognormal
         sigma = 0.5
-        Y = np.exp(xb_gamma_a + np.random.normal(0, sigma, n))
+        Y = np.exp(xb_delta_a + np.random.normal(0, sigma, n))
 
-        # bell-curve transform 
-        #Y = (1 / (np.exp(xb_gamma_a) * np.sqrt(2 * np.pi))) * \
-        #    np.exp(-0.5 * xb_gamma_a**2) * 10 + np.random.normal(0, 0.5, n) 
-    
+        # bell-curve transform
+        #Y = (1 / (np.exp(xb_delta_a) * np.sqrt(2 * np.pi))) * \
+        #    np.exp(-0.5 * xb_delta_a**2) * 10 + np.random.normal(0, 0.5, n)
+
     # Ensure positive outcomes
     Y = np.abs(Y)
-    
+
     # Handle extreme values for exponential
     if flavor_Y == "expo":
         threshold = np.percentile(Y, 99.95)
         Y = np.minimum(Y, threshold)
-    
-    return {'Y': Y, 'xb_gamma_a': xb_gamma_a}
+
+    return {'Y': Y, 'xb_delta_a': xb_delta_a}
 
 
 # ========================================
@@ -253,17 +253,17 @@ def gen_A2(X1, A1, X2, beta_A2, gamma_stay, flavor_A="logit", k2=None):
 # --------------------------
 # Generate X2 (stage 2 covariates)
 # --------------------------
-def gen_X2(X1, A1, p2, gamma1_X2, beta_X2, flavor_X2="expo", rho=0.5, p_bin=1):
+def gen_X2(X1, A1, p2, delta1_X2, beta_X2, flavor_X2="expo", rho=0.5, p_bin=1):
     """
     Generate stage 2 covariates that depend on stage 1 history
     X2_1 is an intermediate outcome matching the Y flavor
     Remaining X2 covariates are correlated normal variables
-    
+
     Parameters:
     - X1: stage 1 covariates (DataFrame)
     - A1: stage 1 treatment (array)
     - p2: number of stage 2 covariates
-    - gamma1_X2: treatment effects of A1 on X2_1 (array of length k1-1)
+    - delta1_X2: treatment effects of A1 on X2_1 (array of length k1-1)
     - beta_X2: coefficients for X1 effect on X2_1 (array of length p1+1)
     - flavor_X2: functional form for X2_1 ("expo", "sigmoid", "gamma", "lognormal")
     - rho: correlation parameter for remaining X2 covariates
@@ -281,8 +281,8 @@ def gen_X2(X1, A1, p2, gamma1_X2, beta_X2, flavor_X2="expo", rho=0.5, p_bin=1):
     
     # Linear predictor for X2_1
     X2_linear = X1_with_intercept @ beta_X2
-    if A1_mat.shape[1] > 0 and len(gamma1_X2) > 0:
-        X2_linear += A1_mat @ gamma1_X2
+    if A1_mat.shape[1] > 0 and len(delta1_X2) > 0:
+        X2_linear += A1_mat @ delta1_X2
     
     # X2_1: Intermediate outcome matching Y flavor
     if flavor_X2 == "expo":
@@ -328,71 +328,86 @@ def gen_X2(X1, A1, p2, gamma1_X2, beta_X2, flavor_X2="expo", rho=0.5, p_bin=1):
 # ------------
 # Generate Y (two-stage version)
 # ------------
-def gen_Y_two_stage(gamma1_Y, gamma2_Y, X1, A1, X2, A2, beta_Y, flavor_Y="expo"):
+def gen_Y_two_stage(delta1_Y, delta2_Y, X1, A1, X2, A2, beta_Y, flavor_Y="expo",
+                    Delta1_Y=None, Delta2_Y=None):
     """
     Generate outcomes for two-stage setting
-    
+
     Parameters:
-    - gamma1_Y: stage 1 treatment effects on Y (array of length k1-1)
-    - gamma2_Y: stage 2 treatment effects on Y (array of length k2-1)
+    - delta1_Y: stage 1 treatment main effects on Y (array of length k1-1)
+    - delta2_Y: stage 2 treatment main effects on Y (array of length k2-1)
     - X1: stage 1 covariates
     - A1: stage 1 treatment
     - X2: stage 2 covariates
     - A2: stage 2 treatment
     - beta_Y: outcome model coefficients [beta_X1, beta_X2]
     - flavor_Y: functional form for outcome
-    
+    - Delta1_Y: stage 1 treatment × binary covariate interaction coefficients (array of length k1-1)
+    - Delta2_Y: stage 2 treatment × binary covariate interaction coefficients (array of length k2-1)
+                Binary modifier is the last column of X1 for both stages.
+
     Returns:
     - Dictionary with Y and linear predictor
     """
     n = X1.shape[0]
     p1 = X1.shape[1]
-    
+
+    # Binary effect modifier: last column of X1
+    X1_bin = X1.iloc[:, -1].values
+
     # Combine X1 and X2
     X_combined = np.column_stack([np.ones(n), X1.values, X2.values])
-    
+
     # Create treatment indicators for A1 (excluding baseline)
     unique_A1 = np.unique(A1)
     A1_mat = np.column_stack([np.where(A1 == a, 1, 0) for a in unique_A1[1:]])
-    
+
     # Create treatment indicators for A2 (excluding baseline)
     unique_A2 = np.unique(A2)
     A2_mat = np.column_stack([np.where(A2 == a, 1, 0) for a in unique_A2[1:]])
-    
+
     # Linear predictor
-    xb_gamma_a = X_combined @ beta_Y
-    
-    # Add stage 1 treatment effects
-    if A1_mat.shape[1] > 0 and len(gamma1_Y) > 0:
-        xb_gamma_a += A1_mat @ gamma1_Y
-    
-    # Add stage 2 treatment effects
-    if A2_mat.shape[1] > 0 and len(gamma2_Y) > 0:
-        xb_gamma_a += A2_mat @ gamma2_Y
-    
+    xb_delta_a = X_combined @ beta_Y
+
+    # Add stage 1 treatment main effects
+    if A1_mat.shape[1] > 0 and len(delta1_Y) > 0:
+        xb_delta_a += A1_mat @ delta1_Y
+
+    # Add stage 1 treatment × binary modifier interaction
+    if Delta1_Y is not None and len(Delta1_Y) > 0:
+        xb_delta_a += (A1_mat * X1_bin.reshape(-1, 1)) @ Delta1_Y
+
+    # Add stage 2 treatment main effects
+    if A2_mat.shape[1] > 0 and len(delta2_Y) > 0:
+        xb_delta_a += A2_mat @ delta2_Y
+
+    # Add stage 2 treatment × binary modifier interaction
+    if Delta2_Y is not None and len(Delta2_Y) > 0:
+        xb_delta_a += (A2_mat * X1_bin.reshape(-1, 1)) @ Delta2_Y
+
     # Apply functional form (same as single-stage)
     if flavor_Y == "expo":
-        Y = np.exp(xb_gamma_a) + np.random.normal(0, 0.5, n)
-        
+        Y = np.exp(xb_delta_a) + np.random.normal(0, 0.5, n)
+
     elif flavor_Y == "sigmoid":
-        Y = 1/(1 + np.exp(-xb_gamma_a)) * 10 + np.random.normal(0, 0.5, n)
-        
+        Y = 1/(1 + np.exp(-xb_delta_a)) * 10 + np.random.normal(0, 0.5, n)
+
     elif flavor_Y == "gamma":
         shape = 2
         scale = 3
-        Y = (np.exp(shape * xb_gamma_a) * np.exp(-np.exp(xb_gamma_a)/scale)) / \
+        Y = (np.exp(shape * xb_delta_a) * np.exp(-np.exp(xb_delta_a)/scale)) / \
             (math.gamma(shape) * scale**shape) * 10 + np.random.normal(0, 0.5, n) + 0.1
-            
+
     elif flavor_Y == "lognormal":
         sigma = 0.5
-        Y = np.exp(xb_gamma_a + np.random.normal(0, sigma, n))
-    
+        Y = np.exp(xb_delta_a + np.random.normal(0, sigma, n))
+
     # Ensure positive outcomes
     Y = np.abs(Y)
-    
+
     # Handle extreme values for exponential
     if flavor_Y == "expo":
         threshold = np.percentile(Y, 99.95)
         Y = np.minimum(Y, threshold)
-    
-    return {'Y': Y, 'xb_gamma_a': xb_gamma_a}
+
+    return {'Y': Y, 'xb_delta_a': xb_delta_a}

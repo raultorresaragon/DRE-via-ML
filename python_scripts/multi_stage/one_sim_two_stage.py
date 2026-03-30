@@ -18,12 +18,13 @@ from get_true_optimal_regime import compute_true_optimal_regime, evaluate_regime
 
 def one_sim_two_stage(n, p1, p2, k1, k2,
                       beta_A1, beta_A2, gamma_stay,
-                      gamma1_X2, beta_X2,
-                      gamma1_Y, gamma2_Y, beta_Y,
+                      delta1_X2, beta_X2,
+                      delta1_Y, delta2_Y, beta_Y,
                       A_flavor, Y_flavor,
                       hidunits=[5, 20], eps=[100, 250], penals=[0.001, 0.01],
                       verbose=False, iter=1, export_images=False, root="./", rho=0.5,
-                      compute_true_regime=False, n_samples_true=500):
+                      compute_true_regime=False, n_samples_true=500,
+                      Delta1_Y=None, Delta2_Y=None):
     """
     Run one simulation iteration for two-stage DTR
 
@@ -36,10 +37,10 @@ def one_sim_two_stage(n, p1, p2, k1, k2,
     beta_A1 = stage 1 treatment model coefficients
     beta_A2 = stage 2 treatment model coefficients
     gamma_stay = stay-probability parameter (higher -> more likely to stay on A1 when X2 is high)
-    gamma1_X2 = effect of A1 on X2
+    delta1_X2 = effect of A1 on X2
     beta_X2 = effect of X1 on X2
-    gamma1_Y = effect of A1 on Y
-    gamma2_Y = effect of A2 on Y
+    delta1_Y = stage 1 treatment main effects on Y
+    delta2_Y = stage 2 treatment main effects on Y
     beta_Y = outcome model coefficients
     A_flavor = treatment model type ("logit" or "tanh")
     Y_flavor = outcome model type ("expo", "sigmoid", "gamma", "lognormal")
@@ -51,7 +52,9 @@ def one_sim_two_stage(n, p1, p2, k1, k2,
     export_images = save plots
     root = root directory
     rho = correlation parameter
-    
+    Delta1_Y = stage 1 treatment × binary modifier interaction coefficients (array of length k1-1)
+    Delta2_Y = stage 2 treatment × binary modifier interaction coefficients (array of length k2-1)
+
     Returns:
     - Dictionary with results
     """
@@ -75,7 +78,7 @@ def one_sim_two_stage(n, p1, p2, k1, k2,
     # STAGE 2: Generate intermediate data
     # ========================================
     print("\nStage 2: Generating intermediate data...")
-    X2 = gen_X2(X1=X1, A1=A1, p2=p2, gamma1_X2=gamma1_X2, beta_X2=beta_X2, 
+    X2 = gen_X2(X1=X1, A1=A1, p2=p2, delta1_X2=delta1_X2, beta_X2=beta_X2,
                 flavor_X2=Y_flavor, rho=rho, p_bin=1)
 
     # Stage 2 treatment depends on full history + stay-probability
@@ -92,9 +95,10 @@ def one_sim_two_stage(n, p1, p2, k1, k2,
     # ========================================
     print("\nGenerating final outcome...")
     Y_result = gen_Y_two_stage(
-        gamma1_Y=gamma1_Y, gamma2_Y=gamma2_Y,
+        delta1_Y=delta1_Y, delta2_Y=delta2_Y,
         X1=X1, A1=A1, X2=X2, A2=A2,
-        beta_Y=beta_Y, flavor_Y=Y_flavor
+        beta_Y=beta_Y, flavor_Y=Y_flavor,
+        Delta1_Y=Delta1_Y, Delta2_Y=Delta2_Y
     )
     Y = Y_result['Y']
     
@@ -193,10 +197,11 @@ def one_sim_two_stage(n, p1, p2, k1, k2,
         
         true_regime_result = compute_true_optimal_regime(
             X1=X1, X2=X2, A1=A1, k1=k1, k2=k2,
-            gamma1_X2=gamma1_X2, beta_X2=beta_X2,
-            gamma1_Y=gamma1_Y, gamma2_Y=gamma2_Y, beta_Y=beta_Y,
+            delta1_X2=delta1_X2, beta_X2=beta_X2,
+            delta1_Y=delta1_Y, delta2_Y=delta2_Y, beta_Y=beta_Y,
             p2=p2, rho=rho, flavor_Y=Y_flavor,
-            n_samples=n_samples_true
+            n_samples=n_samples_true,
+            Delta1_Y=Delta1_Y, Delta2_Y=Delta2_Y
         )
         
         # Evaluate accuracy
@@ -286,22 +291,25 @@ if __name__ == "__main__":
     beta_A2 = np.array([[0.3, 0.2], [-0.2, 0.3], [0.1, -0.1], [0.2, 0.1], [0.4, -0.2], [-0.3, 0.5], [0.1, -0.2]])
     gamma_stay = 0.5  # stay-probability: higher X2 -> more likely to stay on A1
 
-    gamma1_X2 = np.array([0.5, 1.0])
+    delta1_X2 = np.array([0.5, 1.0])
     beta_X2 = np.array([0.0, 0.3, 0.2, 0.1])
-    
-    gamma1_Y = np.array([1.0, 2.0])
-    gamma2_Y = np.array([1.5, 3.0])
+
+    delta1_Y = np.array([1.0, 2.0])
+    delta2_Y = np.array([1.5, 3.0])
     beta_Y = np.array([1.0, 0.5, 0.3, 0.2, 0.4, 0.3])
-    
+    Delta1_Y = np.array([-1.2, 1.0])   # stage 1 trt × X1_bin interaction
+    Delta2_Y = np.array([-1.2, 1.0])   # stage 2 trt × X1_bin interaction
+
     # Run simulation
     result = one_sim_two_stage(
         n=n, p1=p1, p2=p2, k1=k1, k2=k2,
         beta_A1=beta_A1, beta_A2=beta_A2, gamma_stay=gamma_stay,
-        gamma1_X2=gamma1_X2, beta_X2=beta_X2,
-        gamma1_Y=gamma1_Y, gamma2_Y=gamma2_Y, beta_Y=beta_Y,
+        delta1_X2=delta1_X2, beta_X2=beta_X2,
+        delta1_Y=delta1_Y, delta2_Y=delta2_Y, beta_Y=beta_Y,
         A_flavor="logit", Y_flavor="expo",
         hidunits=[5, 10], eps=[100], penals=[0.01],
-        verbose=False, iter=1, export_images=False, root="./test_output"
+        verbose=False, iter=1, export_images=False, root="./test_output",
+        Delta1_Y=Delta1_Y, Delta2_Y=Delta2_Y
     )
     
     print("\n✓ Simulation complete!")

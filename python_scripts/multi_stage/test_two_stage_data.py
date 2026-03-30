@@ -33,22 +33,24 @@ print(f"Testing with: n={n}, p1={p1}, p2={p2}, k1={k1}, k2={k2}\n")
 beta_A1 = np.random.uniform(-0.5, 0.5, size=(p1+1, k1-1))
 print(f"beta_A1 shape: {beta_A1.shape} (should be {p1+1} x {k1-1})")
 
-# X2 model: gamma1_X2 is (k1-1), beta_X2 is (p1+1)
-gamma1_X2 = np.random.uniform(0.3, 1.0, size=k1-1)
+# X2 model: delta1_X2 is (k1-1), beta_X2 is (p1+1)
+delta1_X2 = np.random.uniform(0.3, 1.0, size=k1-1)
 beta_X2 = np.random.uniform(-0.3, 0.3, size=p1+1)
-print(f"gamma1_X2 shape: {gamma1_X2.shape} (should be {k1-1})")
+print(f"delta1_X2 shape: {delta1_X2.shape} (should be {k1-1})")
 print(f"beta_X2 shape: {beta_X2.shape} (should be {p1+1})")
 
 # Stage 2 treatment model: beta_A2 is (p1+1+p2+1) x (k2-1)
 beta_A2 = np.random.uniform(-0.5, 0.5, size=(p1+p2+2, k2-1))
 print(f"beta_A2 shape: {beta_A2.shape} (should be {p1+p2+2} x {k2-1})")
 
-# Outcome model: gamma1_Y is (k1-1), gamma2_Y is (k2-1), beta_Y is (p1+p2+1)
-gamma1_Y = np.random.uniform(0.5, 2.0, size=k1-1)
-gamma2_Y = np.random.uniform(1.0, 3.0, size=k2-1)
+# Outcome model: delta1_Y is (k1-1), delta2_Y is (k2-1), beta_Y is (p1+p2+1)
+delta1_Y = np.random.uniform(0.5, 2.0, size=k1-1)
+delta2_Y = np.random.uniform(1.0, 3.0, size=k2-1)
 beta_Y = np.random.uniform(-0.5, 0.5, size=p1+p2+1)
-print(f"gamma1_Y shape: {gamma1_Y.shape} (should be {k1-1})")
-print(f"gamma2_Y shape: {gamma2_Y.shape} (should be {k2-1})")
+Delta1_Y = np.array([-1.2, 1.0, -1.0, 0.8])[:k1-1]
+Delta2_Y = np.array([-1.2, 1.0, -1.0, 0.8])[:k2-1]
+print(f"delta1_Y shape: {delta1_Y.shape} (should be {k1-1})")
+print(f"delta2_Y shape: {delta2_Y.shape} (should be {k2-1})")
 print(f"beta_Y shape: {beta_Y.shape} (should be {p1+p2+1})")
 
 gamma_stay = 0.5  # stay-probability parameter
@@ -75,7 +77,7 @@ print("=" * 60)
 print("STAGE 2: Generating intermediate covariates")
 print("=" * 60)
 
-X2 = gen_X2(X1=X1, A1=A1, p2=p2, gamma1_X2=gamma1_X2, beta_X2=beta_X2, 
+X2 = gen_X2(X1=X1, A1=A1, p2=p2, delta1_X2=delta1_X2, beta_X2=beta_X2,
             flavor_X2=flavor_Y, rho=0.5, p_bin=1)
 print(f"X2 shape: {X2.shape}")
 print(f"X2 head:\n{X2.head()}\n")
@@ -100,14 +102,16 @@ print("FINAL OUTCOME: Generating Y")
 print("=" * 60)
 
 Y_result = gen_Y_two_stage(
-    gamma1_Y=gamma1_Y,
-    gamma2_Y=gamma2_Y,
+    delta1_Y=delta1_Y,
+    delta2_Y=delta2_Y,
     X1=X1,
     A1=A1,
     X2=X2,
     A2=A2,
     beta_Y=beta_Y,
-    flavor_Y=flavor_Y
+    flavor_Y=flavor_Y,
+    Delta1_Y=Delta1_Y,
+    Delta2_Y=Delta2_Y
 )
 
 Y = Y_result['Y']

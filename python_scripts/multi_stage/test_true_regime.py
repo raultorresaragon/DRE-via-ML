@@ -30,9 +30,9 @@ X1 = gen_X(n=n, p=p1, rho=0.5, p_bin=1)
 beta_A1 = np.array([[0.5, 0.3], [-0.3, 0.4], [0.2, -0.1], [0.1, 0.2]])
 A1 = gen_A(X=X1, beta_A=beta_A1, flavor_A="logit", k=k1)
 
-gamma1_X2 = np.array([0.5, 1.0])
+delta1_X2 = np.array([0.5, 1.0])
 beta_X2 = np.array([0.0, 0.3, 0.2, 0.1])
-X2 = gen_X2(X1=X1, A1=A1, p2=p2, gamma1_X2=gamma1_X2, beta_X2=beta_X2, 
+X2 = gen_X2(X1=X1, A1=A1, p2=p2, delta1_X2=delta1_X2, beta_X2=beta_X2,
             flavor_X2="expo", rho=0.5, p_bin=1)
 
 X_history = pd.concat([X1, pd.Series(A1, name='A1'), X2], axis=1)
@@ -41,14 +41,17 @@ gamma_stay = 0.5  # stay-probability: higher X2 -> more likely to stay on A1
 A2 = gen_A2(X1=X1, A1=A1, X2=X2, beta_A2=beta_A2, gamma_stay=gamma_stay,
             flavor_A="logit", k2=k2)
 
-gamma1_Y = np.array([1.0, 2.0])
-gamma2_Y = np.array([1.5, 3.0])
+delta1_Y = np.array([1.0, 2.0])
+delta2_Y = np.array([1.5, 3.0])
 beta_Y = np.array([1.0, 0.5, 0.3, 0.2, 0.4, 0.3])
+Delta1_Y = np.array([-1.2, 1.0])
+Delta2_Y = np.array([-1.2, 1.0])
 
 Y_result = gen_Y_two_stage(
-    gamma1_Y=gamma1_Y, gamma2_Y=gamma2_Y,
+    delta1_Y=delta1_Y, delta2_Y=delta2_Y,
     X1=X1, A1=A1, X2=X2, A2=A2,
-    beta_Y=beta_Y, flavor_Y="expo"
+    beta_Y=beta_Y, flavor_Y="expo",
+    Delta1_Y=Delta1_Y, Delta2_Y=Delta2_Y
 )
 Y = Y_result['Y']
 
@@ -61,10 +64,11 @@ print("=" * 80)
 
 true_regime = compute_true_optimal_regime(
     X1=X1, X2=X2, A1=A1, k1=k1, k2=k2,
-    gamma1_X2=gamma1_X2, beta_X2=beta_X2,
-    gamma1_Y=gamma1_Y, gamma2_Y=gamma2_Y, beta_Y=beta_Y,
+    delta1_X2=delta1_X2, beta_X2=beta_X2,
+    delta1_Y=delta1_Y, delta2_Y=delta2_Y, beta_Y=beta_Y,
     p2=p2, rho=0.5, flavor_Y="expo",
-    n_samples=500  # Reduce for speed
+    n_samples=500,  # Reduce for speed
+    Delta1_Y=Delta1_Y, Delta2_Y=Delta2_Y
 )
 
 print(f"\nTrue optimal regime distribution:")
