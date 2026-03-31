@@ -17,7 +17,7 @@ def run_sims_two_stage(M, n, p1, p2, k1, k2,
                        A_flavor, Y_flavor,
                        hidunits=[5, 20], eps=[100, 250], penals=[0.001, 0.01],
                        verbose=False, export_images=False, root="./", rho=0.5,
-                       Delta1_Y=None, Delta2_Y=None):
+                       Delta1_Y=None, Delta2_Y=None, Delta1_X2=None):
     """
     Run M simulations for two-stage DTR
 
@@ -58,7 +58,7 @@ def run_sims_two_stage(M, n, p1, p2, k1, k2,
             A_flavor=A_flavor, Y_flavor=Y_flavor,
             hidunits=hidunits, eps=eps, penals=penals,
             verbose=verbose, iter=m, export_images=export_images, root=root, rho=rho,
-            Delta1_Y=Delta1_Y, Delta2_Y=Delta2_Y
+            Delta1_Y=Delta1_Y, Delta2_Y=Delta2_Y, Delta1_X2=Delta1_X2
         )
         
         # Extract key metrics
@@ -152,8 +152,9 @@ if __name__ == "__main__":
     delta1_Y = np.array([1.0, 2.0])
     delta2_Y = np.array([1.5, 3.0])
     beta_Y = np.array([1.0, 0.5, 0.3, 0.2, 0.4, 0.3])
-    Delta1_Y = np.array([-1.2, 1.0])   # stage 1 trt × X1_bin interaction
-    Delta2_Y = np.array([-1.2, 1.0])   # stage 2 trt × X1_bin interaction
+    Delta1_Y = np.array([-1.2, 1.0])   # stage 1 trt × X1_bin interaction for Y
+    Delta2_Y = np.array([-1.2, 1.0])   # stage 2 trt × X1_bin interaction for Y
+    Delta1_X2 = np.array([-1.2, 1.0])  # stage 1 trt × X1_bin interaction for X2
 
     # Run simulations
     results = run_sims_two_stage(
@@ -164,5 +165,5 @@ if __name__ == "__main__":
         A_flavor="logit", Y_flavor="expo",
         hidunits=[5, 10], eps=[100], penals=[0.01],
         verbose=False, export_images=False, root="./test_output",
-        Delta1_Y=Delta1_Y, Delta2_Y=Delta2_Y
+        Delta1_Y=Delta1_Y, Delta2_Y=Delta2_Y, Delta1_X2=Delta1_X2
     )

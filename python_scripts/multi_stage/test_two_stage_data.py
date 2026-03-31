@@ -17,10 +17,10 @@ np.random.seed(1810)
 # CUSTOMIZABLE PARAMETERS - Change these as needed
 # ============================================================
 n = 100
-p1 = 8  # Stage 1 covariates
+p1 = 3  # Stage 1 covariates
 p2 = p1+1 # Stage 2 covariates
-k1 = 3  # Stage 1 treatment levels
-k2 = 3  # Stage 2 treatment levels
+k1 = 2  # Stage 1 treatment levels
+k2 = 2  # Stage 2 treatment levels
 flavor_Y = 'lognormal' #expo, lognormal, sigmoid, gamma
 
 print(f"Testing with: n={n}, p1={p1}, p2={p2}, k1={k1}, k2={k2}\n")
@@ -49,6 +49,7 @@ delta2_Y = np.random.uniform(1.0, 3.0, size=k2-1)
 beta_Y = np.random.uniform(-0.5, 0.5, size=p1+p2+1)
 Delta1_Y = np.array([-1.2, 1.0, -1.0, 0.8])[:k1-1]
 Delta2_Y = np.array([-1.2, 1.0, -1.0, 0.8])[:k2-1]
+Delta1_X2 = np.array([-1.2, 1.0, -1.0, 0.8])[:k1-1]
 print(f"delta1_Y shape: {delta1_Y.shape} (should be {k1-1})")
 print(f"delta2_Y shape: {delta2_Y.shape} (should be {k2-1})")
 print(f"beta_Y shape: {beta_Y.shape} (should be {p1+p2+1})")
@@ -78,7 +79,7 @@ print("STAGE 2: Generating intermediate covariates")
 print("=" * 60)
 
 X2 = gen_X2(X1=X1, A1=A1, p2=p2, delta1_X2=delta1_X2, beta_X2=beta_X2,
-            flavor_X2=flavor_Y, rho=0.5, p_bin=1)
+            flavor_X2=flavor_Y, rho=0.5, p_bin=1, Delta1_X2=Delta1_X2)
 print(f"X2 shape: {X2.shape}")
 print(f"X2 head:\n{X2.head()}\n")
 
@@ -146,8 +147,8 @@ print(f"\nFirst 10 rows:\n{dat.head(10)}")
 fig, (ax1,ax2) = plt.subplots(1,2, figsize=(10,4))
 ax1.hist(dat['Y'], alpha=0.5, label='Y')
 ax1.set_title('Y')
-ax2.hist(dat['X2_1'], alpha=0.5, label='X2_1')
-ax2.set_title('X2_1')
+ax2.hist(dat['Y_1'], alpha=0.5, label='Y_1')
+ax2.set_title('Y_1')
 plt.tight_layout()
 plt.show()
 

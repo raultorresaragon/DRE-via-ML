@@ -108,7 +108,8 @@ def compute_true_optimal_A2(X1, A1, X2, k2, delta1_Y, delta2_Y, beta_Y, flavor_Y
 
 
 def compute_true_Q1(X1, a1, k2, delta1_X2, beta_X2, delta1_Y, delta2_Y, beta_Y,
-                    p2, rho, flavor_Y="expo", n_samples=1000, Delta1_Y=None, Delta2_Y=None):
+                    p2, rho, flavor_Y="expo", n_samples=1000, Delta1_Y=None, Delta2_Y=None,
+                    Delta1_X2=None):
     """
     Compute true Q1(X1, a1) = E[max_{a2} Q2(X1, a1, X2, a2) | X1, A1=a1]
 
@@ -119,31 +120,35 @@ def compute_true_Q1(X1, a1, k2, delta1_X2, beta_X2, delta1_Y, delta2_Y, beta_Y,
     - X1: stage 1 covariates (DataFrame or array)
     - a1: stage 1 treatment level (scalar)
     - k2: number of stage 2 treatments
-    - delta1_X2: effect of A1 on X2
+    - delta1_X2: effect of A1 on X2 (main effect)
     - beta_X2: effect of X1 on X2
     - delta1_Y, delta2_Y, beta_Y: outcome model parameters
     - p2: number of stage 2 covariates
     - rho: correlation for X2
     - flavor_Y: outcome functional form
     - n_samples: number of Monte Carlo samples
-    - Delta1_Y, Delta2_Y: treatment × binary modifier interaction coefficients
+    - Delta1_Y, Delta2_Y: treatment × binary modifier interaction coefficients for Y
+    - Delta1_X2: A1 × binary modifier interaction coefficients for X2
 
     Returns:
     - True Q1 value for each individual
     """
     n = len(X1) if isinstance(X1, pd.DataFrame) else X1.shape[0]
-    
+
     if isinstance(X1, pd.DataFrame):
         X1_vals = X1.values
     else:
         X1_vals = X1
-    
+
     X1_with_intercept = np.column_stack([np.ones(n), X1_vals])
-    
+    X1_bin = X1_vals[:, -1]  # binary modifier: last column of X1
+
     # Mean of X2 given X1 and A1=a1
     X2_linear = X1_with_intercept @ beta_X2
-    if a1 > 0:  # Add treatment effect
+    if a1 > 0:  # Add treatment main effect
         X2_linear += delta1_X2[a1 - 1]
+    if a1 > 0 and Delta1_X2 is not None:  # Add treatment × binary interaction
+        X2_linear += X1_bin * Delta1_X2[a1 - 1]
     
     # Covariance matrix for remaining X2 covariates (if p2 > 1)
     if p2 > 1:
@@ -210,7 +215,8 @@ def compute_true_optimal_regime(X1, X2, A1, k1, k2,
                                 delta1_X2, beta_X2,
                                 delta1_Y, delta2_Y, beta_Y,
                                 p2, rho, flavor_Y="expo",
-                                n_samples=1000, Delta1_Y=None, Delta2_Y=None):
+                                n_samples=1000, Delta1_Y=None, Delta2_Y=None,
+                                Delta1_X2=None):
     """
     Compute true optimal two-stage regime
 
@@ -221,7 +227,8 @@ def compute_true_optimal_regime(X1, X2, A1, k1, k2,
     - k1, k2: number of treatments at each stage
     - delta1_X2, beta_X2: X2 model parameters
     - delta1_Y, delta2_Y, beta_Y: outcome model parameters
-    - Delta1_Y, Delta2_Y: treatment × binary modifier interaction coefficients
+    - Delta1_Y, Delta2_Y: treatment × binary modifier interaction coefficients for Y
+    - Delta1_X2: A1 × binary modifier interaction coefficients for X2
     - p2: number of stage 2 covariates
     - rho: correlation for X2
     - flavor_Y: outcome functional form
@@ -249,7 +256,8 @@ def compute_true_optimal_regime(X1, X2, A1, k1, k2,
         print(f"    A1={a1}...")
         true_Q1_all[:, a1] = compute_true_Q1(
             X1, a1, k2, delta1_X2, beta_X2, delta1_Y, delta2_Y, beta_Y,
-            p2, rho, flavor_Y, n_samples, Delta1_Y=Delta1_Y, Delta2_Y=Delta2_Y
+            p2, rho, flavor_Y, n_samples, Delta1_Y=Delta1_Y, Delta2_Y=Delta2_Y,
+            Delta1_X2=Delta1_X2
         )
     
     # Optimal A1 is argmax Q1

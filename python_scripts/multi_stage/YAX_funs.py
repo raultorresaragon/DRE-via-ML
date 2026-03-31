@@ -39,12 +39,12 @@ def gen_X(p, rho=0.6, mu=None, n=1000, p_bin=1):
     if X.ndim == 1:
         X = X.reshape(1, -1)
     
-    X_df = pd.DataFrame(X, columns=[f'X{i+1}' for i in range(p)])
+    X_df = pd.DataFrame(X, columns=[f'X1_{i+1}' for i in range(p)])
     
     # Convert last p_bin columns to binary
     if p_bin > 0:
         for j in range(p-p_bin, p):
-            col_name = f'X{j+1}'
+            col_name = f'X1_{j+1}'
             X_df[col_name] = (X_df[col_name] > X_df[col_name].mean()).astype(int)
     
     return X_df
@@ -253,7 +253,8 @@ def gen_A2(X1, A1, X2, beta_A2, gamma_stay, flavor_A="logit", k2=None):
 # --------------------------
 # Generate X2 (stage 2 covariates)
 # --------------------------
-def gen_X2(X1, A1, p2, delta1_X2, beta_X2, flavor_X2="expo", rho=0.5, p_bin=1):
+def gen_X2(X1, A1, p2, delta1_X2, beta_X2, flavor_X2="expo", rho=0.5, p_bin=1,
+           Delta1_X2=None):
     """
     Generate stage 2 covariates that depend on stage 1 history
     X2_1 is an intermediate outcome matching the Y flavor
@@ -263,26 +264,33 @@ def gen_X2(X1, A1, p2, delta1_X2, beta_X2, flavor_X2="expo", rho=0.5, p_bin=1):
     - X1: stage 1 covariates (DataFrame)
     - A1: stage 1 treatment (array)
     - p2: number of stage 2 covariates
-    - delta1_X2: treatment effects of A1 on X2_1 (array of length k1-1)
+    - delta1_X2: treatment main effects of A1 on X2_1 (array of length k1-1)
     - beta_X2: coefficients for X1 effect on X2_1 (array of length p1+1)
     - flavor_X2: functional form for X2_1 ("expo", "sigmoid", "gamma", "lognormal")
     - rho: correlation parameter for remaining X2 covariates
     - p_bin: number of binary covariates in X2
-    
+    - Delta1_X2: A1 × binary modifier interaction coefficients for X2_1 (array of length k1-1)
+                 Binary modifier is the last column of X1.
+
     Returns:
     - X2: DataFrame with stage 2 covariates
     """
     n = X1.shape[0]
     X1_with_intercept = np.column_stack([np.ones(n), X1.values])
-    
+
+    # Binary effect modifier: last column of X1
+    X1_bin = X1.iloc[:, -1].values
+
     # Create treatment indicators for A1 (excluding baseline A1=0)
     unique_A1 = np.unique(A1)
     A1_mat = np.column_stack([np.where(A1 == a, 1, 0) for a in unique_A1[1:]])
-    
+
     # Linear predictor for X2_1
     X2_linear = X1_with_intercept @ beta_X2
     if A1_mat.shape[1] > 0 and len(delta1_X2) > 0:
         X2_linear += A1_mat @ delta1_X2
+    if Delta1_X2 is not None and len(Delta1_X2) > 0:
+        X2_linear += (A1_mat * X1_bin.reshape(-1, 1)) @ Delta1_X2
     
     # X2_1: Intermediate outcome matching Y flavor
     if flavor_X2 == "expo":
@@ -314,12 +322,13 @@ def gen_X2(X1, A1, p2, delta1_X2, beta_X2, flavor_X2="expo", rho=0.5, p_bin=1):
         for i in range(n):
             X2[i, 1:] = multivariate_normal.rvs(mean=np.full(p2-1, X2_linear[i]), cov=Sigma)
     
-    X2_df = pd.DataFrame(X2, columns=[f'X2_{i+1}' for i in range(p2)])
-    
-    # Convert last p_bin columns to binary (excluding X2_1)
+    # Column naming: Y_1 = intermediate outcome, X2_1..X2_{p2-1} = additional covariates
+    X2_df = pd.DataFrame(X2, columns=['Y_1'] + [f'X2_{i+1}' for i in range(p2-1)])
+
+    # Convert last p_bin of the X2 covariates to binary
     if p_bin > 0 and p2 > 1:
         for j in range(p2-p_bin, p2):
-            col_name = f'X2_{j+1}'
+            col_name = f'X2_{j}'
             X2_df[col_name] = (X2_df[col_name] > X2_df[col_name].median()).astype(int)
     
     return X2_df

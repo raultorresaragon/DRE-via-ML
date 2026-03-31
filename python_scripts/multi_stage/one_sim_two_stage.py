@@ -24,7 +24,7 @@ def one_sim_two_stage(n, p1, p2, k1, k2,
                       hidunits=[5, 20], eps=[100, 250], penals=[0.001, 0.01],
                       verbose=False, iter=1, export_images=False, root="./", rho=0.5,
                       compute_true_regime=False, n_samples_true=500,
-                      Delta1_Y=None, Delta2_Y=None):
+                      Delta1_Y=None, Delta2_Y=None, Delta1_X2=None):
     """
     Run one simulation iteration for two-stage DTR
 
@@ -52,8 +52,9 @@ def one_sim_two_stage(n, p1, p2, k1, k2,
     export_images = save plots
     root = root directory
     rho = correlation parameter
-    Delta1_Y = stage 1 treatment × binary modifier interaction coefficients (array of length k1-1)
-    Delta2_Y = stage 2 treatment × binary modifier interaction coefficients (array of length k2-1)
+    Delta1_Y = stage 1 treatment × binary modifier interaction coefficients for Y (array of length k1-1)
+    Delta2_Y = stage 2 treatment × binary modifier interaction coefficients for Y (array of length k2-1)
+    Delta1_X2 = A1 × binary modifier interaction coefficients for X2 (array of length k1-1)
 
     Returns:
     - Dictionary with results
@@ -79,7 +80,7 @@ def one_sim_two_stage(n, p1, p2, k1, k2,
     # ========================================
     print("\nStage 2: Generating intermediate data...")
     X2 = gen_X2(X1=X1, A1=A1, p2=p2, delta1_X2=delta1_X2, beta_X2=beta_X2,
-                flavor_X2=Y_flavor, rho=rho, p_bin=1)
+                flavor_X2=Y_flavor, rho=rho, p_bin=1, Delta1_X2=Delta1_X2)
 
     # Stage 2 treatment depends on full history + stay-probability
     # If X2 is high (patient responding), increase P(A2 = A1)
@@ -129,7 +130,8 @@ def one_sim_two_stage(n, p1, p2, k1, k2,
                               hidunits=hidunits, eps=eps, penals=penals, verbose=verbose)
     fit_A1_logit = estimate_A_logit(X=None, dat=dat_stage1, k=k1, verbose=verbose)
     
-    # Stage 2 propensity scores
+    # Stage 2 propensity scores (full history: X1, A1, X2)
+    X_history = pd.concat([X1, pd.Series(A1, name='A1'), X2], axis=1)
     dat_stage2 = pd.concat([pd.Series(A2, name='A'), X_history], axis=1)
     fit_A2_nn = estimate_A_nn(X=None, dat=dat_stage2, k=k2,
                               hidunits=hidunits, eps=eps, penals=penals, verbose=verbose)
@@ -201,7 +203,7 @@ def one_sim_two_stage(n, p1, p2, k1, k2,
             delta1_Y=delta1_Y, delta2_Y=delta2_Y, beta_Y=beta_Y,
             p2=p2, rho=rho, flavor_Y=Y_flavor,
             n_samples=n_samples_true,
-            Delta1_Y=Delta1_Y, Delta2_Y=Delta2_Y
+            Delta1_Y=Delta1_Y, Delta2_Y=Delta2_Y, Delta1_X2=Delta1_X2
         )
         
         # Evaluate accuracy
@@ -297,8 +299,9 @@ if __name__ == "__main__":
     delta1_Y = np.array([1.0, 2.0])
     delta2_Y = np.array([1.5, 3.0])
     beta_Y = np.array([1.0, 0.5, 0.3, 0.2, 0.4, 0.3])
-    Delta1_Y = np.array([-1.2, 1.0])   # stage 1 trt × X1_bin interaction
-    Delta2_Y = np.array([-1.2, 1.0])   # stage 2 trt × X1_bin interaction
+    Delta1_Y = np.array([-1.2, 1.0])   # stage 1 trt × X1_bin interaction for Y
+    Delta2_Y = np.array([-1.2, 1.0])   # stage 2 trt × X1_bin interaction for Y
+    Delta1_X2 = np.array([-1.2, 1.0])  # stage 1 trt × X1_bin interaction for X2
 
     # Run simulation
     result = one_sim_two_stage(
@@ -309,7 +312,7 @@ if __name__ == "__main__":
         A_flavor="logit", Y_flavor="expo",
         hidunits=[5, 10], eps=[100], penals=[0.01],
         verbose=False, iter=1, export_images=False, root="./test_output",
-        Delta1_Y=Delta1_Y, Delta2_Y=Delta2_Y
+        Delta1_Y=Delta1_Y, Delta2_Y=Delta2_Y, Delta1_X2=Delta1_X2
     )
     
     print("\n✓ Simulation complete!")

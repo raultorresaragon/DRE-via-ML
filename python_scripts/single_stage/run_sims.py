@@ -24,11 +24,11 @@ np.random.seed(1857)
 # Set parameters
 export_tables = True
 export_images = True
-zero_effect = False
+zero_effect = True
 root = f"./_{'1' if not zero_effect else '0'}trt_effect/"
 
 M = 30  # Number of simulations
-K = [2]                 #[2,3,5]               # Treatment levels to test
+K = [3]                 #[2,3,5]               # Treatment levels to test
 pflavs = ["l","t"]             #["l", "t"]            # DGP Propensity model flavors: logit, tanh
 oflavs = ["e", "s", "l", "g"]  #["e", "s", "l", "g"]  # DGP Outcome model flavors: expo, sigmoid, lognormal, gamma
 

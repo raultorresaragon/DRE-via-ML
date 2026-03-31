@@ -372,11 +372,11 @@ def estimate_Q2_models(dat, pscores_df, k2, model_type='ols', **kwargs):
     - Dictionary with Q2 models for each A2 level
     """
     # Identify column names
-    X1_cols = [c for c in dat.columns if c.startswith('X') and not c.startswith('X2_')]
+    X1_cols = [c for c in dat.columns if c.startswith('X1_')]
     X2_cols = [c for c in dat.columns if c.startswith('X2_')]
-    
-    # Create feature matrix: [X1, A1, X2]
-    features = X1_cols + ['A1'] + X2_cols
+
+    # Create feature matrix: [X1, A1, Y_1, X2]
+    features = X1_cols + ['A1', 'Y_1'] + X2_cols
     X_full = dat[features]
     Y = dat['Y'].values
     A2 = dat['A2'].values
@@ -462,7 +462,7 @@ def estimate_Q1_models(dat, Y_tilde, pscores_df, k1, model_type='ols', **kwargs)
     - Dictionary with Q1 models for each A1 level
     """
     # Identify X1 columns
-    X1_cols = [c for c in dat.columns if c.startswith('X') and not c.startswith('X2_')]
+    X1_cols = [c for c in dat.columns if c.startswith('X1_')]
     X1 = dat[X1_cols]
     A1 = dat['A1'].values
     
