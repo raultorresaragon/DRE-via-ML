@@ -15,9 +15,9 @@ from sim_params import make_sim_params
 # ============================================================
 n   = 200
 p1  = 3
-p2  = 2
-k1  = 3   # <-- change freely; all arrays auto-size
-k2  = 3   # <-- change freely; all arrays auto-size
+p2  = p1 + 1 # <-- to include the intermediate outcome
+k1  = 2   
+k2  = k1   # <-- ensure treatment options remain constant
 
 np.random.seed(42)
 params = make_sim_params(p1=p1, p2=p2, k1=k1, k2=k2, seed=42)
@@ -43,7 +43,8 @@ X1 = gen_X(n=n, p=p1, rho=0.5, p_bin=1)
 A1 = gen_A(X=X1, beta_A=beta_A1, flavor_A="logit", k=k1)
 
 X2 = gen_X2(X1=X1, A1=A1, p2=p2, delta1=delta1, beta_Y1=beta_Y1,
-            flavor_X2="expo", rho=0.5, p_bin=1, Delta1=Delta1)
+            flavor_X2="expo", rho=0.5, p_bin=1, Delta1=Delta1) 
+    # Note that X2 contains Y1
 
 X_history = pd.concat([X1, pd.Series(A1, name='A1'), X2], axis=1)
 A2 = gen_A2(X1=X1, A1=A1, X2=X2, beta_A2=beta_A2, gamma_stay=gamma_stay,
