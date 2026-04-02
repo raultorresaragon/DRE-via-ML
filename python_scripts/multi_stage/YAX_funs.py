@@ -358,15 +358,17 @@ def gen_Y_two_stage(delta2, X1, A1, X2, A2, beta_Y2, flavor_Y="expo",
     """
     n = X1.shape[0]
 
-    # Binary effect modifier: last column of X1
-    X1_bin = X1.iloc[:, -1].values
-
     # Feature vector: [1, X1, A1, X2]  — A1 enters as a raw covariate
     X_combined = np.column_stack([np.ones(n), X1.values, A1, X2.values])
 
     # Create treatment indicators for A2 (excluding baseline)
     unique_A2 = np.unique(A2)
     A2_mat = np.column_stack([np.where(A2 == a, 1, 0) for a in unique_A2[1:]])
+
+    # Binary effect modifier for Delta2: I(Y_1 > median(Y_1))
+    Y1_vals = X2.iloc[:, 0].values
+    Y1_threshold = np.median(Y1_vals)
+    Y1_bin = (Y1_vals > Y1_threshold).astype(int)
 
     # Linear predictor
     xb_delta_a = X_combined @ beta_Y2
@@ -375,9 +377,9 @@ def gen_Y_two_stage(delta2, X1, A1, X2, A2, beta_Y2, flavor_Y="expo",
     if A2_mat.shape[1] > 0 and len(delta2) > 0:
         xb_delta_a += A2_mat @ delta2
 
-    # Add stage 2 treatment × binary modifier interaction
+    # Add stage 2 treatment × Y_1 response interaction
     if Delta2 is not None and len(Delta2) > 0:
-        xb_delta_a += (A2_mat * X1_bin.reshape(-1, 1)) @ Delta2
+        xb_delta_a += (A2_mat * Y1_bin.reshape(-1, 1)) @ Delta2
 
     # Apply functional form (same as single-stage)
     if flavor_Y == "expo":

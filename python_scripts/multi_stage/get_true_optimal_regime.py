@@ -10,7 +10,7 @@ import pandas as pd
 from scipy.stats import multivariate_normal
 
 def compute_true_Q2(X1, A1, X2, a2, delta2, beta_Y2, flavor_Y="expo",
-                    Delta2=None):
+                    Delta2=None, Y1_threshold=None):
     """
     Compute true Q2(X1, A1, X2, a2) = E[Y | X1, A1, X2, A2=a2]
 
@@ -22,7 +22,8 @@ def compute_true_Q2(X1, A1, X2, a2, delta2, beta_Y2, flavor_Y="expo",
     - delta2: stage 2 treatment main effects
     - beta_Y2: covariate effects for [1, X1, A1, X2]
     - flavor_Y: outcome functional form
-    - Delta2: stage 2 treatment × binary modifier interaction coefficients
+    - Delta2: stage 2 treatment × Y_1 response interaction coefficients
+    - Y1_threshold: threshold for binarizing Y_1 (median of observed Y_1)
 
     Returns:
     - True Q2 value for each individual
@@ -40,8 +41,11 @@ def compute_true_Q2(X1, A1, X2, a2, delta2, beta_Y2, flavor_Y="expo",
     else:
         X2_vals = X2
 
-    # Binary modifier: last column of X1
-    X1_bin = X1_vals[:, -1]
+    # Binary modifier for Delta2: I(Y_1 > Y1_threshold)
+    if Y1_threshold is not None:
+        Y1_bin = (X2_vals[:, 0] > Y1_threshold).astype(int)
+    else:
+        Y1_bin = np.zeros(n, dtype=int)
 
     # Feature vector: [1, X1, A1, X2]
     X_combined = np.column_stack([np.ones(n), X1_vals, A1, X2_vals])
@@ -53,7 +57,7 @@ def compute_true_Q2(X1, A1, X2, a2, delta2, beta_Y2, flavor_Y="expo",
     if a2 > 0:  # Exclude baseline
         eta += delta2[a2 - 1]
         if Delta2 is not None:
-            eta += X1_bin * Delta2[a2 - 1]
+            eta += Y1_bin * Delta2[a2 - 1]
     
     # Apply functional form (expected value)
     if flavor_Y == "expo":
@@ -76,7 +80,7 @@ def compute_true_Q2(X1, A1, X2, a2, delta2, beta_Y2, flavor_Y="expo",
 
 
 def compute_true_optimal_A2(X1, A1, X2, k2, delta2, beta_Y2, flavor_Y="expo",
-                            Delta2=None):
+                            Delta2=None, Y1_threshold=None):
     """
     Compute true optimal stage 2 treatment for each individual
 
@@ -90,7 +94,7 @@ def compute_true_optimal_A2(X1, A1, X2, k2, delta2, beta_Y2, flavor_Y="expo",
     # Compute Q2 for each possible A2
     for a2 in range(k2):
         Q2_all[:, a2] = compute_true_Q2(X1, A1, X2, a2, delta2, beta_Y2, flavor_Y,
-                                         Delta2=Delta2)
+                                         Delta2=Delta2, Y1_threshold=Y1_threshold)
     
     # Optimal A2 is argmax Q2
     optimal_A2 = np.argmax(Q2_all, axis=1)
@@ -100,7 +104,7 @@ def compute_true_optimal_A2(X1, A1, X2, k2, delta2, beta_Y2, flavor_Y="expo",
 
 def compute_true_Q1(X1, a1, k2, delta1, beta_Y1, delta2, beta_Y2,
                     p2, rho, flavor_Y="expo", n_samples=1000, Delta2=None,
-                    Delta1=None):
+                    Delta1=None, Y1_threshold=None):
     """
     Compute true Q1(X1, a1) = E[max_{a2} Q2(X1, a1, X2, a2) | X1, A1=a1]
 
@@ -118,8 +122,9 @@ def compute_true_Q1(X1, a1, k2, delta1, beta_Y1, delta2, beta_Y2,
     - rho: correlation for X2
     - flavor_Y: outcome functional form
     - n_samples: number of Monte Carlo samples
-    - Delta2: A2 × binary modifier interaction coefficients for Y
+    - Delta2: A2 × Y_1 response interaction coefficients for Y
     - Delta1: A1 × binary modifier interaction coefficients for Y_1
+    - Y1_threshold: threshold for binarizing Y_1 in the Delta2 interaction
 
     Returns:
     - True Q1 value for each individual
@@ -190,7 +195,7 @@ def compute_true_Q1(X1, a1, k2, delta1, beta_Y1, delta2, beta_Y2,
                 Q2_values[a2] = compute_true_Q2(
                     X1_vals[i:i+1], A1_sample, X2_sample, a2,
                     delta2, beta_Y2, flavor_Y,
-                    Delta2=Delta2
+                    Delta2=Delta2, Y1_threshold=Y1_threshold
                 )[0]
 
             # Take max over A2
@@ -229,13 +234,17 @@ def compute_true_optimal_regime(X1, X2, A1, k1, k2,
     """
     n = len(A1)
 
+    # Compute Y_1 threshold from observed data (used for Delta2 interaction)
+    X2_vals = X2.values if isinstance(X2, pd.DataFrame) else X2
+    Y1_threshold = np.median(X2_vals[:, 0])
+
     print("\nComputing true optimal regime...")
 
     # Stage 2: Compute true optimal A2 given observed (X1, A1, X2)
     print("  Computing true optimal A2...")
     true_optimal_A2, true_Q2_all = compute_true_optimal_A2(
         X1, A1, X2, k2, delta2, beta_Y2, flavor_Y,
-        Delta2=Delta2
+        Delta2=Delta2, Y1_threshold=Y1_threshold
     )
 
     # Stage 1: Compute true Q1 for each possible A1
@@ -246,7 +255,8 @@ def compute_true_optimal_regime(X1, X2, A1, k1, k2,
         print(f"    A1={a1}...")
         true_Q1_all[:, a1] = compute_true_Q1(
             X1, a1, k2, delta1, beta_Y1, delta2, beta_Y2,
-            p2, rho, flavor_Y, n_samples, Delta2=Delta2, Delta1=Delta1
+            p2, rho, flavor_Y, n_samples, Delta2=Delta2, Delta1=Delta1,
+            Y1_threshold=Y1_threshold
         )
     
     # Optimal A1 is argmax Q1
