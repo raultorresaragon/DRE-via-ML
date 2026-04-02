@@ -9,22 +9,20 @@ import numpy as np
 import pandas as pd
 from scipy.stats import multivariate_normal
 
-def compute_true_Q2(X1, A1, X2, a2, delta1_Y, delta2_Y, beta_Y, flavor_Y="expo",
-                    Delta1_Y=None, Delta2_Y=None):
+def compute_true_Q2(X1, A1, X2, a2, delta2, beta_Y2, flavor_Y="expo",
+                    Delta2=None):
     """
     Compute true Q2(X1, A1, X2, a2) = E[Y | X1, A1, X2, A2=a2]
 
     Parameters:
     - X1: stage 1 covariates (DataFrame or array)
-    - A1: stage 1 treatment (array)
+    - A1: stage 1 treatment (array) — enters as raw covariate in beta_Y2
     - X2: stage 2 covariates (DataFrame or array)
     - a2: stage 2 treatment level (scalar)
-    - delta1_Y: stage 1 treatment main effects
-    - delta2_Y: stage 2 treatment main effects
-    - beta_Y: covariate effects
+    - delta2: stage 2 treatment main effects
+    - beta_Y2: covariate effects for [1, X1, A1, X2]
     - flavor_Y: outcome functional form
-    - Delta1_Y: stage 1 treatment × binary modifier interaction coefficients
-    - Delta2_Y: stage 2 treatment × binary modifier interaction coefficients
+    - Delta2: stage 2 treatment × binary modifier interaction coefficients
 
     Returns:
     - True Q2 value for each individual
@@ -45,24 +43,17 @@ def compute_true_Q2(X1, A1, X2, a2, delta1_Y, delta2_Y, beta_Y, flavor_Y="expo",
     # Binary modifier: last column of X1
     X1_bin = X1_vals[:, -1]
 
-    X_combined = np.column_stack([np.ones(n), X1_vals, X2_vals])
+    # Feature vector: [1, X1, A1, X2]
+    X_combined = np.column_stack([np.ones(n), X1_vals, A1, X2_vals])
 
     # Linear predictor
-    eta = X_combined @ beta_Y
-
-    # Add stage 1 treatment main effect + interaction
-    for _, a1 in enumerate(np.unique(A1)):
-        if a1 > 0:  # Exclude baseline
-            mask = (A1 == a1)
-            eta[mask] += delta1_Y[a1 - 1]
-            if Delta1_Y is not None:
-                eta[mask] += X1_bin[mask] * Delta1_Y[a1 - 1]
+    eta = X_combined @ beta_Y2
 
     # Add stage 2 treatment main effect + interaction
     if a2 > 0:  # Exclude baseline
-        eta += delta2_Y[a2 - 1]
-        if Delta2_Y is not None:
-            eta += X1_bin * Delta2_Y[a2 - 1]
+        eta += delta2[a2 - 1]
+        if Delta2 is not None:
+            eta += X1_bin * Delta2[a2 - 1]
     
     # Apply functional form (expected value)
     if flavor_Y == "expo":
@@ -84,8 +75,8 @@ def compute_true_Q2(X1, A1, X2, a2, delta1_Y, delta2_Y, beta_Y, flavor_Y="expo",
     return Q2
 
 
-def compute_true_optimal_A2(X1, A1, X2, k2, delta1_Y, delta2_Y, beta_Y, flavor_Y="expo",
-                            Delta1_Y=None, Delta2_Y=None):
+def compute_true_optimal_A2(X1, A1, X2, k2, delta2, beta_Y2, flavor_Y="expo",
+                            Delta2=None):
     """
     Compute true optimal stage 2 treatment for each individual
 
@@ -98,8 +89,8 @@ def compute_true_optimal_A2(X1, A1, X2, k2, delta1_Y, delta2_Y, beta_Y, flavor_Y
 
     # Compute Q2 for each possible A2
     for a2 in range(k2):
-        Q2_all[:, a2] = compute_true_Q2(X1, A1, X2, a2, delta1_Y, delta2_Y, beta_Y, flavor_Y,
-                                         Delta1_Y=Delta1_Y, Delta2_Y=Delta2_Y)
+        Q2_all[:, a2] = compute_true_Q2(X1, A1, X2, a2, delta2, beta_Y2, flavor_Y,
+                                         Delta2=Delta2)
     
     # Optimal A2 is argmax Q2
     optimal_A2 = np.argmax(Q2_all, axis=1)
@@ -107,9 +98,9 @@ def compute_true_optimal_A2(X1, A1, X2, k2, delta1_Y, delta2_Y, beta_Y, flavor_Y
     return optimal_A2, Q2_all
 
 
-def compute_true_Q1(X1, a1, k2, delta1_X2, beta_X2, delta1_Y, delta2_Y, beta_Y,
-                    p2, rho, flavor_Y="expo", n_samples=1000, Delta1_Y=None, Delta2_Y=None,
-                    Delta1_X2=None):
+def compute_true_Q1(X1, a1, k2, delta1, beta_Y1, delta2, beta_Y2,
+                    p2, rho, flavor_Y="expo", n_samples=1000, Delta2=None,
+                    Delta1=None):
     """
     Compute true Q1(X1, a1) = E[max_{a2} Q2(X1, a1, X2, a2) | X1, A1=a1]
 
@@ -120,15 +111,15 @@ def compute_true_Q1(X1, a1, k2, delta1_X2, beta_X2, delta1_Y, delta2_Y, beta_Y,
     - X1: stage 1 covariates (DataFrame or array)
     - a1: stage 1 treatment level (scalar)
     - k2: number of stage 2 treatments
-    - delta1_X2: effect of A1 on X2 (main effect)
-    - beta_X2: effect of X1 on X2
-    - delta1_Y, delta2_Y, beta_Y: outcome model parameters
+    - delta1: A1 main effects on Y_1
+    - beta_Y1: X1 effects on Y_1
+    - delta2, beta_Y2: outcome model parameters
     - p2: number of stage 2 covariates
     - rho: correlation for X2
     - flavor_Y: outcome functional form
     - n_samples: number of Monte Carlo samples
-    - Delta1_Y, Delta2_Y: treatment × binary modifier interaction coefficients for Y
-    - Delta1_X2: A1 × binary modifier interaction coefficients for X2
+    - Delta2: A2 × binary modifier interaction coefficients for Y
+    - Delta1: A1 × binary modifier interaction coefficients for Y_1
 
     Returns:
     - True Q1 value for each individual
@@ -143,28 +134,28 @@ def compute_true_Q1(X1, a1, k2, delta1_X2, beta_X2, delta1_Y, delta2_Y, beta_Y,
     X1_with_intercept = np.column_stack([np.ones(n), X1_vals])
     X1_bin = X1_vals[:, -1]  # binary modifier: last column of X1
 
-    # Mean of X2 given X1 and A1=a1
-    X2_linear = X1_with_intercept @ beta_X2
+    # Mean of Y_1 given X1 and A1=a1
+    X2_linear = X1_with_intercept @ beta_Y1
     if a1 > 0:  # Add treatment main effect
-        X2_linear += delta1_X2[a1 - 1]
-    if a1 > 0 and Delta1_X2 is not None:  # Add treatment × binary interaction
-        X2_linear += X1_bin * Delta1_X2[a1 - 1]
-    
+        X2_linear += delta1[a1 - 1]
+    if a1 > 0 and Delta1 is not None:  # Add treatment × binary interaction
+        X2_linear += X1_bin * Delta1[a1 - 1]
+
     # Covariance matrix for remaining X2 covariates (if p2 > 1)
     if p2 > 1:
         Sigma = np.array([[rho**abs(i-j) for j in range(p2-1)] for i in range(p2-1)])
-    
+
     Q1_values = np.zeros(n)
-    
+
     # For each individual, sample X2 and compute expected max Q2
     for i in range(n):
         max_Q2_samples = []
-        
+
         for _ in range(n_samples):
             # Sample X2 | X1, A1=a1
             X2_sample = np.zeros(p2)
-            
-            # X2_1: Intermediate outcome matching Y flavor
+
+            # Y_1: Intermediate outcome matching Y flavor
             if flavor_Y == "expo":
                 X2_sample[0] = np.exp(X2_linear[i]) + np.random.normal(0, 0.5)
             elif flavor_Y == "sigmoid":
@@ -178,45 +169,44 @@ def compute_true_Q1(X1, a1, k2, delta1_X2, beta_X2, delta1_Y, delta2_Y, beta_Y,
             elif flavor_Y == "lognormal":
                 sigma = 0.5
                 X2_sample[0] = np.exp(X2_linear[i] + np.random.normal(0, sigma))
-            
-            # Ensure X2_1 is non-negative
+
+            # Ensure Y_1 is non-negative
             X2_sample[0] = max(X2_sample[0], 0.01)
-            
+
             # Remaining X2 covariates: correlated normal (if p2 > 1)
             if p2 > 1:
                 X2_sample[1:] = multivariate_normal.rvs(
-                    mean=np.full(p2-1, X2_linear[i]), 
+                    mean=np.full(p2-1, X2_linear[i]),
                     cov=Sigma
                 )
-            
+
             X2_sample = X2_sample.reshape(1, -1)
-            
+
             # Compute Q2 for all A2 values
             A1_sample = np.array([a1])
             Q2_values = np.zeros(k2)
-            
+
             for a2 in range(k2):
                 Q2_values[a2] = compute_true_Q2(
                     X1_vals[i:i+1], A1_sample, X2_sample, a2,
-                    delta1_Y, delta2_Y, beta_Y, flavor_Y,
-                    Delta1_Y=Delta1_Y, Delta2_Y=Delta2_Y
+                    delta2, beta_Y2, flavor_Y,
+                    Delta2=Delta2
                 )[0]
-            
+
             # Take max over A2
             max_Q2_samples.append(np.max(Q2_values))
-        
+
         # Average over samples
         Q1_values[i] = np.mean(max_Q2_samples)
-    
+
     return Q1_values
 
 
 def compute_true_optimal_regime(X1, X2, A1, k1, k2,
-                                delta1_X2, beta_X2,
-                                delta1_Y, delta2_Y, beta_Y,
+                                delta1, beta_Y1,
+                                delta2, beta_Y2,
                                 p2, rho, flavor_Y="expo",
-                                n_samples=1000, Delta1_Y=None, Delta2_Y=None,
-                                Delta1_X2=None):
+                                n_samples=1000, Delta2=None, Delta1=None):
     """
     Compute true optimal two-stage regime
 
@@ -225,27 +215,27 @@ def compute_true_optimal_regime(X1, X2, A1, k1, k2,
     - X2: stage 2 covariates (observed)
     - A1: stage 1 treatment (observed)
     - k1, k2: number of treatments at each stage
-    - delta1_X2, beta_X2: X2 model parameters
-    - delta1_Y, delta2_Y, beta_Y: outcome model parameters
-    - Delta1_Y, Delta2_Y: treatment × binary modifier interaction coefficients for Y
-    - Delta1_X2: A1 × binary modifier interaction coefficients for X2
+    - delta1, beta_Y1: Y_1 model parameters
+    - delta2, beta_Y2: Y model parameters
+    - Delta2: A2 × binary modifier interaction coefficients for Y
+    - Delta1: A1 × binary modifier interaction coefficients for Y_1
     - p2: number of stage 2 covariates
     - rho: correlation for X2
     - flavor_Y: outcome functional form
     - n_samples: Monte Carlo samples for Q1 computation
-    
+
     Returns:
     - Dictionary with true optimal regimes and Q-values
     """
     n = len(A1)
-    
+
     print("\nComputing true optimal regime...")
-    
+
     # Stage 2: Compute true optimal A2 given observed (X1, A1, X2)
     print("  Computing true optimal A2...")
     true_optimal_A2, true_Q2_all = compute_true_optimal_A2(
-        X1, A1, X2, k2, delta1_Y, delta2_Y, beta_Y, flavor_Y,
-        Delta1_Y=Delta1_Y, Delta2_Y=Delta2_Y
+        X1, A1, X2, k2, delta2, beta_Y2, flavor_Y,
+        Delta2=Delta2
     )
 
     # Stage 1: Compute true Q1 for each possible A1
@@ -255,9 +245,8 @@ def compute_true_optimal_regime(X1, X2, A1, k1, k2,
     for a1 in range(k1):
         print(f"    A1={a1}...")
         true_Q1_all[:, a1] = compute_true_Q1(
-            X1, a1, k2, delta1_X2, beta_X2, delta1_Y, delta2_Y, beta_Y,
-            p2, rho, flavor_Y, n_samples, Delta1_Y=Delta1_Y, Delta2_Y=Delta2_Y,
-            Delta1_X2=Delta1_X2
+            X1, a1, k2, delta1, beta_Y1, delta2, beta_Y2,
+            p2, rho, flavor_Y, n_samples, Delta2=Delta2, Delta1=Delta1
         )
     
     # Optimal A1 is argmax Q1

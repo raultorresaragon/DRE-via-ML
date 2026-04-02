@@ -5,56 +5,36 @@
 import numpy as np
 import pandas as pd
 import os
-# when running interactively: 
+# when running interactively:
 # os.chdir('/Users/raulta/Desktop/Tesina/DRE-via-ML/python_scripts/multi_stage')
 from YAX_funs import gen_X, gen_A, gen_A2, gen_X2, gen_Y_two_stage
+from sim_params import make_sim_params, print_param_shapes
 import matplotlib.pyplot as plt
-
-# Set seed for reproducibility
-np.random.seed(1810)
 
 # ============================================================
 # CUSTOMIZABLE PARAMETERS - Change these as needed
 # ============================================================
-n = 100
-p1 = 3  # Stage 1 covariates
-p2 = p1+1 # Stage 2 covariates
-k1 = 2  # Stage 1 treatment levels
-k2 = 2  # Stage 2 treatment levels
-flavor_Y = 'lognormal' #expo, lognormal, sigmoid, gamma
+n        = 100
+p1       = 3
+p2       = p1 + 1
+k1       = 2   # <-- change freely; all arrays auto-size
+k2       = 2   # <-- change freely; all arrays auto-size
+flavor_Y = 'lognormal'  # expo, lognormal, sigmoid, gamma
+
+params = make_sim_params(p1=p1, p2=p2, k1=k1, k2=k2, seed=1810)
+
+beta_A1    = params['beta_A1']
+beta_A2    = params['beta_A2']
+gamma_stay = params['gamma_stay']
+delta1     = params['delta1']
+beta_Y1    = params['beta_Y1']
+Delta1     = params['Delta1']
+delta2     = params['delta2']
+beta_Y2    = params['beta_Y2']
+Delta2     = params['Delta2']
 
 print(f"Testing with: n={n}, p1={p1}, p2={p2}, k1={k1}, k2={k2}\n")
-
-# ============================================================
-# AUTO-GENERATE PARAMETER MATRICES
-# ============================================================
-
-# Stage 1 treatment model: beta_A1 is (p1+1) x (k1-1)
-beta_A1 = np.random.uniform(-0.5, 0.5, size=(p1+1, k1-1))
-print(f"beta_A1 shape: {beta_A1.shape} (should be {p1+1} x {k1-1})")
-
-# X2 model: delta1_X2 is (k1-1), beta_X2 is (p1+1)
-delta1_X2 = np.random.uniform(0.3, 1.0, size=k1-1)
-beta_X2 = np.random.uniform(-0.3, 0.3, size=p1+1)
-print(f"delta1_X2 shape: {delta1_X2.shape} (should be {k1-1})")
-print(f"beta_X2 shape: {beta_X2.shape} (should be {p1+1})")
-
-# Stage 2 treatment model: beta_A2 is (p1+1+p2+1) x (k2-1)
-beta_A2 = np.random.uniform(-0.5, 0.5, size=(p1+p2+2, k2-1))
-print(f"beta_A2 shape: {beta_A2.shape} (should be {p1+p2+2} x {k2-1})")
-
-# Outcome model: delta1_Y is (k1-1), delta2_Y is (k2-1), beta_Y is (p1+p2+1)
-delta1_Y = np.random.uniform(0.5, 2.0, size=k1-1)
-delta2_Y = np.random.uniform(1.0, 3.0, size=k2-1)
-beta_Y = np.random.uniform(-0.5, 0.5, size=p1+p2+1)
-Delta1_Y = np.array([-1.2, 1.0, -1.0, 0.8])[:k1-1]
-Delta2_Y = np.array([-1.2, 1.0, -1.0, 0.8])[:k2-1]
-Delta1_X2 = np.array([-1.2, 1.0, -1.0, 0.8])[:k1-1]
-print(f"delta1_Y shape: {delta1_Y.shape} (should be {k1-1})")
-print(f"delta2_Y shape: {delta2_Y.shape} (should be {k2-1})")
-print(f"beta_Y shape: {beta_Y.shape} (should be {p1+p2+1})")
-
-gamma_stay = 0.5  # stay-probability parameter
+print_param_shapes(params, p1=p1, p2=p2, k1=k1, k2=k2)
 
 # ============================================================
 # Stage 1: Generate baseline data
@@ -78,8 +58,8 @@ print("=" * 60)
 print("STAGE 2: Generating intermediate covariates")
 print("=" * 60)
 
-X2 = gen_X2(X1=X1, A1=A1, p2=p2, delta1_X2=delta1_X2, beta_X2=beta_X2,
-            flavor_X2=flavor_Y, rho=0.5, p_bin=1, Delta1_X2=Delta1_X2)
+X2 = gen_X2(X1=X1, A1=A1, p2=p2, delta1=delta1, beta_Y1=beta_Y1,
+            flavor_X2=flavor_Y, rho=0.5, p_bin=1, Delta1=Delta1)
 print(f"X2 shape: {X2.shape}")
 print(f"X2 head:\n{X2.head()}\n")
 
@@ -103,16 +83,8 @@ print("FINAL OUTCOME: Generating Y")
 print("=" * 60)
 
 Y_result = gen_Y_two_stage(
-    delta1_Y=delta1_Y,
-    delta2_Y=delta2_Y,
-    X1=X1,
-    A1=A1,
-    X2=X2,
-    A2=A2,
-    beta_Y=beta_Y,
-    flavor_Y=flavor_Y,
-    Delta1_Y=Delta1_Y,
-    Delta2_Y=Delta2_Y
+    delta2=delta2, X1=X1, A1=A1, X2=X2, A2=A2,
+    beta_Y2=beta_Y2, flavor_Y=flavor_Y, Delta2=Delta2
 )
 
 Y = Y_result['Y']

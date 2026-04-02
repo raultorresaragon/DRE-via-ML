@@ -12,12 +12,12 @@ from one_sim_two_stage import one_sim_two_stage
 
 def run_sims_two_stage(M, n, p1, p2, k1, k2,
                        beta_A1, beta_A2, gamma_stay,
-                       delta1_X2, beta_X2,
-                       delta1_Y, delta2_Y, beta_Y,
+                       delta1, beta_Y1,
+                       delta2, beta_Y2,
                        A_flavor, Y_flavor,
                        hidunits=[5, 20], eps=[100, 250], penals=[0.001, 0.01],
                        verbose=False, export_images=False, root="./", rho=0.5,
-                       Delta1_Y=None, Delta2_Y=None, Delta1_X2=None):
+                       Delta2=None, Delta1=None):
     """
     Run M simulations for two-stage DTR
 
@@ -53,12 +53,12 @@ def run_sims_two_stage(M, n, p1, p2, k1, k2,
         result = one_sim_two_stage(
             n=n, p1=p1, p2=p2, k1=k1, k2=k2,
             beta_A1=beta_A1, beta_A2=beta_A2, gamma_stay=gamma_stay,
-            delta1_X2=delta1_X2, beta_X2=beta_X2,
-            delta1_Y=delta1_Y, delta2_Y=delta2_Y, beta_Y=beta_Y,
+            delta1=delta1, beta_Y1=beta_Y1,
+            delta2=delta2, beta_Y2=beta_Y2,
             A_flavor=A_flavor, Y_flavor=Y_flavor,
             hidunits=hidunits, eps=eps, penals=penals,
             verbose=verbose, iter=m, export_images=export_images, root=root, rho=rho,
-            Delta1_Y=Delta1_Y, Delta2_Y=Delta2_Y, Delta1_X2=Delta1_X2
+            Delta2=Delta2, Delta1=Delta1
         )
         
         # Extract key metrics
@@ -146,24 +146,21 @@ if __name__ == "__main__":
     beta_A2 = np.array([[0.3, 0.2], [-0.2, 0.3], [0.1, -0.1], [0.2, 0.1], [0.4, -0.2], [-0.3, 0.5], [0.1, -0.2]])
     gamma_stay = 0.5  # stay-probability: higher X2 -> more likely to stay on A1
 
-    delta1_X2 = np.array([0.5, 1.0])
-    beta_X2 = np.array([0.0, 0.3, 0.2, 0.1])
-
-    delta1_Y = np.array([1.0, 2.0])
-    delta2_Y = np.array([1.5, 3.0])
-    beta_Y = np.array([1.0, 0.5, 0.3, 0.2, 0.4, 0.3])
-    Delta1_Y = np.array([-1.2, 1.0])   # stage 1 trt × X1_bin interaction for Y
-    Delta2_Y = np.array([-1.2, 1.0])   # stage 2 trt × X1_bin interaction for Y
-    Delta1_X2 = np.array([-1.2, 1.0])  # stage 1 trt × X1_bin interaction for X2
+    delta1   = np.array([0.5, 1.0])
+    beta_Y1  = np.array([0.0, 0.3, 0.2, 0.1])
+    delta2   = np.array([1.5, 3.0])
+    beta_Y2  = np.array([1.0, 0.5, 0.3, 0.2, 0.1, 0.4, 0.3])  # 1+p1+1+p2 = 7
+    Delta1   = np.array([-1.2, 1.0])   # A1 × X1_bin interaction for Y_1
+    Delta2   = np.array([-1.2, 1.0])   # A2 × X1_bin interaction for Y
 
     # Run simulations
     results = run_sims_two_stage(
         M=M, n=n, p1=p1, p2=p2, k1=k1, k2=k2,
         beta_A1=beta_A1, beta_A2=beta_A2, gamma_stay=gamma_stay,
-        delta1_X2=delta1_X2, beta_X2=beta_X2,
-        delta1_Y=delta1_Y, delta2_Y=delta2_Y, beta_Y=beta_Y,
+        delta1=delta1, beta_Y1=beta_Y1,
+        delta2=delta2, beta_Y2=beta_Y2,
         A_flavor="logit", Y_flavor="expo",
         hidunits=[5, 10], eps=[100], penals=[0.01],
         verbose=False, export_images=False, root="./test_output",
-        Delta1_Y=Delta1_Y, Delta2_Y=Delta2_Y, Delta1_X2=Delta1_X2
+        Delta2=Delta2, Delta1=Delta1
     )

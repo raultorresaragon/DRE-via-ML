@@ -184,7 +184,7 @@ def save_boxplots(filepath, save=True, show=True, ncols=None):
 if __name__ == "__main__":
     import glob
     tables_dir = "./_1trt_effect/tables/Results"
-    files = sorted(glob.glob(f"{tables_dir}/simk2_*.csv"))
+    files = sorted(glob.glob(f"{tables_dir}/simk3_*.csv"))
 
     if not files:
         print(f"No simk2_*.csv files found in {tables_dir}")

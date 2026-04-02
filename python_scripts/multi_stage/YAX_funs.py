@@ -253,8 +253,8 @@ def gen_A2(X1, A1, X2, beta_A2, gamma_stay, flavor_A="logit", k2=None):
 # --------------------------
 # Generate X2 (stage 2 covariates)
 # --------------------------
-def gen_X2(X1, A1, p2, delta1_X2, beta_X2, flavor_X2="expo", rho=0.5, p_bin=1,
-           Delta1_X2=None):
+def gen_X2(X1, A1, p2, delta1, beta_Y1, flavor_X2="expo", rho=0.5, p_bin=1,
+           Delta1=None):
     """
     Generate stage 2 covariates that depend on stage 1 history
     X2_1 is an intermediate outcome matching the Y flavor
@@ -264,13 +264,13 @@ def gen_X2(X1, A1, p2, delta1_X2, beta_X2, flavor_X2="expo", rho=0.5, p_bin=1,
     - X1: stage 1 covariates (DataFrame)
     - A1: stage 1 treatment (array)
     - p2: number of stage 2 covariates
-    - delta1_X2: treatment main effects of A1 on X2_1 (array of length k1-1)
-    - beta_X2: coefficients for X1 effect on X2_1 (array of length p1+1)
-    - flavor_X2: functional form for X2_1 ("expo", "sigmoid", "gamma", "lognormal")
+    - delta1: A1 main effects on Y_1 (array of length k1-1)
+    - beta_Y1: coefficients for X1 effect on Y_1 (array of length p1+1)
+    - flavor_X2: functional form for Y_1 ("expo", "sigmoid", "gamma", "lognormal")
     - rho: correlation parameter for remaining X2 covariates
     - p_bin: number of binary covariates in X2
-    - Delta1_X2: A1 × binary modifier interaction coefficients for X2_1 (array of length k1-1)
-                 Binary modifier is the last column of X1.
+    - Delta1: A1 × binary modifier interaction coefficients for Y_1 (array of length k1-1)
+              Binary modifier is the last column of X1.
 
     Returns:
     - X2: DataFrame with stage 2 covariates
@@ -285,12 +285,12 @@ def gen_X2(X1, A1, p2, delta1_X2, beta_X2, flavor_X2="expo", rho=0.5, p_bin=1,
     unique_A1 = np.unique(A1)
     A1_mat = np.column_stack([np.where(A1 == a, 1, 0) for a in unique_A1[1:]])
 
-    # Linear predictor for X2_1
-    X2_linear = X1_with_intercept @ beta_X2
-    if A1_mat.shape[1] > 0 and len(delta1_X2) > 0:
-        X2_linear += A1_mat @ delta1_X2
-    if Delta1_X2 is not None and len(Delta1_X2) > 0:
-        X2_linear += (A1_mat * X1_bin.reshape(-1, 1)) @ Delta1_X2
+    # Linear predictor for Y_1
+    X2_linear = X1_with_intercept @ beta_Y1
+    if A1_mat.shape[1] > 0 and len(delta1) > 0:
+        X2_linear += A1_mat @ delta1
+    if Delta1 is not None and len(Delta1) > 0:
+        X2_linear += (A1_mat * X1_bin.reshape(-1, 1)) @ Delta1
     
     # X2_1: Intermediate outcome matching Y flavor
     if flavor_X2 == "expo":
@@ -337,62 +337,47 @@ def gen_X2(X1, A1, p2, delta1_X2, beta_X2, flavor_X2="expo", rho=0.5, p_bin=1,
 # ------------
 # Generate Y (two-stage version)
 # ------------
-def gen_Y_two_stage(delta1_Y, delta2_Y, X1, A1, X2, A2, beta_Y, flavor_Y="expo",
-                    Delta1_Y=None, Delta2_Y=None):
+def gen_Y_two_stage(delta2, X1, A1, X2, A2, beta_Y2, flavor_Y="expo",
+                    Delta2=None):
     """
     Generate outcomes for two-stage setting
 
     Parameters:
-    - delta1_Y: stage 1 treatment main effects on Y (array of length k1-1)
-    - delta2_Y: stage 2 treatment main effects on Y (array of length k2-1)
+    - delta2: stage 2 treatment main effects on Y (array of length k2-1)
     - X1: stage 1 covariates
-    - A1: stage 1 treatment
+    - A1: stage 1 treatment (included as raw covariate in beta_Y2)
     - X2: stage 2 covariates
     - A2: stage 2 treatment
-    - beta_Y: outcome model coefficients [beta_X1, beta_X2]
+    - beta_Y2: outcome model coefficients for [1, X1, A1, X2] (length 1+p1+1+p2)
     - flavor_Y: functional form for outcome
-    - Delta1_Y: stage 1 treatment × binary covariate interaction coefficients (array of length k1-1)
-    - Delta2_Y: stage 2 treatment × binary covariate interaction coefficients (array of length k2-1)
-                Binary modifier is the last column of X1 for both stages.
+    - Delta2: stage 2 treatment × binary modifier interaction coefficients (array of length k2-1)
+              Binary modifier is the last column of X1.
 
     Returns:
     - Dictionary with Y and linear predictor
     """
     n = X1.shape[0]
-    p1 = X1.shape[1]
 
     # Binary effect modifier: last column of X1
     X1_bin = X1.iloc[:, -1].values
 
-    # Combine X1 and X2
-    X_combined = np.column_stack([np.ones(n), X1.values, X2.values])
-
-    # Create treatment indicators for A1 (excluding baseline)
-    unique_A1 = np.unique(A1)
-    A1_mat = np.column_stack([np.where(A1 == a, 1, 0) for a in unique_A1[1:]])
+    # Feature vector: [1, X1, A1, X2]  — A1 enters as a raw covariate
+    X_combined = np.column_stack([np.ones(n), X1.values, A1, X2.values])
 
     # Create treatment indicators for A2 (excluding baseline)
     unique_A2 = np.unique(A2)
     A2_mat = np.column_stack([np.where(A2 == a, 1, 0) for a in unique_A2[1:]])
 
     # Linear predictor
-    xb_delta_a = X_combined @ beta_Y
-
-    # Add stage 1 treatment main effects
-    if A1_mat.shape[1] > 0 and len(delta1_Y) > 0:
-        xb_delta_a += A1_mat @ delta1_Y
-
-    # Add stage 1 treatment × binary modifier interaction
-    if Delta1_Y is not None and len(Delta1_Y) > 0:
-        xb_delta_a += (A1_mat * X1_bin.reshape(-1, 1)) @ Delta1_Y
+    xb_delta_a = X_combined @ beta_Y2
 
     # Add stage 2 treatment main effects
-    if A2_mat.shape[1] > 0 and len(delta2_Y) > 0:
-        xb_delta_a += A2_mat @ delta2_Y
+    if A2_mat.shape[1] > 0 and len(delta2) > 0:
+        xb_delta_a += A2_mat @ delta2
 
     # Add stage 2 treatment × binary modifier interaction
-    if Delta2_Y is not None and len(Delta2_Y) > 0:
-        xb_delta_a += (A2_mat * X1_bin.reshape(-1, 1)) @ Delta2_Y
+    if Delta2 is not None and len(Delta2) > 0:
+        xb_delta_a += (A2_mat * X1_bin.reshape(-1, 1)) @ Delta2
 
     # Apply functional form (same as single-stage)
     if flavor_Y == "expo":

@@ -8,16 +8,29 @@ from YAX_funs import gen_X, gen_A, gen_A2, gen_X2, gen_Y_two_stage
 from pscores_models import estimate_A_logit
 from outcome_models import estimate_optimal_regime_two_stage
 from get_true_optimal_regime import compute_true_optimal_regime, evaluate_regime_accuracy
+from sim_params import make_sim_params
 
-# Set seed
+# ============================================================
+# CUSTOMIZABLE PARAMETERS - Change these as needed
+# ============================================================
+n   = 200
+p1  = 3
+p2  = 2
+k1  = 3   # <-- change freely; all arrays auto-size
+k2  = 3   # <-- change freely; all arrays auto-size
+
 np.random.seed(42)
+params = make_sim_params(p1=p1, p2=p2, k1=k1, k2=k2, seed=42)
 
-# Parameters
-n = 200
-p1 = 3
-p2 = 2
-k1 = 3
-k2 = 3
+beta_A1    = params['beta_A1']
+beta_A2    = params['beta_A2']
+gamma_stay = params['gamma_stay']
+delta1     = params['delta1']
+beta_Y1    = params['beta_Y1']
+Delta1     = params['Delta1']
+delta2     = params['delta2']
+beta_Y2    = params['beta_Y2']
+Delta2     = params['Delta2']
 
 print("=" * 80)
 print("COMPARING ESTIMATED VS. TRUE OPTIMAL REGIME")
@@ -27,32 +40,18 @@ print("=" * 80)
 print("\nGenerating data...")
 X1 = gen_X(n=n, p=p1, rho=0.5, p_bin=1)
 
-beta_A1 = np.array([[0.5, 0.3], [-0.3, 0.4], [0.2, -0.1], [0.1, 0.2]])
 A1 = gen_A(X=X1, beta_A=beta_A1, flavor_A="logit", k=k1)
 
-delta1_X2 = np.array([0.5, 1.0])
-beta_X2 = np.array([0.0, 0.3, 0.2, 0.1])
-Delta1_X2 = np.array([-1.2, 1.0])
-X2 = gen_X2(X1=X1, A1=A1, p2=p2, delta1_X2=delta1_X2, beta_X2=beta_X2,
-            flavor_X2="expo", rho=0.5, p_bin=1, Delta1_X2=Delta1_X2)
+X2 = gen_X2(X1=X1, A1=A1, p2=p2, delta1=delta1, beta_Y1=beta_Y1,
+            flavor_X2="expo", rho=0.5, p_bin=1, Delta1=Delta1)
 
 X_history = pd.concat([X1, pd.Series(A1, name='A1'), X2], axis=1)
-beta_A2 = np.array([[0.3, 0.2], [-0.2, 0.3], [0.1, -0.1], [0.2, 0.1], [0.4, -0.2], [-0.3, 0.5], [0.1, -0.2]])
-gamma_stay = 0.5  # stay-probability: higher X2 -> more likely to stay on A1
 A2 = gen_A2(X1=X1, A1=A1, X2=X2, beta_A2=beta_A2, gamma_stay=gamma_stay,
             flavor_A="logit", k2=k2)
 
-delta1_Y = np.array([1.0, 2.0])
-delta2_Y = np.array([1.5, 3.0])
-beta_Y = np.array([1.0, 0.5, 0.3, 0.2, 0.4, 0.3])
-Delta1_Y = np.array([-1.2, 1.0])
-Delta2_Y = np.array([-1.2, 1.0])
-
 Y_result = gen_Y_two_stage(
-    delta1_Y=delta1_Y, delta2_Y=delta2_Y,
-    X1=X1, A1=A1, X2=X2, A2=A2,
-    beta_Y=beta_Y, flavor_Y="expo",
-    Delta1_Y=Delta1_Y, Delta2_Y=Delta2_Y
+    delta2=delta2, X1=X1, A1=A1, X2=X2, A2=A2,
+    beta_Y2=beta_Y2, flavor_Y="expo", Delta2=Delta2
 )
 Y = Y_result['Y']
 
@@ -65,11 +64,11 @@ print("=" * 80)
 
 true_regime = compute_true_optimal_regime(
     X1=X1, X2=X2, A1=A1, k1=k1, k2=k2,
-    delta1_X2=delta1_X2, beta_X2=beta_X2,
-    delta1_Y=delta1_Y, delta2_Y=delta2_Y, beta_Y=beta_Y,
+    delta1=delta1, beta_Y1=beta_Y1,
+    delta2=delta2, beta_Y2=beta_Y2,
     p2=p2, rho=0.5, flavor_Y="expo",
-    n_samples=500,  # Reduce for speed
-    Delta1_Y=Delta1_Y, Delta2_Y=Delta2_Y, Delta1_X2=Delta1_X2
+    n_samples=500,
+    Delta2=Delta2, Delta1=Delta1
 )
 
 print(f"\nTrue optimal regime distribution:")
