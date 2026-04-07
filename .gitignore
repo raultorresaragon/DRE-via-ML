@@ -21,7 +21,11 @@ _proposal/
 *.csv
 *.png
 *.jpg
+*.pdf
 .DS_Store
+
+# ignore reading folder
+_reading/
 
 # Python cache files
 __pycache__/
