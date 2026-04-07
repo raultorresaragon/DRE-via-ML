@@ -10,7 +10,6 @@ from sim_params import make_sim_params, print_param_shapes
 import matplotlib.pyplot as plt
 
 script_dir = os.path.dirname(os.path.abspath(__file__))
-script_dir = '/Users/raul_torres_aragon/Library/CloudStorage/GoogleDrive-rdtaragon@gmail.com/My Drive/Dissertation/DRE-via-ML/python_scripts/multi_stage'
 
 def gen_2stage_data(s, n, p1, p2, k1, k2, flavor_Y, i=1, seed=None):
     if seed is None:
@@ -134,14 +133,19 @@ def gen_2stage_data(s, n, p1, p2, k1, k2, flavor_Y, i=1, seed=None):
 # ============================================================
 # Run
 # ============================================================
-s = 2
-for k in [2, 3]:
-    if k == 2:
-        p1 = 3
-    else:
-        p1 = 8
-    n = k * 200
-    p2 = p1 + 1
-    for fY in ['expo', 'lognormal', 'sigmoid', 'gamma']:
-        for i in range(10):
-            gen_2stage_data(s=s, n=n, p1=p1, p2=p2, k1=k, k2=k, flavor_Y=fY, i=i)
+if __name__ == '__main__': # <- so this doesn't run when importing it
+
+    info_path = os.path.join(script_dir, '../_1trt_effect/2stages/datasets/_info.csv')                                                                  
+    if os.path.exists(info_path):                                                                                                                       
+        os.remove(info_path) 
+    s = 2
+    for k in [2, 3]:
+        if k == 2:
+            p1 = 3
+        else:
+            p1 = 8
+        n = k * 200
+        p2 = p1 + 1
+        for fY in ['expo', 'lognormal', 'sigmoid', 'gamma']:
+            for i in range(10):
+                gen_2stage_data(s=s, n=n, p1=p1, p2=p2, k1=k, k2=k, flavor_Y=fY, i=i)

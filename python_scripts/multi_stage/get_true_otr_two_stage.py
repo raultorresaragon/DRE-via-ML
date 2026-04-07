@@ -9,8 +9,6 @@ from sim_params import make_sim_params
 from get_true_optimal_regime import compute_true_optimal_regime
 
 script_dir   = os.path.dirname(os.path.abspath(__file__))
-script_dir = '/Users/raul_torres_aragon/Library/CloudStorage/GoogleDrive-rdtaragon@gmail.com/My Drive/Dissertation/DRE-via-ML/python_scripts/multi_stage'
-
 datasets_dir = os.path.join(script_dir, '../_1trt_effect/2stages/datasets')
 info_path    = os.path.join(datasets_dir, '_info.csv')
 
@@ -105,6 +103,7 @@ def get_otr(filename, n_samples=1000):
 # ============================================================
 # Run over all datasets in _info.csv
 # ============================================================
-info = pd.read_csv(info_path)
-for _, row in info.iterrows():
-    get_otr(row['filename'], n_samples = 300)
+if __name__ == '__main__': # <- so this doesn't run when importing it
+    info = pd.read_csv(info_path)
+    for _, row in info.iterrows():
+        get_otr(row['filename'], n_samples = 300)

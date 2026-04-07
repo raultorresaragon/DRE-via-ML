@@ -204,14 +204,13 @@ def estimate_dre(filename,
     # ==================================================================
     # Save output
     # ==================================================================
-    out = pd.DataFrame({
-        'd_star_1':     d_star_1,
-        'd_star_2':     d_star_2,
-        'mu_hat_1_max': mu_hat_1_max,
-        'mu_hat_2_max': mu_hat_2_max,
-    })
+    out = pd.DataFrame({'d_star_1': d_star_1, 'd_star_2': d_star_2})
+    for a in range(k1):
+        out[f'mu_hat_1_a{a}'] = mu_hat_1[:, a]
+    for a in range(k2):
+        out[f'mu_hat_2_a{a}'] = mu_hat_2[:, a]
 
-    out_filename = f'{filename}_DRE_{i}'
+    out_filename = f'{filename}_DRE'
     out_path = os.path.join(datasets_dir, f'{out_filename}.csv')
     out.to_csv(out_path, index=False)
     print(f"\n✓ Saved: {out_filename}.csv")
@@ -222,6 +221,7 @@ def estimate_dre(filename,
 # ============================================================
 # Run over all datasets in _info.csv
 # ============================================================
-info = pd.read_csv(info_path)
-for _, row in info.iterrows():
-    estimate_dre(row['filename'])
+if __name__ == '__main__': # <- so this doesn't run when importing it
+    info = pd.read_csv(info_path)
+    for _, row in info.iterrows():
+        estimate_dre(row['filename'])
