@@ -16,8 +16,8 @@ from sklearn.metrics import mean_squared_error
 import warnings
 warnings.filterwarnings('ignore')
 
-def Y_model_nn(dat, y_func="Y~.", hidunits=[5, 20], eps=[100, 250], 
-               penals=[0.001, 0.01], cvs=6, verbose=False):
+def Y_model_nn(dat, y_func="Y~.", hidunits=[5, 20], eps=[100, 250],
+               penals=[0.001, 0.01], cvs=6, early_stopping=True, verbose=False):
     """
     Fit neural network for outcome model with hyperparameter tuning
     
@@ -41,7 +41,7 @@ def Y_model_nn(dat, y_func="Y~.", hidunits=[5, 20], eps=[100, 250],
     # Create pipeline with scaling
     pipe = Pipeline([
         ('scaler', StandardScaler()),
-        ('mlp', MLPRegressor(random_state=42, early_stopping=True, 
+        ('mlp', MLPRegressor(random_state=42, early_stopping=early_stopping,
                             validation_fraction=0.2, n_iter_no_change=10))
     ])
     
