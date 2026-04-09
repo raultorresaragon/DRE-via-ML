@@ -46,11 +46,7 @@ def assess_otr(filename, save_plots=True, verbose=True):
     # ------------------------------------------------------------------
     # Load OTR and DRE files
     # ------------------------------------------------------------------
-    # True OTR: get_true_otr_two_stage.py names it {filename}_OTR_{i}.csv
-    # We detect i from the filename suffix (e.g. '_0' → i=0)
-    i = int(filename.split('_')[-1])
-
-    otr_path = os.path.join(datasets_dir, f'{filename}_OTR_{i}.csv')
+    otr_path = os.path.join(datasets_dir, f'{filename}_OTR.csv')
     dre_path = os.path.join(datasets_dir, f'{filename}_DRE.csv')
 
     otr = pd.read_csv(otr_path)
@@ -181,7 +177,6 @@ if __name__ == '__main__':
                 'filename':        row['filename'],
                 'k':               row['k1'],
                 'flavor_Y':        row['flavor_Y'],
-                'i':               row['i'],
                 'acc_stage1':      res['accuracy']['stage1'],
                 'acc_stage2':      res['accuracy']['stage2'],
                 'acc_joint':       res['accuracy']['joint'],
