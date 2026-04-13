@@ -46,11 +46,18 @@ def assess_otr(filename, save_plots=True, verbose=True):
     # ------------------------------------------------------------------
     # Load OTR and DRE files
     # ------------------------------------------------------------------
+    dat_path = os.path.join(datasets_dir, f'{filename}.csv')
     otr_path = os.path.join(datasets_dir, f'{filename}_OTR.csv')
     dre_path = os.path.join(datasets_dir, f'{filename}_DRE.csv')
 
+    dat = pd.read_csv(dat_path)
     otr = pd.read_csv(otr_path)
     dre = pd.read_csv(dre_path)
+
+    # Observed treatments and outcome
+    A1_obs = dat['A1'].values
+    A2_obs = dat['A2'].values
+    Y_obs  = dat['Y'].values
 
     # True optimal decisions
     d_true_1 = otr['d1_star'].values
@@ -86,7 +93,7 @@ def assess_otr(filename, save_plots=True, verbose=True):
     Q2_cols = [f'Q2_a{a}' for a in range(k2)]
     Q2_mat  = otr[Q2_cols].values   # (n, k2)
 
-    # V(d_true): mean Q2 under true optimal A2
+    # V(d_optimal): mean Q2 under optimal A2
     V_true  = np.mean(Q2_mat[np.arange(n), d_true_2])
 
     # V(d_star): mean Q2 under estimated A2
@@ -106,41 +113,85 @@ def assess_otr(filename, save_plots=True, verbose=True):
         print(f"    Stage 1 : {acc_1:.1%}  ({int(acc_1*n)}/{n})")
         print(f"    Stage 2 : {acc_2:.1%}  ({int(acc_2*n)}/{n})")
         print(f"    Joint   : {acc_joint:.1%}  ({int(acc_joint*n)}/{n})")
-        print(f"\n  Value function")
-        print(f"    V(d_true) = {V_true:.4f}")
-        print(f"    V(d_star) = {V_star:.4f}")
-        print(f"    Regret    = {regret:.4f}  ({relative_regret:.1%} relative)")
+        Y_bar = np.mean(Y_obs)
+        col   = 16
+        print(f"\n  Value summary")
+        print(f"    {'Observed mean Y':>{col}}  {'V(Optimal OTR)':>{col}}  {'V(Estimated)':>{col}}")
+        print(f"    {Y_bar:>{col}.4f}  {V_true:>{col}.4f}  {V_star:>{col}.4f}")
+        print(f"\n  Regret       = {regret:.4f}  ({relative_regret:.1%} relative)")
+        print(f"\n  Treatment split frequencies")
+        hdr1 = f"    {'':>4}  {'Observed':>16}  {'Optimal OTR':>16}  {'Estimated':>16}"
+        hdr2 = f"    {'':>10}  {'Observed':>16}  {'Optimal OTR':>16}  {'Estimated':>16}"
+        print(f"\n  Stage 1")
+        print(hdr1)
+        for a in range(k1):
+            n_obs  = np.sum(A1_obs  == a);  pct_obs  = n_obs  / n * 100
+            n_opt  = np.sum(d_true_1 == a); pct_opt  = n_opt  / n * 100
+            n_est  = np.sum(d_star_1 == a); pct_est  = n_est  / n * 100
+            print(f"    a={a}:  {n_obs:>5} ({pct_obs:>5.1f}%)  "
+                  f"{n_opt:>5} ({pct_opt:>5.1f}%)  "
+                  f"{n_est:>5} ({pct_est:>5.1f}%)")
+        print(f"\n  Stage 2")
+        print(hdr2)
+        for a1 in range(k1):
+            for a2 in range(k2):
+                n_obs = np.sum((A1_obs   == a1) & (A2_obs   == a2)); pct_obs = n_obs / n * 100
+                n_opt = np.sum((d_true_1 == a1) & (d_true_2 == a2)); pct_opt = n_opt / n * 100
+                n_est = np.sum((d_star_1 == a1) & (d_star_2 == a2)); pct_est = n_est / n * 100
+                print(f"    a1={a1},a2={a2}:  {n_obs:>5} ({pct_obs:>5.1f}%)  "
+                      f"{n_opt:>5} ({pct_opt:>5.1f}%)  "
+                      f"{n_est:>5} ({pct_est:>5.1f}%)")
+
+        print(f"\n  Stage 1 confusion matrix  (rows=optimal, cols=estimated)")
+        print(pd.DataFrame(cm_1,
+                           index=[f'opt a={a}' for a in range(k1)],
+                           columns=[f'est a={a}' for a in range(k1)]).to_string())
         print(f"\n  Stage 1 classification report")
         print(classification_report(d_true_1, d_star_1, zero_division=0))
-        print(f"  Stage 2 classification report")
+        print(f"  Stage 2 confusion matrix  (rows=optimal, cols=estimated)")
+        print(pd.DataFrame(cm_2,
+                           index=[f'opt a={a}' for a in range(k2)],
+                           columns=[f'est a={a}' for a in range(k2)]).to_string())
+        print(f"\n  Stage 2 classification report")
         print(classification_report(d_true_2, d_star_2, zero_division=0))
 
     # ==================================================================
     # PLOTS
     # ==================================================================
+
+    def _cm_annot(cm):
+        """Build annotation array: 'count\n(pct%)' for each cell."""
+        annot = np.empty(cm.shape, dtype=object)
+        total = cm.sum()
+        for r in range(cm.shape[0]):
+            for c in range(cm.shape[1]):
+                pct = cm[r, c] / total * 100
+                annot[r, c] = f'{cm[r, c]}\n({pct:.1f}%)'
+        return annot
+
     fig, axes = plt.subplots(1, 3, figsize=(14, 4))
     fig.suptitle(f"OTR Assessment: {filename}", fontsize=11)
 
     # --- Plot 1: Confusion matrix stage 1 ---
-    sns.heatmap(cm_1, annot=True, fmt='d', cmap='Blues',
+    sns.heatmap(cm_1, annot=_cm_annot(cm_1), fmt='', cmap='Greys',
                 xticklabels=[f'est a={a}' for a in range(k1)],
-                yticklabels=[f'true a={a}' for a in range(k1)],
+                yticklabels=[f'optimal a={a}' for a in range(k1)],
                 ax=axes[0])
     axes[0].set_title(f'Stage 1  (acc={acc_1:.1%})')
     axes[0].set_xlabel('Estimated $d^*_1$')
-    axes[0].set_ylabel('True $d^*_1$')
+    axes[0].set_ylabel('Optimal $d^*_1$')
 
     # --- Plot 2: Confusion matrix stage 2 ---
-    sns.heatmap(cm_2, annot=True, fmt='d', cmap='Oranges',
+    sns.heatmap(cm_2, annot=_cm_annot(cm_2), fmt='', cmap='Greys',
                 xticklabels=[f'est a={a}' for a in range(k2)],
-                yticklabels=[f'true a={a}' for a in range(k2)],
+                yticklabels=[f'optimal a={a}' for a in range(k2)],
                 ax=axes[1])
     axes[1].set_title(f'Stage 2  (acc={acc_2:.1%})')
     axes[1].set_xlabel('Estimated $d^*_2$')
-    axes[1].set_ylabel('True $d^*_2$')
+    axes[1].set_ylabel('Optimal $d^*_2$')
 
     # --- Plot 3: Value comparison bar chart ---
-    axes[2].bar(['V(d_true)', 'V(d_star)'], [V_true, V_star],
+    axes[2].bar(['V(d_optimal)', 'V(d_star)'], [V_true, V_star],
                 color=['steelblue', 'tomato'], width=0.4)
     axes[2].set_title(f'Value  (regret={regret:.3f})')
     axes[2].set_ylabel('E[Y]')
