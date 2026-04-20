@@ -67,9 +67,13 @@ def _fit_pscore_nn(features_df, a_values, hidunits, eps, penals, tag=''):
 
 def compute_mu_hat(A_obs, Y_obs, Y_hat_all, pi_hat_all, k):
     """
-    AIPW-style modified outcome for each treatment level.
+    Self-normalized AIPW modified outcome for each treatment level.
 
-    mu_hat_a = I(A=a)*Y / pi_a  +  (I(A=a) - pi_a) / pi_a * Yhat_a
+    mu_hat_a = Yhat_a  +  I(A=a) * (Y - Yhat_a) / pi_a  /  mean(I(A=a) / pi_a)
+
+    The denominator mean(I(A=a)/pi_a) is a scalar per arm that normalizes the
+    IPW weights (Hajek-style), reducing finite-sample variance from extreme
+    propensity scores.
 
     Parameters
     ----------
@@ -87,8 +91,8 @@ def compute_mu_hat(A_obs, Y_obs, Y_hat_all, pi_hat_all, k):
     for a in range(k):
         I_a  = (A_obs == a).astype(float)
         pi_a = np.clip(pi_hat_all[:, a], 1e-6, 1 - 1e-6)
-        mu_hat[:, a] = (I_a * Y_obs / pi_a
-                        + (I_a - pi_a) / pi_a * Y_hat_all[:, a])
+        w_a  = np.mean(I_a / pi_a)
+        mu_hat[:, a] = Y_hat_all[:, a] + I_a * (Y_obs - Y_hat_all[:, a]) / pi_a / w_a
     return mu_hat
 
 
