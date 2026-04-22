@@ -161,7 +161,7 @@ def gen_Y(delta, X, A, beta_Y, flavor_Y="expo"):
 
 
 # ========================================
-# TWO-STAGE FUNCTIONS
+# TWO-STAGE FUNCTIONS (ORIGINAL)
 # ========================================
 
 # --------------------------
@@ -407,3 +407,173 @@ def gen_Y_two_stage(delta2, X1, A1, X2, A2, beta_Y2, flavor_Y="expo",
         Y = np.minimum(Y, threshold)
 
     return {'Y': Y, 'xb_delta_a': xb_delta_a}
+
+
+# ========================================
+# SIMPLE TWO-STAGE FUNCTIONS
+# ========================================
+
+def _mean_outcome_simple(eta, flavor_Y):
+    """
+    Analytic conditional mean E[Y | eta, flavor_Y], dropping mean-zero noise.
+
+    Used to compute counterfactual potential outcomes directly from DGP parameters
+    without simulation (noise terms are mean-zero so E[Y|eta] = f(eta)).
+
+    expo     : E[Y] = exp(eta)
+    sigmoid  : E[Y] = 10 / (1 + exp(-eta))
+    gamma    : E[Y] = f_gamma(eta) * 10 + 0.1
+    lognormal: E[Y] = exp(eta + sigma^2/2),  sigma = 0.5
+    """
+    if flavor_Y == 'expo':
+        return np.exp(eta)
+    elif flavor_Y == 'sigmoid':
+        return 10.0 / (1.0 + np.exp(-eta))
+    elif flavor_Y == 'gamma':
+        shape, scale = 2, 3
+        return (np.exp(shape * eta) * np.exp(-np.exp(eta) / scale) /
+                (math.gamma(shape) * scale**shape)) * 10 + 0.1
+    elif flavor_Y == 'lognormal':
+        sigma = 0.5
+        return np.exp(eta + sigma**2 / 2.0)
+    else:
+        raise ValueError(f'Unknown flavor_Y: {flavor_Y}')
+
+
+def gen_A2_simple(X1, A1, Y1_obs, beta_Y1, delta1, Delta1, flavor_Y, k2):
+    """
+    Generate stage 2 treatment for simplified two-stage DGP.
+
+    Assignment rule based on individual treatment response:
+
+      response_i = Y1_obs_i - E[Y1(a_opposite_i) | X1_i]
+
+      where a_opposite is the counterfactual reference arm:
+        k=2 : a_opposite = 1 - A1  (the other arm)
+        k>2 : a_opposite = 0 if A1 != 0, else 1  (arm 0 as baseline reference)
+
+      CATE threshold: 70th percentile of individual CATEs
+        CATE_i = E[Y1(a=1) | X1_i] - E[Y1(a=0) | X1_i]
+        (always arm 1 vs arm 0 regardless of k)
+
+      Stay probability:
+        p_stay_i = 0.7  if response_i > threshold  (good responder, stay on A1)
+                 = 0.5  otherwise
+        P(A2 = A1_i)         = p_stay_i
+        P(A2 = other arm j)  = (1 - p_stay_i) / (k2 - 1)  for each j != A1_i
+
+    Intuition: patients whose observed Y1 exceeds what they would have expected
+    under the counterfactual arm (beyond the 70th percentile of treatment benefits)
+    are classified as good responders and are more likely to stay on their current
+    treatment regimen in stage 2.
+
+    Parameters
+    ----------
+    X1       : DataFrame (n, p1) -- baseline covariates
+    A1       : array (n,)        -- stage 1 treatment
+    Y1_obs   : array (n,)        -- observed intermediate outcome
+    beta_Y1  : array (p1+1,)     -- DGP outcome coefficients for [1, X1]
+    delta1   : array (k1-1,)     -- stage 1 main treatment effects on Y1
+    Delta1   : array (k1-1,)     -- stage 1 treatment x X1_bin interaction on Y1
+    flavor_Y : str               -- outcome functional form
+    k2       : int               -- number of stage 2 treatment levels
+
+    Returns
+    -------
+    A2 : array (n,)
+    """
+    n = X1.shape[0]
+    X1_with_int = np.column_stack([np.ones(n), X1.values])
+    X1_bin      = X1.iloc[:, -1].values   # binary effect modifier: last column of X1
+
+    # ------------------------------------------------------------------
+    # Analytic potential outcomes for arms 0 and 1
+    # CATE_i = E[Y1(a=1)|X1_i] - E[Y1(a=0)|X1_i]  (arm 1 vs arm 0)
+    # threshold = 70th percentile of CATE across the sample
+    # ------------------------------------------------------------------
+    eta_0  = X1_with_int @ beta_Y1
+    eta_1  = eta_0 + delta1[0] + Delta1[0] * X1_bin
+    EY1_0  = _mean_outcome_simple(eta_0, flavor_Y)
+    EY1_1  = _mean_outcome_simple(eta_1, flavor_Y)
+    CATE   = EY1_1 - EY1_0
+
+    threshold = np.percentile(CATE, 70)
+
+    # ------------------------------------------------------------------
+    # Counterfactual arm: a_opposite in {0, 1} in all cases
+    #   k=2 : opposite = 1 - A1
+    #   k>2 : opposite = 0 if A1 != 0, else 1
+    # ------------------------------------------------------------------
+    a_opposite = (1 - A1) if k2 == 2 else np.where(A1 != 0, 0, 1)
+    EY1_opp    = np.where(a_opposite == 1, EY1_1, EY1_0)
+
+    response = Y1_obs - EY1_opp
+    p_stay   = np.where(response > threshold, 0.7, 0.5)
+
+    # ------------------------------------------------------------------
+    # Sample A2: P(A2=A1) = p_stay; uniform over remaining k2-1 arms
+    # ------------------------------------------------------------------
+    A2 = np.empty(n, dtype=int)
+    for idx in range(n):
+        probs          = np.full(k2, (1 - p_stay[idx]) / (k2 - 1))
+        probs[A1[idx]] = p_stay[idx]
+        A2[idx]        = np.random.choice(k2, p=probs)
+
+    return A2
+
+
+def gen_Y_simple(X1, A2, beta_Y1, delta2_scalar, Delta2_scalar, flavor_Y,
+                 beta_Y_override=None):
+    """
+    Generate final outcome Y for simplified two-stage DGP.
+
+    Model:
+      eta = X1_with_int @ beta_Y  +  delta2_scalar * A2  +  Delta2_scalar * A2 * X1_bin
+      Y   = f(eta) + epsilon,   epsilon ~ N(0, 0.5)
+      f   = flavor_Y link function (expo / sigmoid / gamma / lognormal)
+
+    A2 enters as a scalar multiplier -- dose interpretation for k>2 (A2 in {0,1,2,...}).
+    X1_bin is the last column of X1 (binary effect modifier).
+    By default reuses beta_Y1 (same coefficients as stage 1, since X2 = X1);
+    pass beta_Y_override to use different coefficients for the stage 2 outcome.
+
+    Parameters
+    ----------
+    X1              : DataFrame (n, p1)
+    A2              : array (n,)
+    beta_Y1         : array (p1+1,)    -- default outcome coefficients (with intercept)
+    delta2_scalar   : float            -- stage 2 main treatment effect
+    Delta2_scalar   : float            -- stage 2 treatment x X1_bin interaction
+    flavor_Y        : str
+    beta_Y_override : array or None    -- if provided, used instead of beta_Y1
+
+    Returns
+    -------
+    dict with keys 'Y' and 'xb_delta_a'
+    """
+    beta_Y = beta_Y_override if beta_Y_override is not None else beta_Y1
+    n           = X1.shape[0]
+    X1_with_int = np.column_stack([np.ones(n), X1.values])
+    X1_bin      = X1.iloc[:, -1].values
+
+    eta = X1_with_int @ beta_Y + delta2_scalar * A2 + Delta2_scalar * A2 * X1_bin
+
+    if flavor_Y == 'expo':
+        Y = np.exp(eta) + np.random.normal(0, 0.5, n)
+    elif flavor_Y == 'sigmoid':
+        Y = 10.0 / (1.0 + np.exp(-eta)) + np.random.normal(0, 0.5, n)
+    elif flavor_Y == 'gamma':
+        shape, scale = 2, 3
+        Y = ((np.exp(shape * eta) * np.exp(-np.exp(eta) / scale)) /
+             (math.gamma(shape) * scale**shape)) * 10 + np.random.normal(0, 0.5, n) + 0.1
+    elif flavor_Y == 'lognormal':
+        sigma = 0.5
+        Y = np.exp(eta + np.random.normal(0, sigma, n))
+    else:
+        raise ValueError(f'Unknown flavor_Y: {flavor_Y}')
+
+    Y = np.abs(Y)
+    if flavor_Y == 'expo':
+        Y = np.minimum(Y, np.percentile(Y, 99.95))
+
+    return {'Y': Y, 'xb_delta_a': eta}

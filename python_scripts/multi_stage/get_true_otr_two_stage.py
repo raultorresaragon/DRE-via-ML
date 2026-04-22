@@ -13,7 +13,7 @@ datasets_dir = os.path.join(script_dir, '../_1trt_effect/2stages/datasets')
 info_path    = os.path.join(datasets_dir, '_info.csv')
 
 
-def get_otr(filename, n_samples=1000):
+def get_otr(filename, n_samples=1000, dgp='standard'):
     """
     Load a two-stage dataset, compute the true OTR via backward induction,
     and save results to datasets_dir.
@@ -22,6 +22,8 @@ def get_otr(filename, n_samples=1000):
     ----------
     filename  : str   Base filename without extension (e.g. 's2_k2_logit_expo_0')
     n_samples : int   Monte Carlo samples used in Q1 integration (default 1000)
+    dgp       : str   'standard' reads from _info.csv (default);
+                      'simple'   reads from _info_simple.csv
     """
     # ------------------------------------------------------------------
     # Load dataset
@@ -30,12 +32,14 @@ def get_otr(filename, n_samples=1000):
     dat = pd.read_csv(dat_path)
 
     # ------------------------------------------------------------------
-    # Look up params from _info.csv
+    # Look up params from the appropriate info file
     # ------------------------------------------------------------------
-    info = pd.read_csv(info_path)
+    info_fname = '_info_simple.csv' if dgp == 'simple' else '_info.csv'
+    _info_path = os.path.join(datasets_dir, info_fname)
+    info = pd.read_csv(_info_path)
     matches = info[info['filename'] == filename]
     if len(matches) == 0:
-        raise ValueError(f"No entry found for '{filename}' in _info.csv")
+        raise ValueError(f"No entry found for '{filename}' in {info_fname}")
     row = matches.iloc[0]
 
     p1       = int(row['p1'])

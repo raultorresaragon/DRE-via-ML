@@ -104,13 +104,16 @@ def estimate_dre(filename,
                  hidunits=DEFAULT_HIDUNITS,
                  eps=DEFAULT_EPS,
                  penals=DEFAULT_PENALS,
-                 verbose=False):
+                 verbose=False,
+                 dgp='standard'):
     """
     Forward two-stage DRE estimator.
 
     Parameters
     ----------
     filename : str   Base filename without extension (e.g. 's2_k2_logit_expo_0')
+    dgp      : str   'standard' reads from _info.csv (default);
+                     'simple'   reads from _info_simple.csv
 
     Returns
     -------
@@ -120,8 +123,9 @@ def estimate_dre(filename,
     # ------------------------------------------------------------------
     # Load dataset + metadata
     # ------------------------------------------------------------------
+    info_fname = '_info_simple.csv' if dgp == 'simple' else '_info.csv'
     dat  = pd.read_csv(os.path.join(datasets_dir, f'{filename}.csv'))
-    info = pd.read_csv(info_path)
+    info = pd.read_csv(os.path.join(datasets_dir, info_fname))
     row  = info[info['filename'] == filename].iloc[0]
 
     k1, k2   = int(row['k1']), int(row['k2'])

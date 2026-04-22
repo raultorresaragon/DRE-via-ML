@@ -5,7 +5,7 @@
 import numpy as np
 import pandas as pd
 import os
-from YAX_funs import gen_X, gen_A, gen_A2, gen_X2, gen_Y_two_stage
+from YAX_funs import gen_X, gen_A, gen_A2, gen_X2, gen_Y_two_stage, gen_A2_simple, gen_Y_simple
 from sim_params import make_sim_params, print_param_shapes
 import matplotlib.pyplot as plt
 
@@ -130,16 +130,160 @@ def gen_2stage_data(s, n, p1, p2, k1, k2, flavor_Y, i=1, seed=None):
     print(f"✓ Saved: {filename}")
 
 
+def gen_2stage_data_simple(s, n, p1, k1, k2, flavor_Y, i=1, seed=None):
+    """
+    Generate simplified two-stage DTR dataset.
+
+    Key differences from gen_2stage_data:
+    - Covariates are time-invariant: X2 = X1 (baseline covariates repeated at stage 2)
+    - A2 assigned via response-based stay rule (see gen_A2_simple)
+    - Y model: f(X1 @ beta_Y1 + delta2[0]*A2 + Delta2[0]*A2*X1_bin) + N(0, 0.5)
+      using beta_Y1 by default (pass beta_Y_override to gen_Y_simple to override)
+      A2 enters as a scalar multiplier (dose interpretation for k>2)
+
+    Dataset column structure matches gen_2stage_data for downstream compatibility:
+      X1_1...X1_p1 | A1 | Y_1 | X2_1...X2_p1 | A2 | Y
+    where X2_j = X1_j (time-invariant baseline covariates).
+
+    Saves to:  datasets/s{s}_k{k1}_simple_{flavor_Y}_{i}.csv
+    Info file: datasets/_info_simple.csv  (separate from _info.csv)
+    """
+    if seed is None:
+        seed = 1810 + i
+
+    p2 = p1 + 1  # Y_1 + p1 duplicated X1 columns (mirrors original structure)
+    params = make_sim_params(p1=p1, p2=p2, k1=k1, k2=k2, seed=seed)
+
+    beta_A1 = params['beta_A1']
+    beta_Y1 = params['beta_Y1']
+    delta1  = params['delta1']
+    Delta1  = params['Delta1']
+    delta2  = params['delta2']
+    Delta2  = params['Delta2']
+
+    print(f"\nGenerating (simple): n={n}, p1={p1}, k1={k1}, k2={k2}, flavor_Y={flavor_Y}, i={i}, seed={seed}")
+    print(f"main trt effect(s)    on Y_1: delta1={delta1}")
+    print(f"interaction effect(s) on Y_1: Delta1={Delta1}")
+    print(f"main trt effect      on Y:   delta2[0]={delta2[0]:.4f}")
+    print(f"interaction effect   on Y:   Delta2[0]={Delta2[0]:.4f}")
+
+    # --------------------------------------------------------
+    # Stage 1  (identical to gen_2stage_data)
+    # --------------------------------------------------------
+    X1 = gen_X(n=n, p=p1, rho=0.5, p_bin=1)
+    A1 = gen_A(X=X1, beta_A=beta_A1, flavor_A="logit", k=k1)
+    print(f"\nA1 distribution: {np.bincount(A1)}  proportions: {np.bincount(A1)/n}")
+
+    # --------------------------------------------------------
+    # Intermediate outcome Y1  (via gen_X2 with p2=1 — only Y_1 column)
+    # --------------------------------------------------------
+    X2_temp = gen_X2(X1=X1, A1=A1, p2=1, delta1=delta1, beta_Y1=beta_Y1,
+                     flavor_X2=flavor_Y, p_bin=0, Delta1=Delta1)
+    Y1_vals = X2_temp['Y_1'].values
+
+    # --------------------------------------------------------
+    # Stage 2 covariates: X2 = X1  (time-invariant baseline)
+    # Columns: Y_1, X2_1, ..., X2_p1
+    # --------------------------------------------------------
+    X2_simple = pd.DataFrame({'Y_1': Y1_vals})
+    for j, col in enumerate(X1.columns):
+        X2_simple[f'X2_{j+1}'] = X1[col].values
+
+    # --------------------------------------------------------
+    # Stage 2 treatment  (response-based stay rule)
+    # --------------------------------------------------------
+    A2 = gen_A2_simple(X1=X1, A1=A1, Y1_obs=Y1_vals,
+                       beta_Y1=beta_Y1, delta1=delta1, Delta1=Delta1,
+                       flavor_Y=flavor_Y, k2=k2)
+    print(f"A2 distribution: {np.bincount(A2)}  proportions: {np.bincount(A2)/n}")
+
+    # --------------------------------------------------------
+    # Final outcome
+    # --------------------------------------------------------
+    Y_result = gen_Y_simple(X1=X1, A2=A2, beta_Y1=beta_Y1,
+                            delta2_scalar=float(delta2[0]),
+                            Delta2_scalar=float(Delta2[0]),
+                            flavor_Y=flavor_Y)
+    Y = Y_result['Y']
+    print(f"\nY   summary: min={Y.min():.2f}, mean={Y.mean():.2f}, max={Y.max():.2f}")
+    print(f"Y_1 summary: min={Y1_vals.min():.2f}, mean={Y1_vals.mean():.2f}, max={Y1_vals.max():.2f}")
+
+    print("Y mean by treatment group:")
+    for a1 in range(k1):
+        for a2 in range(k2):
+            mask = (A1 == a1) & (A2 == a2)
+            if mask.sum() > 0:
+                print(f"  A1={a1}, A2={a2}: n={mask.sum()}, Y_mean={Y[mask].mean():.2f}")
+
+    # --------------------------------------------------------
+    # Assemble dataset  (same column order as gen_2stage_data)
+    # --------------------------------------------------------
+    dat = pd.concat([
+        X1,
+        pd.Series(A1, name='A1'),
+        X2_simple,
+        pd.Series(A2, name='A2'),
+        pd.Series(Y,  name='Y')
+    ], axis=1)
+
+    filename = f"s{s}_k{k1}_simple_{flavor_Y}_{i}"
+
+    # --------------------------------------------------------
+    # Histograms
+    # --------------------------------------------------------
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 4))
+    ax1.hist(dat['Y'],   bins=30, alpha=0.7)
+    ax1.set_title(f'Y  (i={i})')
+    ax2.hist(dat['Y_1'], bins=30, alpha=0.7)
+    ax2.set_title(f'Y_1  (i={i})')
+    plt.suptitle(f"s={s}, k={k1}, simple, {flavor_Y}, i={i}")
+    plt.tight_layout()
+    img_path = os.path.join(script_dir, f'../_1trt_effect/2stages/images/{filename}.jpeg')
+    fig.savefig(img_path)
+    plt.close(fig)
+
+    # --------------------------------------------------------
+    # Save dataset
+    # --------------------------------------------------------
+    dat_path = os.path.join(script_dir, f'../_1trt_effect/2stages/datasets/{filename}.csv')
+    dat.to_csv(dat_path, index=False)
+
+    # --------------------------------------------------------
+    # Update _info_simple.csv  (separate from _info.csv)
+    # --------------------------------------------------------
+    info_path = os.path.join(script_dir, '../_1trt_effect/2stages/datasets/_info_simple.csv')
+    row = pd.DataFrame([{
+        'i':        i,
+        's':        s,
+        'n':        n,
+        'p1':       p1,
+        'p2':       p2,
+        'k1':       k1,
+        'k2':       k2,
+        'flavor_Y': flavor_Y,
+        'seed':     seed,
+        'filename': filename,
+        'delta1':   str(delta1.tolist()),
+        'Delta1':   str(Delta1.tolist()),
+        'delta2':   str([float(delta2[0])]),
+        'Delta2':   str([float(Delta2[0])]),
+    }])
+    write_header = not os.path.exists(info_path)
+    row.to_csv(info_path, mode='a', header=write_header, index=False)
+
+    print(f"✓ Saved: {filename}")
+
+
 # ============================================================
 # Run
 # ============================================================
 if __name__ == '__main__': # <- so this doesn't run when importing it
 
-    info_path = os.path.join(script_dir, '../_1trt_effect/2stages/datasets/_info.csv')                                                                  
+    info_path = os.path.join(script_dir, '../_1trt_effect/2stages/datasets/_info_simple.csv')                                                                  
     if os.path.exists(info_path):                                                                                                                       
         os.remove(info_path) 
     s = 2
-    for k in [2, 3]:
+    for k in [2]:
         if k == 2:
             p1 = 3
         else:
@@ -148,4 +292,5 @@ if __name__ == '__main__': # <- so this doesn't run when importing it
         p2 = p1 + 1
         for fY in ['expo', 'lognormal', 'sigmoid', 'gamma']:
             for i in range(10):
-                gen_2stage_data(s=s, n=n, p1=p1, p2=p2, k1=k, k2=k, flavor_Y=fY, i=i)
+                #gen_2stage_data(s=s, n=n, p1=p1, p2=p2, k1=k, k2=k, flavor_Y=fY, i=i)
+                gen_2stage_data_simple(s=s, n=n, p1=p1, k1=k, k2=k, flavor_Y=fY, i=i)
