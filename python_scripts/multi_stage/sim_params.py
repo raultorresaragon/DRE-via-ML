@@ -49,7 +49,7 @@ def make_sim_params(p1, p2, k1, k2, seed=None):
 
         # Intermediate outcome (Y_1) model: Y_1 = g(X1 @ beta_Y1 + delta1*A1 + Delta1*(A1*X_p))
         'delta1':  np.array([0.6, 0.4, 0.75, 0.17])[:k1 - 1],
-        'beta_Y1': rng.uniform(-0.3,  0.3,  size=(p1 + 1,)),
+        'beta_Y1': rng.uniform(-1.0,  1.0,  size=(p1 + 1,)),
         'Delta1':  np.array([-1.2, -1.0, -1.0,  0.8])[:k1 - 1],
 
         # Final outcome (Y) model: Y = g([X1,A1,Y_1,X2] @ beta_Y2 + delta2*A2 + Delta2*(A2*X_p))

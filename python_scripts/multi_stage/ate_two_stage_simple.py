@@ -103,6 +103,7 @@ def true_ate_simple(filename, verbose=True):
 
     X1_cols = [c for c in dat.columns if c.startswith('X1_')]
     X1      = dat[X1_cols].values          # (n, p1)
+    A1      = dat['A1'].values             # observed stage 1 treatment
     n       = len(dat)
 
     X1_bin      = X1[:, -1]                          # binary modifier (last col of X1)
@@ -122,12 +123,20 @@ def true_ate_simple(filename, verbose=True):
         ))
 
     # ------------------------------------------------------------------
-    # Stage 2 ATE  (simple DGP)
-    # eta(a) = X1_with_int @ beta_Y1 + delta2[0]*a + Delta2[0]*a*X1_bin
-    # Effect modifier is X1_bin (NOT Y1_bin as in the original DGP).
-    # A2 enters as a scalar multiplier (dose for k>2).
+    # Stage 2 ATE  (simple DGP, conditioning on observed A1)
+    # eta(a2) = X1_with_int @ beta_Y1
+    #             + delta1[A1-1]*0.5 + Delta1[A1-1]*0.5*X1_bin   (A1 direct effect, halved)
+    #             + delta2[0]*a2 + Delta2[0]*a2*X1_bin
+    # A1 contribution uses observed A1; ATE is the marginal over the sample.
     # ------------------------------------------------------------------
-    eta_Y2_base = X1_with_int @ beta_Y1   # (n,) under A2=0
+
+    # A1 contribution to Y using observed A1 (halved effects)
+    A1_contrib = np.zeros(n)
+    for a1 in range(1, k1):
+        mask = (A1 == a1)
+        A1_contrib[mask] = delta1[a1-1] * 0.5 + Delta1[a1-1] * 0.5 * X1_bin[mask]
+
+    eta_Y2_base = X1_with_int @ beta_Y1 + A1_contrib   # (n,) under A2=0, observed A1
 
     ATE_2 = {}
     for a in range(1, k2):
@@ -152,7 +161,65 @@ def true_ate_simple(filename, verbose=True):
 
 
 # ============================================================
-# Function 2: estimated_ate_simple
+# Function 2: naive_ate_simple
+# ============================================================
+
+def naive_ate_simple(filename, verbose=True):
+    """
+    Naive ATE: observed mean difference, unadjusted for confounding.
+
+      ATE_1_naive(a) = mean(Y1 | A1=a) - mean(Y1 | A1=0)
+      ATE_2_naive(a) = mean(Y  | A2=a) - mean(Y  | A2=0)
+
+    This is biased whenever X1 confounds the treatment-outcome relationship,
+    which is the case here since both A1 and Y1 depend on X1.
+    Serves as a benchmark to contrast against the DRE-adjusted estimate.
+
+    Parameters
+    ----------
+    filename : str
+    verbose  : bool
+
+    Returns
+    -------
+    dict with keys 'ATE_1', 'ATE_2' -- each a dict {arm: float}
+    """
+    info    = pd.read_csv(info_path)
+    row     = info[info['filename'] == filename].iloc[0]
+    k1, k2  = int(row['k1']), int(row['k2'])
+
+    dat = pd.read_csv(os.path.join(datasets_dir, f'{filename}.csv'))
+    A1  = dat['A1'].values
+    A2  = dat['A2'].values
+    Y1  = dat['Y_1'].values
+    Y   = dat['Y'].values
+
+    ATE_1 = {}
+    base1 = Y1[A1 == 0].mean()
+    for a in range(1, k1):
+        ATE_1[a] = float(Y1[A1 == a].mean() - base1)
+
+    ATE_2 = {}
+    base2 = Y[A2 == 0].mean()
+    for a in range(1, k2):
+        ATE_2[a] = float(Y[A2 == a].mean() - base2)
+
+    if verbose:
+        print(f"\n{'='*55}")
+        print(f"Naive ATE (unadjusted): {filename}")
+        print(f"{'='*55}")
+        print(f"\n  Stage 1  (A1 vs A1=0)")
+        for a, ate in ATE_1.items():
+            print(f"    ATE(a={a} vs 0) = {ate:.4f}")
+        print(f"\n  Stage 2  (A2 vs A2=0)")
+        for a, ate in ATE_2.items():
+            print(f"    ATE(a={a} vs 0) = {ate:.4f}")
+
+    return {'ATE_1': ATE_1, 'ATE_2': ATE_2}
+
+
+# ============================================================
+# Function 3: estimated_ate_simple
 # ============================================================
 
 def estimated_ate_simple(filename, verbose=True):
@@ -212,21 +279,28 @@ if __name__ == '__main__':
         fname = row['filename']
         try:
             t = true_ate_simple(fname,      verbose=False)
+            n = naive_ate_simple(fname,     verbose=False)
             e = estimated_ate_simple(fname, verbose=False)
 
-            for stage, arms_t, arms_e in [
-                (1, t['ATE_1'], e['ATE_1']),
-                (2, t['ATE_2'], e['ATE_2']),
+            for stage, arms_t, arms_n, arms_e in [
+                (1, t['ATE_1'], n['ATE_1'], e['ATE_1']),
+                (2, t['ATE_2'], n['ATE_2'], e['ATE_2']),
             ]:
                 for a in arms_t:
+                    ate_true  = arms_t[a]
+                    ate_naive = arms_n.get(a, np.nan)
+                    ate_est   = arms_e.get(a, np.nan)
                     results.append({
-                        'filename': fname,
-                        'k':        row['k1'],
-                        'flavor_Y': row['flavor_Y'],
-                        'stage':    stage,
-                        'arm':      a,
-                        'ATE_true': arms_t[a],
-                        'ATE_est':  arms_e.get(a, np.nan),
+                        'filename':    fname,
+                        'k':           row['k1'],
+                        'flavor_Y':    row['flavor_Y'],
+                        'stage':       stage,
+                        'arm':         a,
+                        'ATE_true':    ate_true,
+                        'ATE_naive':   ate_naive,
+                        'ATE_est':     ate_est,
+                        'bias_naive':  ate_naive - ate_true,
+                        'bias_est':    ate_est   - ate_true,
                     })
         except FileNotFoundError as exc:
             print(f"Skipping {fname}: {exc}")
@@ -236,5 +310,5 @@ if __name__ == '__main__':
     summary.to_csv(out_path, index=False)
     print(f"\n✓ ATE summary saved to tables/_ate_simple_summary.csv")
     print(summary.groupby(['k', 'flavor_Y', 'stage', 'arm'])[
-        ['ATE_true', 'ATE_est']
+        ['ATE_true', 'ATE_naive', 'ATE_est', 'bias_naive', 'bias_est']
     ].mean().round(4))

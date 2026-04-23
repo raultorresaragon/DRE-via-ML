@@ -29,7 +29,7 @@ import os
 script_dir   = os.path.dirname(os.path.abspath(__file__))
 datasets_dir = os.path.join(script_dir, '../_1trt_effect/2stages/datasets')                                                                               
                                                                                                                                                             
-files = glob.glob(os.path.join(datasets_dir, 's2_k2_logit_expo_*.csv'))                                                                                 
+files = glob.glob(os.path.join(datasets_dir, 's2_k2_logit_*.csv'))                                                                                 
 # keep only base datasets (exclude _OTR, _DRE, etc.)                                                                                                      
 filenames = [os.path.basename(f).replace('.csv', '') 
             for f in files                                                                                                                               
@@ -41,5 +41,5 @@ for filename in sorted(filenames):
     if save:
         otr.to_csv(os.path.join(datasets_dir, f'{filename}_OTR_test.csv'),  index=False)
         dre.to_csv(os.path.join(datasets_dir, f'{filename}_DRE_test.csv'),  index=False)
-        #assess_otr(filename)
+        res = assess_otr(filename)
         print(f"Saved OTR and DRE results for {filename}")

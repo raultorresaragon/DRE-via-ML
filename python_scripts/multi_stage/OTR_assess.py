@@ -219,7 +219,7 @@ def assess_otr(filename, save_plots=True, verbose=True):
 # Run over all datasets in _info.csv
 # ============================================================
 if __name__ == '__main__':
-    info = pd.read_csv(os.path.join(datasets_dir, '_info.csv'))
+    info = pd.read_csv(os.path.join(datasets_dir, '_info_simple.csv'))
     results = []
     for _, row in info.iterrows():
         try:
@@ -240,9 +240,9 @@ if __name__ == '__main__':
             print(f"Skipping {row['filename']}: {e}")
 
     summary = pd.DataFrame(results)
-    out_path = os.path.join(datasets_dir, '_assessment_summary.csv')
+    out_path = os.path.join(datasets_dir, '_assessment_summary_simple.csv')
     summary.to_csv(out_path, index=False)
-    print(f"\n✓ Summary saved to _assessment_summary.csv")
+    print(f"\n✓ Summary saved to _assessment_summary_simple.csv")
     print(summary.groupby(['k', 'flavor_Y'])[
         ['acc_stage1', 'acc_stage2', 'acc_joint', 'regret', 'regret_relative']
     ].mean().round(4))

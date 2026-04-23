@@ -522,30 +522,34 @@ def gen_A2_simple(X1, A1, Y1_obs, beta_Y1, delta1, Delta1, flavor_Y, k2):
     return A2
 
 
-def gen_Y_simple(X1, A2, beta_Y1, delta2_scalar, Delta2_scalar, flavor_Y,
-                 beta_Y_override=None):
+def gen_Y_simple(X1, A1, A2, beta_Y1, delta1, Delta1, delta2_scalar, Delta2_scalar,
+                 flavor_Y, beta_Y_override=None):
     """
     Generate final outcome Y for simplified two-stage DGP.
 
     Model:
-      eta = X1_with_int @ beta_Y  +  delta2_scalar * A2  +  Delta2_scalar * A2 * X1_bin
+      eta = X1_with_int @ beta_Y
+              + sum_{a1>0} I(A1=a1) * (delta1[a1-1]*0.5 + Delta1[a1-1]*0.5 * X1_bin)
+              + delta2_scalar * A2  +  Delta2_scalar * A2 * X1_bin
       Y   = f(eta) + epsilon,   epsilon ~ N(0, 0.5)
       f   = flavor_Y link function (expo / sigmoid / gamma / lognormal)
 
-    A2 enters as a scalar multiplier -- dose interpretation for k>2 (A2 in {0,1,2,...}).
+    A1 enters with halved effects (delta1*0.5, Delta1*0.5) — same structure as Y1
+    but diluted by half. A2 enters as a scalar multiplier (dose interpretation for k>2).
     X1_bin is the last column of X1 (binary effect modifier).
-    By default reuses beta_Y1 (same coefficients as stage 1, since X2 = X1);
-    pass beta_Y_override to use different coefficients for the stage 2 outcome.
 
     Parameters
     ----------
     X1              : DataFrame (n, p1)
-    A2              : array (n,)
-    beta_Y1         : array (p1+1,)    -- default outcome coefficients (with intercept)
-    delta2_scalar   : float            -- stage 2 main treatment effect
-    Delta2_scalar   : float            -- stage 2 treatment x X1_bin interaction
+    A1              : array (n,)           -- stage 1 treatment
+    A2              : array (n,)           -- stage 2 treatment
+    beta_Y1         : array (p1+1,)        -- default outcome coefficients (with intercept)
+    delta1          : array (k1-1,)        -- stage 1 main effects (halved in eta)
+    Delta1          : array (k1-1,)        -- stage 1 x X1_bin interaction (halved in eta)
+    delta2_scalar   : float                -- stage 2 main treatment effect
+    Delta2_scalar   : float                -- stage 2 treatment x X1_bin interaction
     flavor_Y        : str
-    beta_Y_override : array or None    -- if provided, used instead of beta_Y1
+    beta_Y_override : array or None        -- if provided, used instead of beta_Y1
 
     Returns
     -------
@@ -557,6 +561,11 @@ def gen_Y_simple(X1, A2, beta_Y1, delta2_scalar, Delta2_scalar, flavor_Y,
     X1_bin      = X1.iloc[:, -1].values
 
     eta = X1_with_int @ beta_Y + delta2_scalar * A2 + Delta2_scalar * A2 * X1_bin
+
+    # A1 direct effect on Y: same structure as Y1 but halved
+    for a1 in range(1, len(delta1) + 1):
+        mask     = (A1 == a1)
+        eta[mask] += delta1[a1-1] * 0.5 + Delta1[a1-1] * 0.5 * X1_bin[mask]
 
     if flavor_Y == 'expo':
         Y = np.exp(eta) + np.random.normal(0, 0.5, n)

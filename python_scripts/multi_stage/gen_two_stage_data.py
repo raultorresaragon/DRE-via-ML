@@ -200,7 +200,8 @@ def gen_2stage_data_simple(s, n, p1, k1, k2, flavor_Y, i=1, seed=None):
     # --------------------------------------------------------
     # Final outcome
     # --------------------------------------------------------
-    Y_result = gen_Y_simple(X1=X1, A2=A2, beta_Y1=beta_Y1,
+    Y_result = gen_Y_simple(X1=X1, A1=A1, A2=A2, beta_Y1=beta_Y1,
+                            delta1=delta1, Delta1=Delta1,
                             delta2_scalar=float(delta2[0]),
                             Delta2_scalar=float(Delta2[0]),
                             flavor_Y=flavor_Y)
@@ -290,7 +291,7 @@ if __name__ == '__main__': # <- so this doesn't run when importing it
             p1 = 8
         n = k * 200
         p2 = p1 + 1
-        for fY in ['expo', 'lognormal', 'sigmoid', 'gamma']:
-            for i in range(10):
+        for fY in ['expo', 'lognormal', 'gamma']: #, 'sigmoid']:
+            for i in range(30):
                 #gen_2stage_data(s=s, n=n, p1=p1, p2=p2, k1=k, k2=k, flavor_Y=fY, i=i)
                 gen_2stage_data_simple(s=s, n=n, p1=p1, k1=k, k2=k, flavor_Y=fY, i=i)

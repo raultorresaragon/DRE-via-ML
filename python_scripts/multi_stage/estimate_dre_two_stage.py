@@ -33,6 +33,7 @@ from A_nn_tuning import A_model_nn
 script_dir   = os.path.dirname(os.path.abspath(__file__))
 datasets_dir = os.path.join(script_dir, '../_1trt_effect/2stages/datasets')
 info_path    = os.path.join(datasets_dir, '_info.csv')
+info_path_simple = os.path.join(datasets_dir, '_info_simple.csv')
 
 DEFAULT_HIDUNITS = [5, 20]
 DEFAULT_EPS      = [100, 250]
@@ -233,6 +234,6 @@ def estimate_dre(filename,
 # Run over all datasets in _info.csv
 # ============================================================
 if __name__ == '__main__': # <- so this doesn't run when importing it   
-    info = pd.read_csv(info_path)
+    info = pd.read_csv(info_path_simple)
     for _, row in info.iterrows():
-        estimate_dre(row['filename'])
+        estimate_dre(row['filename'], dgp="simple")
