@@ -27,7 +27,7 @@ from sklearn.metrics import confusion_matrix, classification_report
 script_dir   = os.path.dirname(os.path.abspath(__file__))
 datasets_dir = os.path.join(script_dir, '../_1trt_effect/2stages/datasets')
 images_dir   = os.path.join(script_dir, '../_1trt_effect/2stages/images')
-
+tables_dir   = os.path.join(script_dir, '../_1trt_effect/2stages/tables')
 
 def assess_otr(filename, save_plots=True, verbose=True):
     """
@@ -240,7 +240,7 @@ if __name__ == '__main__':
             print(f"Skipping {row['filename']}: {e}")
 
     summary = pd.DataFrame(results)
-    out_path = os.path.join(datasets_dir, '_assessment_summary_simple.csv')
+    out_path = os.path.join(tables_dir, '_assessment_summary_simple.csv')
     summary.to_csv(out_path, index=False)
     print(f"\n✓ Summary saved to _assessment_summary_simple.csv")
     print(summary.groupby(['k', 'flavor_Y'])[

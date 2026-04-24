@@ -289,7 +289,7 @@ if __name__ == '__main__': # <- so this doesn't run when importing it
             p1 = 8
         n = k * 200
         p2 = p1 + 1
-        for fY in ['expo', 'lognormal', 'gamma']: #, 'sigmoid']:
+        for fY in ['expo', 'lognormal', 'gamma', 'sigmoid']:
             for i in range(30):
                 #gen_2stage_data(s=s, n=n, p1=p1, p2=p2, k1=k, k2=k, flavor_Y=fY, i=i)
                 gen_2stage_data_simple(s=s, n=n, p1=p1, k1=k, k2=k, flavor_Y=fY, i=i)
