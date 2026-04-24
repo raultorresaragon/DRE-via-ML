@@ -197,7 +197,7 @@ if __name__ == '__main__':
     for k in [2]:
         p1 = 3
         n  = k * 200
-        for fY in ['expo', 'lognormal', 'gamma']:
+        for fY in ['expo', 'lognormal', 'gamma', 'sigmoid']:
             for i in range(30):
                 gen_3stage_data_simple(s=s, n=n, p1=p1, k1=k, k2=k, k3=k,
                                        flavor_Y=fY, i=i)
