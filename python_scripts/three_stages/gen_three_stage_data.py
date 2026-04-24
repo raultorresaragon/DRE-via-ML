@@ -6,8 +6,7 @@ import numpy as np
 import pandas as pd
 import os
 from YAX_funs import (gen_X, gen_A, gen_A2_simple, gen_A3_simple,
-                      gen_X2, gen_Y2_simple, gen_Y_final_simple,
-                      _mean_outcome_simple)
+                      gen_X2, gen_Y2_simple, gen_Y_final_simple)
 from sim_params import make_sim_params, print_param_shapes
 import matplotlib.pyplot as plt
 
@@ -82,9 +81,7 @@ def gen_3stage_data_simple(s, n, p1, k1, k2, k3, flavor_Y, i=1, seed=None):
     # --------------------------------------------------------
     # Stage 2
     # --------------------------------------------------------
-    A2 = gen_A2_simple(X1=X1, A1=A1, Y1_obs=Y1_vals,
-                       beta_Y1=beta_Y1, delta1=delta1, Delta1=Delta1,
-                       flavor_Y=flavor_Y, k2=k2)
+    A2 = gen_A2_simple(A1=A1, Y1_obs=Y1_vals, k2=k2)
     print(f"A2 distribution: {np.bincount(A2)}  proportions: {np.bincount(A2)/n}")
 
     Y2_result = gen_Y2_simple(X1=X1, A1=A1, A2=A2, beta_Y1=beta_Y1,
@@ -97,11 +94,7 @@ def gen_3stage_data_simple(s, n, p1, k1, k2, k3, flavor_Y, i=1, seed=None):
     # --------------------------------------------------------
     # Stage 3
     # --------------------------------------------------------
-    A3 = gen_A3_simple(X1=X1, A1_obs=A1, A2=A2, Y2_obs=Y2_vals,
-                       beta_Y1=beta_Y1, delta1=delta1, Delta1=Delta1,
-                       delta2_scalar=float(delta2[0]),
-                       Delta2_scalar=float(Delta2[0]),
-                       flavor_Y=flavor_Y, k3=k3)
+    A3 = gen_A3_simple(A2=A2, Y2_obs=Y2_vals, k3=k3)
     print(f"A3 distribution: {np.bincount(A3)}  proportions: {np.bincount(A3)/n}")
 
     Y_result = gen_Y_final_simple(X1=X1, A1=A1, A2=A2, A3=A3,

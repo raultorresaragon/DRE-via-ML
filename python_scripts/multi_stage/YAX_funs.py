@@ -440,79 +440,31 @@ def _mean_outcome_simple(eta, flavor_Y):
         raise ValueError(f'Unknown flavor_Y: {flavor_Y}')
 
 
-def gen_A2_simple(X1, A1, Y1_obs, beta_Y1, delta1, Delta1, flavor_Y, k2):
+def gen_A2_simple(A1, Y1_obs, k2):
     """
     Generate stage 2 treatment for simplified two-stage DGP.
 
-    Assignment rule based on individual treatment response:
-
-      response_i = Y1_obs_i - E[Y1(a_opposite_i) | X1_i]
-
-      where a_opposite is the counterfactual reference arm:
-        k=2 : a_opposite = 1 - A1  (the other arm)
-        k>2 : a_opposite = 0 if A1 != 0, else 1  (arm 0 as baseline reference)
-
-      CATE threshold: 70th percentile of individual CATEs
-        CATE_i = E[Y1(a=1) | X1_i] - E[Y1(a=0) | X1_i]
-        (always arm 1 vs arm 0 regardless of k)
-
-      Stay probability:
-        p_stay_i = 0.7  if response_i > threshold  (good responder, stay on A1)
-                 = 0.5  otherwise
-        P(A2 = A1_i)         = p_stay_i
-        P(A2 = other arm j)  = (1 - p_stay_i) / (k2 - 1)  for each j != A1_i
-
-    Intuition: patients whose observed Y1 exceeds what they would have expected
-    under the counterfactual arm (beyond the 70th percentile of treatment benefits)
-    are classified as good responders and are more likely to stay on their current
-    treatment regimen in stage 2.
+    Assignment rule based on observed Y1 value:
+      threshold = 70th percentile of Y1_obs across the sample
+      p_stay_i  = 0.7  if Y1_obs_i > threshold  (high outcome, stay on A1)
+                = 0.5  otherwise
+      P(A2 = A1_i)        = p_stay_i
+      P(A2 = other arm j) = (1 - p_stay_i) / (k2 - 1)  for each j != A1_i
 
     Parameters
     ----------
-    X1       : DataFrame (n, p1) -- baseline covariates
-    A1       : array (n,)        -- stage 1 treatment
-    Y1_obs   : array (n,)        -- observed intermediate outcome
-    beta_Y1  : array (p1+1,)     -- DGP outcome coefficients for [1, X1]
-    delta1   : array (k1-1,)     -- stage 1 main treatment effects on Y1
-    Delta1   : array (k1-1,)     -- stage 1 treatment x X1_bin interaction on Y1
-    flavor_Y : str               -- outcome functional form
-    k2       : int               -- number of stage 2 treatment levels
+    A1      : array (n,)   -- stage 1 treatment
+    Y1_obs  : array (n,)   -- observed intermediate outcome
+    k2      : int          -- number of stage 2 treatment levels
 
     Returns
     -------
     A2 : array (n,)
     """
-    n = X1.shape[0]
-    X1_with_int = np.column_stack([np.ones(n), X1.values])
-    X1_bin      = X1.iloc[:, -1].values   # binary effect modifier: last column of X1
+    n         = len(A1)
+    threshold = np.percentile(Y1_obs, 70)
+    p_stay    = np.where(Y1_obs > threshold, 0.7, 0.5)
 
-    # ------------------------------------------------------------------
-    # Analytic potential outcomes for arms 0 and 1
-    # CATE_i = E[Y1(a=1)|X1_i] - E[Y1(a=0)|X1_i]  (arm 1 vs arm 0)
-    # threshold = 70th percentile of CATE across the sample
-    # ------------------------------------------------------------------
-    eta_0  = X1_with_int @ beta_Y1
-    eta_1  = eta_0 + delta1[0] + Delta1[0] * X1_bin
-    EY1_0  = _mean_outcome_simple(eta_0, flavor_Y)
-    EY1_1  = _mean_outcome_simple(eta_1, flavor_Y)
-    CATE   = EY1_1 - EY1_0
-
-    threshold = np.percentile(CATE, 70)
-
-    # ------------------------------------------------------------------
-    # Counterfactual arm: a_opposite in {0, 1} in all cases
-    #   k=2 : opposite = 1 - A1
-    #   k>2 : opposite = 0 if A1 != 0, else 1
-    # ------------------------------------------------------------------
-    a_opposite = (1 - A1) if k2 == 2 else np.where(A1 != 0, 0, 1)
-    EY1_opp    = np.where(a_opposite == 1, EY1_1, EY1_0)
-
-    response = Y1_obs - EY1_opp
-    p_stay   = np.where(response > threshold, 0.7, 0.5)
-
-    # ------------------------------------------------------------------
-    # Sample A2: P(A2=A1) = p_stay; uniform over remaining k2-1 arms
-    # ------------------------------------------------------------------
     A2 = np.empty(n, dtype=int)
     for idx in range(n):
         probs          = np.full(k2, (1 - p_stay[idx]) / (k2 - 1))

@@ -440,79 +440,31 @@ def _mean_outcome_simple(eta, flavor_Y):
         raise ValueError(f'Unknown flavor_Y: {flavor_Y}')
 
 
-def gen_A2_simple(X1, A1, Y1_obs, beta_Y1, delta1, Delta1, flavor_Y, k2):
+def gen_A2_simple(A1, Y1_obs, k2):
     """
     Generate stage 2 treatment for simplified two-stage DGP.
 
-    Assignment rule based on individual treatment response:
-
-      response_i = Y1_obs_i - E[Y1(a_opposite_i) | X1_i]
-
-      where a_opposite is the counterfactual reference arm:
-        k=2 : a_opposite = 1 - A1  (the other arm)
-        k>2 : a_opposite = 0 if A1 != 0, else 1  (arm 0 as baseline reference)
-
-      CATE threshold: 70th percentile of individual CATEs
-        CATE_i = E[Y1(a=1) | X1_i] - E[Y1(a=0) | X1_i]
-        (always arm 1 vs arm 0 regardless of k)
-
-      Stay probability:
-        p_stay_i = 0.7  if response_i > threshold  (good responder, stay on A1)
-                 = 0.5  otherwise
-        P(A2 = A1_i)         = p_stay_i
-        P(A2 = other arm j)  = (1 - p_stay_i) / (k2 - 1)  for each j != A1_i
-
-    Intuition: patients whose observed Y1 exceeds what they would have expected
-    under the counterfactual arm (beyond the 70th percentile of treatment benefits)
-    are classified as good responders and are more likely to stay on their current
-    treatment regimen in stage 2.
+    Assignment rule based on observed Y1 value:
+      threshold = 70th percentile of Y1_obs across the sample
+      p_stay_i  = 0.7  if Y1_obs_i > threshold  (high outcome, stay on A1)
+                = 0.5  otherwise
+      P(A2 = A1_i)        = p_stay_i
+      P(A2 = other arm j) = (1 - p_stay_i) / (k2 - 1)  for each j != A1_i
 
     Parameters
     ----------
-    X1       : DataFrame (n, p1) -- baseline covariates
-    A1       : array (n,)        -- stage 1 treatment
-    Y1_obs   : array (n,)        -- observed intermediate outcome
-    beta_Y1  : array (p1+1,)     -- DGP outcome coefficients for [1, X1]
-    delta1   : array (k1-1,)     -- stage 1 main treatment effects on Y1
-    Delta1   : array (k1-1,)     -- stage 1 treatment x X1_bin interaction on Y1
-    flavor_Y : str               -- outcome functional form
-    k2       : int               -- number of stage 2 treatment levels
+    A1      : array (n,)   -- stage 1 treatment
+    Y1_obs  : array (n,)   -- observed intermediate outcome
+    k2      : int          -- number of stage 2 treatment levels
 
     Returns
     -------
     A2 : array (n,)
     """
-    n = X1.shape[0]
-    X1_with_int = np.column_stack([np.ones(n), X1.values])
-    X1_bin      = X1.iloc[:, -1].values   # binary effect modifier: last column of X1
+    n         = len(A1)
+    threshold = np.percentile(Y1_obs, 70)
+    p_stay    = np.where(Y1_obs > threshold, 0.7, 0.5)
 
-    # ------------------------------------------------------------------
-    # Analytic potential outcomes for arms 0 and 1
-    # CATE_i = E[Y1(a=1)|X1_i] - E[Y1(a=0)|X1_i]  (arm 1 vs arm 0)
-    # threshold = 70th percentile of CATE across the sample
-    # ------------------------------------------------------------------
-    eta_0  = X1_with_int @ beta_Y1
-    eta_1  = eta_0 + delta1[0] + Delta1[0] * X1_bin
-    EY1_0  = _mean_outcome_simple(eta_0, flavor_Y)
-    EY1_1  = _mean_outcome_simple(eta_1, flavor_Y)
-    CATE   = EY1_1 - EY1_0
-
-    threshold = np.percentile(CATE, 70)
-
-    # ------------------------------------------------------------------
-    # Counterfactual arm: a_opposite in {0, 1} in all cases
-    #   k=2 : opposite = 1 - A1
-    #   k>2 : opposite = 0 if A1 != 0, else 1
-    # ------------------------------------------------------------------
-    a_opposite = (1 - A1) if k2 == 2 else np.where(A1 != 0, 0, 1)
-    EY1_opp    = np.where(a_opposite == 1, EY1_1, EY1_0)
-
-    response = Y1_obs - EY1_opp
-    p_stay   = np.where(response > threshold, 0.7, 0.5)
-
-    # ------------------------------------------------------------------
-    # Sample A2: P(A2=A1) = p_stay; uniform over remaining k2-1 arms
-    # ------------------------------------------------------------------
     A2 = np.empty(n, dtype=int)
     for idx in range(n):
         probs          = np.full(k2, (1 - p_stay[idx]) / (k2 - 1))
@@ -651,89 +603,31 @@ def gen_Y2_simple(X1, A1, A2, beta_Y1, delta1, Delta1, delta2_scalar, Delta2_sca
     return {'Y': Y, 'xb_delta_a': eta}
 
 
-def gen_A3_simple(X1, A1_obs, A2, Y2_obs, beta_Y1, delta1, Delta1,
-                  delta2_scalar, Delta2_scalar, flavor_Y, k3):
+def gen_A3_simple(A2, Y2_obs, k3):
     """
     Generate stage 3 treatment for simplified three-stage DGP.
 
-    Mirrors gen_A2_simple but for the A2→A3 transition, conditioning on observed A1.
-
-    Assignment rule based on Y2 response (conditioning on observed A1):
-      response_i = Y2_obs_i - E[Y2(a2_opposite_i, A1_obs_i) | X1_i]
-
-      where a2_opposite:
-        k=2 : a2_opposite = 1 - A2
-        k>2 : a2_opposite = 0 if A2 != 0, else 1
-
-      CATE threshold: 70th percentile of individual Y2 CATEs
-        CATE_i = E[Y2(a2=1, A1_obs_i)|X1_i] - E[Y2(a2=0, A1_obs_i)|X1_i]
-        (always arm 1 vs arm 0, conditioning on observed A1)
-
-      Stay probability:
-        p_stay_i = 0.7  if response_i > threshold
-                 = 0.5  otherwise
-        P(A3 = A2_i)        = p_stay_i
-        P(A3 = other arm j) = (1 - p_stay_i) / (k3 - 1)  for each j != A2_i
+    Assignment rule based on observed Y2 value:
+      threshold = 70th percentile of Y2_obs across the sample
+      p_stay_i  = 0.7  if Y2_obs_i > threshold  (high outcome, stay on A2)
+                = 0.5  otherwise
+      P(A3 = A2_i)        = p_stay_i
+      P(A3 = other arm j) = (1 - p_stay_i) / (k3 - 1)  for each j != A2_i
 
     Parameters
     ----------
-    X1             : DataFrame (n, p1)
-    A1_obs         : array (n,)           -- observed stage 1 treatment
-    A2             : array (n,)           -- stage 2 treatment
-    Y2_obs         : array (n,)           -- observed intermediate outcome Y2
-    beta_Y1        : array (p1+1,)
-    delta1         : array (k1-1,)
-    Delta1         : array (k1-1,)
-    delta2_scalar  : float
-    Delta2_scalar  : float
-    flavor_Y       : str
-    k3             : int
+    A2      : array (n,)   -- stage 2 treatment
+    Y2_obs  : array (n,)   -- observed intermediate outcome Y2
+    k3      : int          -- number of stage 3 treatment levels
 
     Returns
     -------
     A3 : array (n,)
     """
-    n           = X1.shape[0]
-    X1_with_int = np.column_stack([np.ones(n), X1.values])
-    X1_bin      = X1.iloc[:, -1].values
+    n         = len(A2)
+    threshold = np.percentile(Y2_obs, 70)
+    p_stay    = np.where(Y2_obs > threshold, 0.7, 0.5)
 
-    # ------------------------------------------------------------------
-    # A1 contribution to Y2 under observed A1 (halved effects)
-    # ------------------------------------------------------------------
-    A1_contrib = np.zeros(n)
-    for a1 in range(1, len(delta1) + 1):
-        mask             = (A1_obs == a1)
-        A1_contrib[mask] = delta1[a1-1] * 0.5 + Delta1[a1-1] * 0.5 * X1_bin[mask]
-
-    eta_Y2_base = X1_with_int @ beta_Y1 + A1_contrib   # (n,) under A2=0, observed A1
-
-    # ------------------------------------------------------------------
-    # Analytic potential outcomes for A2=0 and A2=1 (conditioning on obs A1)
-    # CATE_i = E[Y2(a2=1, A1_obs_i)|X1_i] - E[Y2(a2=0, A1_obs_i)|X1_i]
-    # threshold = 70th percentile of CATE across the sample
-    # ------------------------------------------------------------------
-    EY2_0  = _mean_outcome_simple(eta_Y2_base, flavor_Y)
-    eta_1  = eta_Y2_base + delta2_scalar * 1 + Delta2_scalar * 1 * X1_bin
-    EY2_1  = _mean_outcome_simple(eta_1, flavor_Y)
-    CATE   = EY2_1 - EY2_0
-    threshold = np.percentile(CATE, 70)
-
-    # ------------------------------------------------------------------
-    # Counterfactual arm for A2 (same logic as gen_A2_simple)
-    #   k=2 : opposite = 1 - A2
-    #   k>2 : opposite = 0 if A2 != 0, else 1
-    # ------------------------------------------------------------------
-    a2_opposite = (1 - A2) if k3 == 2 else np.where(A2 != 0, 0, 1)
-
-    eta_opp = eta_Y2_base + delta2_scalar * a2_opposite + Delta2_scalar * a2_opposite * X1_bin
-    EY2_opp = _mean_outcome_simple(eta_opp, flavor_Y)
-
-    response = Y2_obs - EY2_opp
-    p_stay   = np.where(response > threshold, 0.7, 0.5)
-
-    # ------------------------------------------------------------------
-    # Sample A3: P(A3=A2) = p_stay; uniform over remaining k3-1 arms
-    # ------------------------------------------------------------------
     A3 = np.empty(n, dtype=int)
     for idx in range(n):
         probs          = np.full(k3, (1 - p_stay[idx]) / (k3 - 1))

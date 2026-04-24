@@ -192,9 +192,7 @@ def gen_2stage_data_simple(s, n, p1, k1, k2, flavor_Y, i=1, seed=None):
     # --------------------------------------------------------
     # Stage 2 treatment  (response-based stay rule)
     # --------------------------------------------------------
-    A2 = gen_A2_simple(X1=X1, A1=A1, Y1_obs=Y1_vals,
-                       beta_Y1=beta_Y1, delta1=delta1, Delta1=Delta1,
-                       flavor_Y=flavor_Y, k2=k2)
+    A2 = gen_A2_simple(A1=A1, Y1_obs=Y1_vals, k2=k2)
     print(f"A2 distribution: {np.bincount(A2)}  proportions: {np.bincount(A2)/n}")
 
     # --------------------------------------------------------
