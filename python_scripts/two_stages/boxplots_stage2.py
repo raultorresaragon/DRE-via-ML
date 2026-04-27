@@ -29,6 +29,9 @@ info_path    = os.path.join(datasets_dir, '_info_simple.csv')
 sys.path.insert(0, script_dir)
 from ate_two_stage_simple import true_ate_simple
 
+C_DREP = '#FFB74D'   # yellow — matches OLS color in boxplots.py
+
+
 def _drop_extreme(arr, k=3.0):
     """Remove values beyond k×IQR from Q1/Q3 (extreme outliers, k=3 by default)."""
     arr = arr[~np.isnan(arr)]
@@ -72,34 +75,43 @@ def build_records(sub_info):
             print(f'  Skipping {fname}: {exc}')
             continue
 
+        drep = _ate_from_file(fname, '_DREp', k1, k2)
+
         for a in sorted(true['ATE_1'].keys()):
-            t1 = true['ATE_1'][a]
-            n1 = naive['ATE_1'].get(a, np.nan)
-            d1 = dre['ATE_1'].get(a, np.nan)
-            t2 = true['ATE_2'].get(a, np.nan)
-            n2 = naive['ATE_2'].get(a, np.nan)
-            d2 = dre['ATE_2'].get(a, np.nan)
+            t1  = true['ATE_1'][a]
+            n1  = naive['ATE_1'].get(a, np.nan)
+            d1  = dre['ATE_1'].get(a, np.nan)
+            dp1 = drep['ATE_1'].get(a, np.nan)
+            t2  = true['ATE_2'].get(a, np.nan)
+            n2  = naive['ATE_2'].get(a, np.nan)
+            d2  = dre['ATE_2'].get(a, np.nan)
+            dp2 = drep['ATE_2'].get(a, np.nan)
             records.append({
-                'i':               i_val,
-                'arm':             a,
-                'ATE_true_1':      t1,
-                'ATE_naive_1':     n1,
-                'ATE_dre_1':       d1,
-                'rel_bias_naive_1': (n1 - t1) / abs(t1) * 100 if t1 != 0 else np.nan,
-                'rel_bias_dre_1':   (d1 - t1) / abs(t1) * 100 if t1 != 0 else np.nan,
-                'ATE_true_2':      t2,
-                'ATE_naive_2':     n2,
-                'ATE_dre_2':       d2,
-                'rel_bias_naive_2': (n2 - t2) / abs(t2) * 100 if t2 != 0 else np.nan,
-                'rel_bias_dre_2':   (d2 - t2) / abs(t2) * 100 if t2 != 0 else np.nan,
+                'i':                i_val,
+                'arm':              a,
+                'ATE_true_1':       t1,
+                'ATE_naive_1':      n1,
+                'ATE_dre_1':        d1,
+                'ATE_drep_1':       dp1,
+                'rel_bias_naive_1': (n1  - t1) / abs(t1) * 100 if t1 != 0 else np.nan,
+                'rel_bias_dre_1':   (d1  - t1) / abs(t1) * 100 if t1 != 0 else np.nan,
+                'rel_bias_drep_1':  (dp1 - t1) / abs(t1) * 100 if t1 != 0 else np.nan,
+                'ATE_true_2':       t2,
+                'ATE_naive_2':      n2,
+                'ATE_dre_2':        d2,
+                'ATE_drep_2':       dp2,
+                'rel_bias_naive_2': (n2  - t2) / abs(t2) * 100 if t2 != 0 else np.nan,
+                'rel_bias_dre_2':   (d2  - t2) / abs(t2) * 100 if t2 != 0 else np.nan,
+                'rel_bias_drep_2':  (dp2 - t2) / abs(t2) * 100 if t2 != 0 else np.nan,
             })
     return records
 
 
-def make_figure(df, flavor, arms):
+def make_figure(df, flavor, arms, include_drep=True):
     """
     1 × 2 figure: left = stage 1 bias, right = stage 2 bias.
-    Each subplot: Naive (red) | DRE-ML (blue) boxplots side by side.
+    Each subplot: Naive (red) | DRE-ML (blue) [| DRE-Param (yellow)] boxplots.
+    Set include_drep=False to omit the DRE-Param boxplot.
     """
     n_arms = len(arms)
     fig, axes = plt.subplots(1, 2, figsize=(8 * n_arms, 5))
@@ -111,9 +123,10 @@ def make_figure(df, flavor, arms):
         ax = axes[col_idx]
         bias_naive_col = f'rel_bias_naive_{stage}'
         bias_dre_col   = f'rel_bias_dre_{stage}'
+        bias_drep_col  = f'rel_bias_drep_{stage}'
 
-        all_data   = []
-        all_colors = []
+        all_data    = []
+        all_colors  = []
         tick_labels = []
         positions   = []
         pos         = 1
@@ -130,7 +143,15 @@ def make_figure(df, flavor, arms):
             all_colors.append(C[stage]['dre'])
             tick_labels.append(f'DRE-ML\n(A{stage}={a} vs 0)')
             positions.append(pos)
-            pos += 2   # gap between arm groups
+            pos += 1
+
+            if include_drep:
+                all_data.append(_drop_extreme(sub[bias_drep_col].values))
+                all_colors.append(C_DREP)
+                tick_labels.append(f'DRE-Param\n(A{stage}={a} vs 0)')
+                positions.append(pos)
+                pos += 1
+            pos += 1   # gap between arm groups
 
         bp = ax.boxplot(all_data, positions=positions, patch_artist=True, widths=0.6)
         for patch, color in zip(bp['boxes'], all_colors):
@@ -150,6 +171,8 @@ def make_figure(df, flavor, arms):
 
 
 if __name__ == '__main__':
+    INCLUDE_DREP = True   # set to False to omit DRE-Param from boxplots
+
     os.makedirs(tables_dir, exist_ok=True)
     os.makedirs(images_dir, exist_ok=True)
 
@@ -174,7 +197,7 @@ if __name__ == '__main__':
         all_records.append(df)
 
         # --- Figure ---
-        fig = make_figure(df, flavor, arms)
+        fig = make_figure(df, flavor, arms, include_drep=INCLUDE_DREP)
         img_path = os.path.join(images_dir, f'_ate_bias_{flavor}.jpeg')
         fig.savefig(img_path, dpi=150, bbox_inches='tight')
         plt.close(fig)
@@ -189,8 +212,10 @@ if __name__ == '__main__':
                 n_datasets             =('i', 'nunique'),
                 rel_bias_naive_stage1  =('rel_bias_naive_1', 'mean'),
                 rel_bias_dre_stage1    =('rel_bias_dre_1',   'mean'),
+                rel_bias_drep_stage1   =('rel_bias_drep_1',  'mean'),
                 rel_bias_naive_stage2  =('rel_bias_naive_2', 'mean'),
                 rel_bias_dre_stage2    =('rel_bias_dre_2',   'mean'),
+                rel_bias_drep_stage2   =('rel_bias_drep_2',  'mean'),
             )
             .reset_index()
             .rename(columns={'flavor_Y': 'DGP'})

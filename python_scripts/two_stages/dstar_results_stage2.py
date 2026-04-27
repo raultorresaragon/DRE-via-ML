@@ -53,11 +53,21 @@ def load_flavor(sub_info):
             print(f'  Skipping {fname}: {exc}')
             continue
 
+        try:
+            drep = pd.read_csv(os.path.join(datasets_dir, f'{fname}_DREp.csv'))
+            d1_drep = drep['d_star_1'].values
+            d2_drep = drep['d_star_2'].values
+        except FileNotFoundError:
+            d1_drep = np.full(len(otr), np.nan)
+            d2_drep = np.full(len(otr), np.nan)
+
         chunk = pd.DataFrame({
             'd1_true':  otr['d1_star'].values,
             'd2_true':  otr['d2_star'].values,
             'd1_dre':   dre['d_star_1'].values,
             'd2_dre':   dre['d_star_2'].values,
+            'd1_drep':  d1_drep,
+            'd2_drep':  d2_drep,
             'd1_naive': naive['d_star_1'].values,
             'd2_naive': naive['d_star_2'].values,
         })
@@ -83,16 +93,18 @@ def make_freq_table(df, k1, k2):
             col:        f'{{{a1}}}',
             'true_OTR': (df['d1_true']  == a1).mean(),
             'DRE_ML':   (df['d1_dre']   == a1).mean(),
+            'DRE_Param':(df['d1_drep']  == a1).mean(),
             'naive':    (df['d1_naive'] == a1).mean(),
         })
 
     for a1 in range(k1):
         for a2 in range(k2):
             rows.append({
-                col:        f'{{{a1},{a2}}}',
-                'true_OTR': ((df['d1_true']  == a1) & (df['d2_true']  == a2)).mean(),
-                'DRE_ML':   ((df['d1_dre']   == a1) & (df['d2_dre']   == a2)).mean(),
-                'naive':    ((df['d1_naive'] == a1) & (df['d2_naive'] == a2)).mean(),
+                col:         f'{{{a1},{a2}}}',
+                'true_OTR':  ((df['d1_true']  == a1) & (df['d2_true']  == a2)).mean(),
+                'DRE_ML':    ((df['d1_dre']   == a1) & (df['d2_dre']   == a2)).mean(),
+                'DRE_Param': ((df['d1_drep']  == a1) & (df['d2_drep']  == a2)).mean(),
+                'naive':     ((df['d1_naive'] == a1) & (df['d2_naive'] == a2)).mean(),
             })
 
     return pd.DataFrame(rows).round(4)
@@ -102,11 +114,20 @@ def make_value_dict(df, k2):
     """Pooled V(d*) using oracle Q2 for each OTR type."""
     n  = len(df)
     Q2 = df[[f'Q2_a{a}' for a in range(k2)]].values
-    return {
-        'True OTR': float(np.mean(Q2[np.arange(n), df['d2_true'].values])),
-        'DRE-ML':   float(np.mean(Q2[np.arange(n), df['d2_dre'].values])),
-        'naive':    float(np.mean(Q2[np.arange(n), df['d2_naive'].values])),
+
+    def _v(d_col):
+        d = df[d_col].values.astype(int)
+        return float(np.mean(Q2[np.arange(n), d]))
+
+    out = {
+        'True OTR': _v('d2_true'),
+        'DRE-ML':   _v('d2_dre'),
     }
+    # DRE-Param may be missing if _DREp.csv was not found
+    if df['d2_drep'].notna().any():
+        out['DRE-Param'] = _v('d2_drep')
+    out['naive'] = _v('d2_naive')
+    return out
 
 
 def _cm_annot(cm):
@@ -163,10 +184,16 @@ def plot_confmats(df, k1, k2, flavor):
 
 
 def plot_value(vals, flavor):
-    """Bar chart: pooled V(d*) for True OTR, DRE-ML, naive."""
+    """Bar chart: pooled V(d*) for True OTR, DRE-ML, DRE-Param, naive."""
     labels = list(vals.keys())
     values = list(vals.values())
-    colors = ['steelblue', '#64B5F6', '#E57373']
+    palette = {
+        'True OTR':  'steelblue',
+        'DRE-ML':    '#64B5F6',
+        'DRE-Param': '#FFB74D',
+        'naive':     '#E57373',
+    }
+    colors = [palette.get(lbl, 'gray') for lbl in labels]
     v_max  = max(values)
 
     fig, ax = plt.subplots(figsize=(5, 4))
