@@ -75,20 +75,21 @@ def make_freq_table(df, k1, k2):
     Frequency table: d1 marginal (k1 rows) + d1×d2 joint (k1*k2 rows).
     Columns: combination | true_OTR | DRE_ML | naive
     """
+    col = '{d1*, d2*}'
     rows = []
 
     for a1 in range(k1):
         rows.append({
-            'combination': f'd1={a1}',
-            'true_OTR':    (df['d1_true']  == a1).mean(),
-            'DRE_ML':      (df['d1_dre']   == a1).mean(),
-            'naive':       (df['d1_naive'] == a1).mean(),
+            col:        f'{{{a1}}}',
+            'true_OTR': (df['d1_true']  == a1).mean(),
+            'DRE_ML':   (df['d1_dre']   == a1).mean(),
+            'naive':    (df['d1_naive'] == a1).mean(),
         })
 
     for a1 in range(k1):
         for a2 in range(k2):
             rows.append({
-                'combination': f'd1={a1}, d2={a2}',
+                col:        f'{{{a1},{a2}}}',
                 'true_OTR': ((df['d1_true']  == a1) & (df['d2_true']  == a2)).mean(),
                 'DRE_ML':   ((df['d1_dre']   == a1) & (df['d2_dre']   == a2)).mean(),
                 'naive':    ((df['d1_naive'] == a1) & (df['d2_naive'] == a2)).mean(),

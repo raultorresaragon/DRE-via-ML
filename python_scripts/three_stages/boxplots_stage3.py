@@ -29,6 +29,16 @@ info_path    = os.path.join(datasets_dir, '_info_simple.csv')
 sys.path.insert(0, script_dir)
 from ate_three_stage_simple import true_ate_simple
 
+def _drop_extreme(arr, k=3.0):
+    """Remove values beyond k×IQR from Q1/Q3 (extreme outliers, k=3 by default)."""
+    arr = arr[~np.isnan(arr)]
+    if len(arr) == 0:
+        return arr
+    q1, q3 = np.percentile(arr, 25), np.percentile(arr, 75)
+    iqr = q3 - q1
+    return arr[(arr >= q1 - k * iqr) & (arr <= q3 + k * iqr)]
+
+
 # Colors — match boxplots.py shades; progressively darken across stages
 C = {
     1: {'naive': '#E57373', 'dre': '#64B5F6'},   # stage 1: light red  / light blue
@@ -76,23 +86,23 @@ def build_records(sub_info):
             n3 = naive['ATE_3'].get(a, np.nan)
             d3 = dre['ATE_3'].get(a, np.nan)
             records.append({
-                'i':            i_val,
-                'arm':          a,
-                'ATE_true_1':   t1,
-                'ATE_naive_1':  n1,
-                'ATE_dre_1':    d1,
-                'bias_naive_1': n1 - t1,
-                'bias_dre_1':   d1 - t1,
-                'ATE_true_2':   t2,
-                'ATE_naive_2':  n2,
-                'ATE_dre_2':    d2,
-                'bias_naive_2': n2 - t2,
-                'bias_dre_2':   d2 - t2,
-                'ATE_true_3':   t3,
-                'ATE_naive_3':  n3,
-                'ATE_dre_3':    d3,
-                'bias_naive_3': n3 - t3,
-                'bias_dre_3':   d3 - t3,
+                'i':               i_val,
+                'arm':             a,
+                'ATE_true_1':      t1,
+                'ATE_naive_1':     n1,
+                'ATE_dre_1':       d1,
+                'rel_bias_naive_1': (n1 - t1) / abs(t1) * 100 if t1 != 0 else np.nan,
+                'rel_bias_dre_1':   (d1 - t1) / abs(t1) * 100 if t1 != 0 else np.nan,
+                'ATE_true_2':      t2,
+                'ATE_naive_2':     n2,
+                'ATE_dre_2':       d2,
+                'rel_bias_naive_2': (n2 - t2) / abs(t2) * 100 if t2 != 0 else np.nan,
+                'rel_bias_dre_2':   (d2 - t2) / abs(t2) * 100 if t2 != 0 else np.nan,
+                'ATE_true_3':      t3,
+                'ATE_naive_3':     n3,
+                'ATE_dre_3':       d3,
+                'rel_bias_naive_3': (n3 - t3) / abs(t3) * 100 if t3 != 0 else np.nan,
+                'rel_bias_dre_3':   (d3 - t3) / abs(t3) * 100 if t3 != 0 else np.nan,
             })
     return records
 
@@ -109,8 +119,8 @@ def make_figure(df, flavor, arms):
 
     for col_idx, stage in enumerate([1, 2, 3]):
         ax = axes[col_idx]
-        bias_naive_col = f'bias_naive_{stage}'
-        bias_dre_col   = f'bias_dre_{stage}'
+        bias_naive_col = f'rel_bias_naive_{stage}'
+        bias_dre_col   = f'rel_bias_dre_{stage}'
 
         all_data    = []
         all_colors  = []
@@ -120,13 +130,13 @@ def make_figure(df, flavor, arms):
 
         for a in arms:
             sub = df[df['arm'] == a]
-            all_data.append(sub[bias_naive_col].dropna().values)
+            all_data.append(_drop_extreme(sub[bias_naive_col].values))
             all_colors.append(C[stage]['naive'])
             tick_labels.append(f'Naive\n(A{stage}={a} vs 0)')
             positions.append(pos)
             pos += 1
 
-            all_data.append(sub[bias_dre_col].dropna().values)
+            all_data.append(_drop_extreme(sub[bias_dre_col].values))
             all_colors.append(C[stage]['dre'])
             tick_labels.append(f'DRE-ML\n(A{stage}={a} vs 0)')
             positions.append(pos)
@@ -141,7 +151,7 @@ def make_figure(df, flavor, arms):
         ax.set_xticks(positions)
         ax.set_xticklabels(tick_labels, fontsize=9)
         ax.set_title(f'Stage {stage}', fontsize=11)
-        ax.set_ylabel('Bias  (Estimated − True ATE)', fontsize=9)
+        ax.set_ylabel('Relative Bias × 100  [(Est − True) / |True| × 100]', fontsize=9)
         ax.grid(axis='y', alpha=0.3)
         ax.set_xlim(0, pos)
 
@@ -186,13 +196,13 @@ if __name__ == '__main__':
         summary = (
             all_df.groupby('flavor_Y')
             .agg(
-                n_datasets        =('i', 'nunique'),
-                bias_naive_stage1 =('bias_naive_1', 'mean'),
-                bias_dre_stage1   =('bias_dre_1',   'mean'),
-                bias_naive_stage2 =('bias_naive_2', 'mean'),
-                bias_dre_stage2   =('bias_dre_2',   'mean'),
-                bias_naive_stage3 =('bias_naive_3', 'mean'),
-                bias_dre_stage3   =('bias_dre_3',   'mean'),
+                n_datasets             =('i', 'nunique'),
+                rel_bias_naive_stage1  =('rel_bias_naive_1', 'mean'),
+                rel_bias_dre_stage1    =('rel_bias_dre_1',   'mean'),
+                rel_bias_naive_stage2  =('rel_bias_naive_2', 'mean'),
+                rel_bias_dre_stage2    =('rel_bias_dre_2',   'mean'),
+                rel_bias_naive_stage3  =('rel_bias_naive_3', 'mean'),
+                rel_bias_dre_stage3    =('rel_bias_dre_3',   'mean'),
             )
             .reset_index()
             .rename(columns={'flavor_Y': 'DGP'})
