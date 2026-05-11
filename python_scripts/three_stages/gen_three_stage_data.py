@@ -194,8 +194,13 @@ if __name__ == '__main__':
         os.remove(info_path)
 
     s = 3
-    for k in [2]:
-        p1 = 3
+    for k in [2, 3, 5]:
+        if k == 2:
+            p1 = 3
+        if k == 3:
+            p1 = 8
+        if k == 5:
+            p1 = 12
         n  = k * 200
         for fY in ['expo', 'lognormal', 'gamma', 'sigmoid']:
             for i in range(30):

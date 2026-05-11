@@ -233,7 +233,10 @@ def estimate_dre(filename,
 # ============================================================
 # Run over all datasets in _info.csv
 # ============================================================
-if __name__ == '__main__': # <- so this doesn't run when importing it   
+if __name__ == '__main__': # <- so this doesn't run when importing it
+    K_FILTER = 5   # set to 2, 3, or 5 to run only that k; None = run all
     info = pd.read_csv(info_path_simple)
+    if K_FILTER is not None:
+        info = info[info['k1'] == K_FILTER]
     for _, row in info.iterrows():
         estimate_dre(row['filename'], dgp="simple")

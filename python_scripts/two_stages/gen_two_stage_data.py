@@ -282,11 +282,13 @@ if __name__ == '__main__': # <- so this doesn't run when importing it
     if os.path.exists(info_path):                                                                                                                       
         os.remove(info_path) 
     s = 2
-    for k in [2]:
+    for k in [2, 3, 5]:
         if k == 2:
             p1 = 3
-        else:
+        if k == 3:
             p1 = 8
+        if k == 5:
+            p1 = 12
         n = k * 200
         p2 = p1 + 1
         for fY in ['expo', 'lognormal', 'gamma', 'sigmoid']:

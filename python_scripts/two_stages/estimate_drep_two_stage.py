@@ -161,6 +161,9 @@ def estimate_drep(filename, dgp='simple'):
 # Run over all datasets in _info_simple.csv
 # ============================================================
 if __name__ == '__main__':
+    K_FILTER = None   # set to 2, 3, or 5 to run only that k; None = run all
     info = pd.read_csv(info_path_simple)
+    if K_FILTER is not None:
+        info = info[info['k1'] == K_FILTER]
     for _, row in info.iterrows():
         estimate_drep(row['filename'], dgp='simple')

@@ -70,6 +70,7 @@ def build_records(sub_info):
         fname       = row['filename']
         k1, k2, k3 = int(row['k1']), int(row['k2']), int(row['k3'])
         i_val       = int(row['i'])
+        k_val       = k1   # k1 == k2 == k3 for simple DGP
         try:
             true  = true_ate_simple(fname, verbose=False)
             naive = _ate_from_file(fname, '_NAIVE', k1, k2, k3)
@@ -95,6 +96,7 @@ def build_records(sub_info):
             dp3 = drep['ATE_3'].get(a, np.nan)
             records.append({
                 'i':                i_val,
+                'k':                k_val,
                 'arm':              a,
                 'ATE_true_1':       t1,
                 'ATE_naive_1':      n1,
@@ -123,13 +125,21 @@ def build_records(sub_info):
 
 def make_figure(df, flavor, arms, include_drep=True):
     """
-    1 × 3 figure: stage 1 | stage 2 | stage 3.
+    k=2 : 1×3 figure (stages side by side).
+    k>2 : 3×1 figure (stages stacked vertically).
     Each subplot: Naive (red shade) | DRE-ML (blue shade) [| DRE-Param (yellow)] boxplots.
     Set include_drep=False to omit the DRE-Param boxplot.
     Color darkness increases across stages.
     """
-    n_arms = len(arms)
-    fig, axes = plt.subplots(1, 3, figsize=(6 * (1 + n_arms), 5))
+    n_arms    = len(arms)
+    n_boxes   = 3 if include_drep else 2
+    subplot_w = max(5, n_arms * n_boxes * 1.5)
+    vertical  = n_arms > 1
+
+    if vertical:
+        fig, axes = plt.subplots(3, 1, figsize=(subplot_w, 3 * 4))
+    else:
+        fig, axes = plt.subplots(1, 3, figsize=(3 * subplot_w, 5))
     fig.suptitle(f'ATE Bias — Three-Stage Simple DGP  ({flavor})', fontsize=12)
 
     for col_idx, stage in enumerate([1, 2, 3]):
@@ -184,43 +194,45 @@ def make_figure(df, flavor, arms, include_drep=True):
 
 
 if __name__ == '__main__':
-    INCLUDE_DREP = True   # set to False to omit DRE-Param from boxplots
+    INCLUDE_DREP = False   # set to False to omit DRE-Param from boxplots
 
     os.makedirs(tables_dir, exist_ok=True)
     os.makedirs(images_dir, exist_ok=True)
 
     info        = pd.read_csv(info_path)
+    k_vals      = sorted(info['k1'].unique())
     flavors     = sorted(info['flavor_Y'].unique())
-    all_records = []   # accumulate across flavors for summary table
+    all_records = []   # accumulate across (k, flavor) for summary table
 
-    for flavor in flavors:
-        print(f'\n{"="*55}\nFlavor: {flavor}\n{"="*55}')
-        sub     = info[info['flavor_Y'] == flavor].copy()
-        records = build_records(sub)
+    for k in k_vals:
+        for flavor in flavors:
+            print(f'\n{"="*55}\nk={k}  Flavor: {flavor}\n{"="*55}')
+            sub = info[(info['k1'] == k) & (info['flavor_Y'] == flavor)].copy()
+            records = build_records(sub)
 
-        if not records:
-            print(f'  No data for flavor={flavor}, skipping.')
-            continue
+            if not records:
+                print(f'  No data for k={k}, flavor={flavor}, skipping.')
+                continue
 
-        df   = pd.DataFrame(records)
-        arms = sorted(df['arm'].unique())
+            df   = pd.DataFrame(records)
+            arms = sorted(df['arm'].unique())
 
-        # Tag each record with its flavor then accumulate
-        df['flavor_Y'] = flavor
-        all_records.append(df)
+            # Tag each record then accumulate
+            df['flavor_Y'] = flavor
+            all_records.append(df)
 
-        # --- Figure ---
-        fig = make_figure(df, flavor, arms, include_drep=INCLUDE_DREP)
-        img_path = os.path.join(images_dir, f'_ate_bias_{flavor}.jpeg')
-        fig.savefig(img_path, dpi=150, bbox_inches='tight')
-        plt.close(fig)
-        print(f'  Figure saved: _ate_bias_{flavor}.jpeg')
+            # --- Figure ---
+            fig = make_figure(df, flavor, arms, include_drep=INCLUDE_DREP)
+            img_path = os.path.join(images_dir, f'_ate_bias_k{k}_{flavor}.jpeg')
+            fig.savefig(img_path, dpi=150, bbox_inches='tight')
+            plt.close(fig)
+            print(f'  Figure saved: _ate_bias_k{k}_{flavor}.jpeg')
 
     if all_records:
         all_df = pd.concat(all_records, ignore_index=True)
 
         summary = (
-            all_df.groupby('flavor_Y')
+            all_df.groupby(['k', 'flavor_Y'])
             .agg(
                 n_datasets             =('i', 'nunique'),
                 rel_bias_naive_stage1  =('rel_bias_naive_1', 'mean'),

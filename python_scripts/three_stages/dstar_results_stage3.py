@@ -89,44 +89,48 @@ def load_flavor(sub_info):
     return pd.concat(frames, ignore_index=True), k1, k2, k3
 
 
-def make_freq_table(df, k1, k2, k3):
+def make_freq_table(df, k1, k2, k3, include_drep=True):
     """
     Frequency table:
       d1 marginal     (k1 rows)
       d1×d2 joint     (k1*k2 rows)
       d1×d2×d3 joint  (k1*k2*k3 rows)
-    Columns: combination | true_OTR | DRE_ML | naive
+    Columns: combination | true_OTR | DRE_ML | [DRE_Param] | naive
     """
     col = '{d1*, d2*, d3*}'
     rows = []
 
     # d1 marginal
     for a1 in range(k1):
-        rows.append({
-            col:         f'{{{a1}}}',
-            'true_OTR':  (df['d1_true']  == a1).mean(),
-            'DRE_ML':    (df['d1_dre']   == a1).mean(),
-            'DRE_Param': (df['d1_drep']  == a1).mean(),
-            'naive':     (df['d1_naive'] == a1).mean(),
-        })
+        row = {
+            col:        f'{{{a1}}}',
+            'true_OTR': (df['d1_true']  == a1).mean(),
+            'DRE_ML':   (df['d1_dre']   == a1).mean(),
+        }
+        if include_drep:
+            row['DRE_Param'] = (df['d1_drep'] == a1).mean()
+        row['naive'] = (df['d1_naive'] == a1).mean()
+        rows.append(row)
 
     # d1×d2 joint
     for a1 in range(k1):
         for a2 in range(k2):
-            rows.append({
-                col:         f'{{{a1},{a2}}}',
-                'true_OTR':  ((df['d1_true']  == a1) & (df['d2_true']  == a2)).mean(),
-                'DRE_ML':    ((df['d1_dre']   == a1) & (df['d2_dre']   == a2)).mean(),
-                'DRE_Param': ((df['d1_drep']  == a1) & (df['d2_drep']  == a2)).mean(),
-                'naive':     ((df['d1_naive'] == a1) & (df['d2_naive'] == a2)).mean(),
-            })
+            row = {
+                col:        f'{{{a1},{a2}}}',
+                'true_OTR': ((df['d1_true']  == a1) & (df['d2_true']  == a2)).mean(),
+                'DRE_ML':   ((df['d1_dre']   == a1) & (df['d2_dre']   == a2)).mean(),
+            }
+            if include_drep:
+                row['DRE_Param'] = ((df['d1_drep'] == a1) & (df['d2_drep'] == a2)).mean()
+            row['naive'] = ((df['d1_naive'] == a1) & (df['d2_naive'] == a2)).mean()
+            rows.append(row)
 
     # d1×d2×d3 joint
     for a1 in range(k1):
         for a2 in range(k2):
             for a3 in range(k3):
-                rows.append({
-                    col: f'{{{a1},{a2},{a3}}}',
+                row = {
+                    col:        f'{{{a1},{a2},{a3}}}',
                     'true_OTR': (
                         (df['d1_true']  == a1) &
                         (df['d2_true']  == a2) &
@@ -137,22 +141,24 @@ def make_freq_table(df, k1, k2, k3):
                         (df['d2_dre']   == a2) &
                         (df['d3_dre']   == a3)
                     ).mean(),
-                    'DRE_Param': (
+                }
+                if include_drep:
+                    row['DRE_Param'] = (
                         (df['d1_drep']  == a1) &
                         (df['d2_drep']  == a2) &
                         (df['d3_drep']  == a3)
-                    ).mean(),
-                    'naive': (
-                        (df['d1_naive'] == a1) &
-                        (df['d2_naive'] == a2) &
-                        (df['d3_naive'] == a3)
-                    ).mean(),
-                })
+                    ).mean()
+                row['naive'] = (
+                    (df['d1_naive'] == a1) &
+                    (df['d2_naive'] == a2) &
+                    (df['d3_naive'] == a3)
+                ).mean()
+                rows.append(row)
 
     return pd.DataFrame(rows).round(4)
 
 
-def make_value_dict(df, k3):
+def make_value_dict(df, k3, include_drep=True):
     """Pooled V(d*) using oracle Q3 for each OTR type."""
     n  = len(df)
     Q3 = df[[f'Q3_a{a}' for a in range(k3)]].values
@@ -165,7 +171,7 @@ def make_value_dict(df, k3):
         'True OTR': _v('d3_true'),
         'DRE-ML':   _v('d3_dre'),
     }
-    if df['d3_drep'].notna().any():
+    if include_drep and df['d3_drep'].notna().any():
         out['DRE-Param'] = _v('d3_drep')
     out['naive'] = _v('d3_naive')
     return out
@@ -180,14 +186,14 @@ def _cm_annot(cm):
     return annot
 
 
-def plot_confmats(df, k1, k2, k3, flavor):
+def plot_confmats(df, k1, k2, k3, flavor, k, images_dir):
     """
     3×2 figure: rows = stage (1, 2, 3), cols = model (DRE-ML, naive).
     Rows in each heatmap = optimal d*, cols = estimated d*.
     """
     fig, axes = plt.subplots(3, 2, figsize=(10, 12))
     fig.suptitle(
-        f'Confusion Matrices — Three-Stage, pooled 30 datasets  ({flavor})',
+        f'Confusion Matrices — Three-Stage k={k}, pooled datasets  ({flavor})',
         fontsize=11
     )
 
@@ -217,13 +223,13 @@ def plot_confmats(df, k1, k2, k3, flavor):
             ax.set_ylabel(f'Optimal  d{stage}')
 
     plt.tight_layout()
-    path = os.path.join(images_dir, f'_dstar_confmat_{flavor}.jpeg')
+    path = os.path.join(images_dir, f'_dstar_confmat_k{k}_{flavor}.jpeg')
     fig.savefig(path, dpi=150, bbox_inches='tight')
     plt.close(fig)
-    print(f'  Confusion matrix figure saved: _dstar_confmat_{flavor}.jpeg')
+    print(f'  Confusion matrix figure saved: _dstar_confmat_k{k}_{flavor}.jpeg')
 
 
-def plot_value(vals, flavor):
+def plot_value(vals, flavor, k, images_dir):
     """Bar chart: pooled V(d*) for True OTR, DRE-ML, DRE-Param, naive."""
     labels = list(vals.keys())
     values = list(vals.values())
@@ -244,49 +250,53 @@ def plot_value(vals, flavor):
             bar.get_height() + 0.005 * abs(v_max),
             f'{val:.4f}', ha='center', va='bottom', fontsize=9
         )
-    ax.set_title(f'V(d*) by OTR Type — Three-Stage  ({flavor})', fontsize=11)
+    ax.set_title(f'V(d*) by OTR Type — Three-Stage k={k}  ({flavor})', fontsize=11)
     ax.set_ylabel('Pooled mean  E[Y]  under policy')
     ax.grid(axis='y', alpha=0.3)
     plt.tight_layout()
-    path = os.path.join(images_dir, f'_dstar_value_{flavor}.jpeg')
+    path = os.path.join(images_dir, f'_dstar_value_k{k}_{flavor}.jpeg')
     fig.savefig(path, dpi=150, bbox_inches='tight')
     plt.close(fig)
-    print(f'  Value figure saved: _dstar_value_{flavor}.jpeg')
+    print(f'  Value figure saved: _dstar_value_k{k}_{flavor}.jpeg')
 
 
 # ============================================================
 # Run
 # ============================================================
 if __name__ == '__main__':
+    INCLUDE_DREP = False   # set to False to omit DRE-Param from freq table and value chart
+
     os.makedirs(tables_dir, exist_ok=True)
     os.makedirs(images_dir, exist_ok=True)
 
     info    = pd.read_csv(info_path)
+    k_vals  = sorted(info['k1'].unique())
     flavors = sorted(info['flavor_Y'].unique())
 
-    for flavor in flavors:
-        print(f'\n{"="*55}\nFlavor: {flavor}\n{"="*55}')
-        sub = info[info['flavor_Y'] == flavor].copy()
+    for k in k_vals:
+        for flavor in flavors:
+            print(f'\n{"="*55}\nk={k}  Flavor: {flavor}\n{"="*55}')
+            sub = info[(info['k1'] == k) & (info['flavor_Y'] == flavor)].copy()
 
-        df, k1, k2, k3 = load_flavor(sub)
-        if df is None:
-            print('  No data, skipping.')
-            continue
-        print(f'  Pooled {len(df):,} rows across {len(sub)} datasets')
+            df, k1, k2, k3 = load_flavor(sub)
+            if df is None:
+                print('  No data, skipping.')
+                continue
+            print(f'  Pooled {len(df):,} rows across {len(sub)} datasets')
 
-        # 1. Frequency table
-        freq      = make_freq_table(df, k1, k2, k3)
-        freq_path = os.path.join(tables_dir, f'_dstar_freq_{flavor}.csv')
-        freq.to_csv(freq_path, index=False)
-        print(f'  Frequency table saved: _dstar_freq_{flavor}.csv')
-        print(freq.to_string(index=False))
+            # 1. Frequency table
+            freq      = make_freq_table(df, k1, k2, k3, include_drep=INCLUDE_DREP)
+            freq_path = os.path.join(tables_dir, f'_dstar_freq_k{k}_{flavor}.csv')
+            freq.to_csv(freq_path, index=False)
+            print(f'  Frequency table saved: _dstar_freq_k{k}_{flavor}.csv')
+            print(freq.to_string(index=False))
 
-        # 2. Confusion matrices
-        plot_confmats(df, k1, k2, k3, flavor)
+            # 2. Confusion matrices
+            #plot_confmats(df, k1, k2, k3, flavor, k, images_dir)
 
-        # 3. Value bar chart
-        vals = make_value_dict(df, k3)
-        plot_value(vals, flavor)
-        print(f'  V: true={vals["True OTR"]:.4f}  DRE={vals["DRE-ML"]:.4f}  naive={vals["naive"]:.4f}')
+            # 3. Value bar chart
+            vals = make_value_dict(df, k3, include_drep=INCLUDE_DREP)
+            plot_value(vals, flavor, k, images_dir)
+            print(f'  V: true={vals["True OTR"]:.4f}  DRE={vals["DRE-ML"]:.4f}  naive={vals["naive"]:.4f}')
 
     print('\nDone.')

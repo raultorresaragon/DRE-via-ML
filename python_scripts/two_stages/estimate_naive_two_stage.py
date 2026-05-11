@@ -73,6 +73,9 @@ def estimate_naive(filename, dgp='simple'):
 
 
 if __name__ == '__main__':
+    K_FILTER = None   # set to 2, 3, or 5 to run only that k; None = run all
     info = pd.read_csv(info_path_simple)
+    if K_FILTER is not None:
+        info = info[info['k1'] == K_FILTER]
     for _, row in info.iterrows():
         estimate_naive(row['filename'], dgp='simple')
