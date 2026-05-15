@@ -25,11 +25,11 @@ models_dir   = os.path.join(new_i0_dir,   'models')
 info_path    = os.path.join(datasets_dir, '_info_simple.csv')
 
 
-def estimate_drep_new_i0(k, flavor_Y):
+def estimate_drep_new_i0(k, flavor_Y, i_source=0):
     """
-    Fit DRE-Param on old i=0 dataset; apply outcome models to new_i0 dataset.
+    Fit DRE-Param on old i=i_source dataset; apply outcome models to new_i0 dataset.
     """
-    fname_i0    = f"s2_k{k}_simple_{flavor_Y}_0"
+    fname_i0    = f"s2_k{k}_simple_{flavor_Y}_{i_source}"
     fname_new   = f"s2_k{k}_simple_{flavor_Y}_new_i0"
     models_path = os.path.join(models_dir, f'{fname_i0}_DREp_models.pkl')
     out_path    = os.path.join(new_i0_dir,  f'{fname_new}_DREp.csv')
@@ -143,17 +143,19 @@ def estimate_drep_new_i0(k, flavor_Y):
 
 
 if __name__ == '__main__':
-    K_FILTER = None   # set to 2, 3, or 5 to run only that k; None = run all
+    K_FILTER  = None   # set to 2, 3, or 5 to run only that k; None = run all
+    I_SOURCE  = 5      # which i to source DGP parameters from
 
     os.makedirs(new_i0_dir, exist_ok=True)
     os.makedirs(models_dir, exist_ok=True)
 
     info = pd.read_csv(info_path)
-    i0   = info[info['i'] == 0].copy()
+    i0   = info[info['i'] == I_SOURCE].copy()
     if K_FILTER is not None:
         i0 = i0[i0['k1'] == K_FILTER]
 
     for _, row in i0.iterrows():
-        estimate_drep_new_i0(k=int(row['k1']), flavor_Y=row['flavor_Y'])
+        estimate_drep_new_i0(k=int(row['k1']), flavor_Y=row['flavor_Y'],
+                             i_source=I_SOURCE)
 
     print('\nDone.')

@@ -108,15 +108,16 @@ def gen_new_i0(k, flavor_Y, seed_params, n, p1, data_seed):
 
 
 if __name__ == '__main__':
-    DATA_SEED = 2025   # change to get a different new_i0 draw
+    DATA_SEED = 1810   # change to get a different new_i0 draw
     K_FILTER  = None   # set to 2, 3, or 5 to generate only that k; None = all
+    I_SOURCE  = 5      # which i to source DGP parameters from
 
     os.makedirs(new_i0_dir, exist_ok=True)
     if os.path.exists(info_out):
         os.remove(info_out)
 
     info = pd.read_csv(info_path)
-    i0   = info[info['i'] == 0].copy()
+    i0   = info[info['i'] == I_SOURCE].copy()
     if K_FILTER is not None:
         i0 = i0[i0['k1'] == K_FILTER]
 
