@@ -36,11 +36,15 @@ def parse_filename(filepath):
     return {'k': k, 'A_flavor': A_flavor, 'Y_flavor': Y_flavor}
 
 
-def get_comparison_columns(df):
+def get_comparison_columns(df, baseline_only=False):
     """
     Extract the A_XX column names (excluding pval columns).
+    If baseline_only=True, keep only comparisons against arm 0 (A_0X).
     """
-    return [col for col in df.columns if col.startswith('A_') and not col.endswith('_pval')]
+    cols = [col for col in df.columns if col.startswith('A_') and not col.endswith('_pval')]
+    if baseline_only:
+        cols = [c for c in cols if c.startswith('A_0')]
+    return cols
 
 
 def estimate_to_model(estimate_type):
@@ -50,10 +54,11 @@ def estimate_to_model(estimate_type):
     return estimate_type.replace('Logit', '').replace('_est', '').upper()
 
 
-def create_boxplot_data(df, A_columns):
+def create_boxplot_data(df, A_columns, relative_bias=False):
     """
     Transform the data for boxplot visualization.
     Computes errors: True_diff - Estimate for each model.
+    If relative_bias=True, divides by abs(True_diff): (True - Est) / |True|.
 
     Returns a DataFrame with columns: dataset, comparison, model, error
     """
@@ -74,17 +79,21 @@ def create_boxplot_data(df, A_columns):
                     continue
                 estimate_val = row[A_col]
                 if pd.notna(estimate_val):
+                    error = true_diff - estimate_val
+                    if relative_bias and true_diff != 0:
+                        error = error / abs(true_diff)
                     rows.append({
                         'dataset': dataset,
                         'comparison': A_col,
                         'model': estimate_to_model(estimate_type),
-                        'error': true_diff - estimate_val
+                        'error': error
                     })
 
     return pd.DataFrame(rows)
 
 
-def save_boxplots(filepath, save=True, show=True, ncols=None):
+def save_boxplots(filepath, save=True, show=True, ncols=None, baseline_only=True,
+                  relative_bias=False):
     """
     Create and save a single figure with grouped boxplots for all treatment comparisons.
 
@@ -96,6 +105,9 @@ def save_boxplots(filepath, save=True, show=True, ncols=None):
     - save: whether to save the plot
     - show: whether to display the plot
     - ncols: number of columns in subplot grid (default: auto-calculated)
+    - baseline_only: if True (default), show only comparisons vs arm 0 (A_0X);
+                     if False, show all pairwise comparisons
+    - relative_bias: if True, plot (True - Est) / |True| instead of raw bias
 
     Returns:
     - fig: the matplotlib figure object
@@ -109,11 +121,11 @@ def save_boxplots(filepath, save=True, show=True, ncols=None):
     print(f"Parsed: |A|={k}, A_flavor={A_flavor}, Y_flavor={Y_flavor}")
 
     df = pd.read_csv(filepath)
-    A_columns = get_comparison_columns(df)
+    A_columns = get_comparison_columns(df, baseline_only=baseline_only)
     n_comparisons = len(A_columns)
     print(f"Found {n_comparisons} comparisons: {A_columns}")
 
-    plot_df = create_boxplot_data(df, A_columns)
+    plot_df = create_boxplot_data(df, A_columns, relative_bias=relative_bias)
 
     # Consistent model order — keep only models present in the data
     preferred_order = ['Naive', 'OLS', 'EXPO', 'LOGNORMAL', 'NN']
@@ -131,6 +143,7 @@ def save_boxplots(filepath, save=True, show=True, ncols=None):
     if ncols is None:
         if n_comparisons == 1:    ncols = 1
         elif n_comparisons <= 3:  ncols = n_comparisons
+        elif n_comparisons == 4:  ncols = 2
         elif n_comparisons <= 6:  ncols = 3
         else:                     ncols = 5
 
@@ -147,6 +160,12 @@ def save_boxplots(filepath, save=True, show=True, ncols=None):
         box_colors = []
         for model in model_order:
             model_data = subset[subset['model'] == model]['error'].values
+            if len(model_data) > 0:
+                q1, q3 = np.percentile(model_data, [25, 75])
+                iqr = q3 - q1
+                model_data = model_data[
+                    (model_data >= q1 - 2 * iqr) & (model_data <= q3 + 2 * iqr)
+                ]
             box_data.append(model_data if len(model_data) > 0 else [np.nan])
             box_colors.append(colors.get(model, 'gray'))
 
@@ -160,7 +179,8 @@ def save_boxplots(filepath, save=True, show=True, ncols=None):
         ax.set_xticklabels(model_order, fontsize=9)
         ax.set_title(f'Estimation errors of {A_col}\nDGP = {A_flavor}_{Y_flavor}, |A|={k}',
                      fontsize=10, fontweight='bold')
-        ax.set_ylabel('Error (True - Est)', fontsize=9)
+        ylabel = 'Relative Bias (True - Est) / |True|' if relative_bias else 'Error (True - Est)'
+        ax.set_ylabel(ylabel, fontsize=9)
         ax.grid(axis='y', alpha=0.3)
 
     for idx in range(n_comparisons, len(axes)):
@@ -171,7 +191,8 @@ def save_boxplots(filepath, save=True, show=True, ncols=None):
     if save:
         images_dir = os.path.dirname(filepath).replace('/tables', '/images')
         os.makedirs(images_dir, exist_ok=True)
-        out_path = os.path.join(images_dir, f"boxplot_k{k}_{A_flavor}_{Y_flavor}.png")
+        suffix = '_relbias' if relative_bias else ''
+        out_path = os.path.join(images_dir, f"boxplot_k{k}_{A_flavor}_{Y_flavor}{suffix}.png")
         plt.savefig(out_path, dpi=150, bbox_inches='tight')
         print(f"Saved: {out_path}")
 
@@ -183,15 +204,28 @@ def save_boxplots(filepath, save=True, show=True, ncols=None):
 
 if __name__ == "__main__":
     import glob
-    tables_dir = "./_1trt_effect/tables/Results"
-    files = sorted(glob.glob(f"{tables_dir}/simk3_*.csv"))
+    zero_effect   = False
+    K_FILTER      = 2       # set to 2, 3, or 5 to process only that k; None = all
+    BASELINE_ONLY = True    # True = only A_0X comparisons; False = all pairwise
+    RELATIVE_BIAS = True   # True = plot (True - Est) / |True|; False = raw bias
+
+    root       = f"./_{'0' if zero_effect else '1'}trt_effect"
+    tables_dir = f"{root}/tables/Results"
+
+    if K_FILTER is not None:
+        pattern = f"{tables_dir}/simk{K_FILTER}_*.csv"
+    else:
+        pattern = f"{tables_dir}/simk*.csv"
+
+    files = sorted(glob.glob(pattern))
 
     if not files:
-        print(f"No simk2_*.csv files found in {tables_dir}")
+        print(f"No files found matching {pattern}")
     else:
         print(f"Found {len(files)} files:")
         for f in files:
             print(f"  {f}")
         for filepath in files:
             print(f"\nProcessing: {os.path.basename(filepath)}")
-            save_boxplots(filepath, save=True, show=False)
+            save_boxplots(filepath, save=True, show=False, baseline_only=BASELINE_ONLY,
+                          relative_bias=RELATIVE_BIAS)

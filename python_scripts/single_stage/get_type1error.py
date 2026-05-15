@@ -16,8 +16,8 @@ from itertools import combinations
 #Y_flavor = 'expo'
 #zero_effect = True
 
-# generalized to K=k
-def get_type1error(k, A_flavor, Y_flavor, zero_effect):
+# generalized to K=k, baseline comparisons only (arm 0 vs arm 1, 2, ..., k-1)
+def get_type1error(k, A_flavor, Y_flavor, zero_effect, baseline_only=True):
     root = f"./_{'1' if not zero_effect else '0'}trt_effect"
 
     # Define model types to process
@@ -25,6 +25,12 @@ def get_type1error(k, A_flavor, Y_flavor, zero_effect):
     model_types = ['nn', 'ols', 'expo']
     if Y_flavor == 'lognormal':
         model_types.append('lognormal')
+
+    # Baseline-only: arm 0 vs each other arm; or all pairwise
+    if baseline_only:
+        comparisons = [(0, i) for i in range(1, k)]
+    else:
+        comparisons = list(combinations(range(k), 2))
 
     for model in model_types:
         # Build file paths based on model type
@@ -36,8 +42,8 @@ def get_type1error(k, A_flavor, Y_flavor, zero_effect):
         csv_path = f"{root}/tables/muhat_pooled_simk{k}_{A_flavor}_{Y_flavor}_est_with_{suffix}.csv"
         pooled_df = pd.read_csv(csv_path)
 
-        # Get all treatment comparisons
-        comparisons = list(combinations(range(k), 2))
+        # Get parameter count
+        n_params = pooled_df['n_params'].iloc[0] if 'n_params' in pooled_df.columns else 0
 
         results_list = []
         for j, i in comparisons:
@@ -45,9 +51,6 @@ def get_type1error(k, A_flavor, Y_flavor, zero_effect):
 
             # Compute delta for this comparison
             pooled_df[f'delta_{comp_name}'] = pooled_df[f'pooled_A{j}'] - pooled_df[f'pooled_A{i}']
-
-            # Get parameter count
-            n_params = pooled_df['n_params'].iloc[0] if 'n_params' in pooled_df.columns else 0
 
             # P-values with dataset-specific variance (adjusted for n-p)
             pvals = pooled_df.groupby('dataset')[f'delta_{comp_name}'].apply(
@@ -60,10 +63,6 @@ def get_type1error(k, A_flavor, Y_flavor, zero_effect):
             pvals_pooled_var = pooled_df.groupby('dataset')[f'delta_{comp_name}'].apply(
                 lambda x: 2*(1 - norm.cdf(np.abs(np.mean(x))/np.sqrt(pooled_var/len(x))))
             )
-
-            # Type I error rates
-            type_I_error_pvals = np.mean(pvals <= 0.05)
-            type_I_error_pvals_pooled = np.mean(pvals_pooled_var <= 0.05)
 
             # Store results
             comp_res = pd.DataFrame({
