@@ -44,7 +44,7 @@ ax2.plot(x2, y_sigmoid, linewidth=4, color=teal, label='sigmoid')
 
 # Log-gamma (scaled by 10)
 y_loggamma = (np.exp(shape * x2) * np.exp(-np.exp(x2) / scale)) / (gamma(shape) * scale**shape) * 10
-ax2.plot(x2, y_loggamma, linewidth=4, color=coral, label='gamma')
+ax2.plot(x2, y_loggamma, linewidth=4, color=coral, label='log-gamma')
 
 # Lognormal (scaled by 10)
 y_lognormal = (1 / (np.exp(x2) * np.sqrt(2 * np.pi))) * np.exp(-0.5 * x2**2) * 10
@@ -58,5 +58,5 @@ ax2.tick_params(labelsize=14)
 ax2.grid(True, alpha=0.3)
 
 plt.tight_layout()
-plt.savefig('prop_outcome_funcs.jpeg', dpi=150, bbox_inches='tight')
+plt.savefig('/_1trt_effect/images/prop_outcome_funcs.jpeg', dpi=150, bbox_inches='tight')
 plt.show()
