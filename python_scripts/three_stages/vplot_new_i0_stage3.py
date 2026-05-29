@@ -22,11 +22,17 @@ new_i0_dir   = os.path.join(datasets_dir, 'new_i0')
 info_path    = os.path.join(datasets_dir, '_info_simple.csv')
 images_dir   = os.path.join(script_dir,   '../_1trt_effect/3stages/images/new_i0')
 
-PALETTE = {
+PALETTE_COLOR = {
     'DRE-ML':    '#64B5F6',
     'DRE-Param': '#FFB74D',
     'Naive':     '#E57373',
     'Obs Y':     '#90A4AE',
+}
+PALETTE_BW = {
+    'DRE-ML':    '0.20',
+    'DRE-Param': '0.42',
+    'Naive':     '0.82',
+    'Obs Y':     '0.82',
 }
 
 
@@ -40,7 +46,7 @@ def _compute_v(csv_path, k, final_stage=3):
     return float(np.mean(Y_hat[np.arange(n), d]))
 
 
-def make_vplot(k, flavor_Y, include_drep=True, include_naive=True, include_obs_y=True):
+def make_vplot(k, flavor_Y, include_drep=True, include_naive=True, include_obs_y=True, greyscale=False):
     """Bar chart of V(d*) for one (k, flavor) combination."""
     fname_new  = f"s3_k{k}_simple_{flavor_Y}_new_i0"
     vals = {}
@@ -73,8 +79,10 @@ def make_vplot(k, flavor_Y, include_drep=True, include_naive=True, include_obs_y
 
     labels = list(vals.keys())
     values = list(vals.values())
-    colors = [PALETTE.get(lbl, 'gray') for lbl in labels]
+    palette = PALETTE_BW if greyscale else PALETTE_COLOR
+    colors = [palette.get(lbl, 'gray') for lbl in labels]
     v_max  = max(values)
+    title_flavor = 'log-gamma' if flavor_Y == 'gamma' else flavor_Y
 
     fig, ax = plt.subplots(figsize=(max(4, len(labels) * 1.2), 4))
     bars = ax.bar(labels, values, color=colors, width=0.5, alpha=0.85)
@@ -82,23 +90,25 @@ def make_vplot(k, flavor_Y, include_drep=True, include_naive=True, include_obs_y
         ax.text(bar.get_x() + bar.get_width() / 2,
                 bar.get_height() + 0.005 * abs(v_max),
                 f'{val:.4f}', ha='center', va='bottom', fontsize=9)
-    ax.set_title(f'V(d*) — Three-Stage new_i0  k={k}  ({flavor_Y})', fontsize=11)
+    ax.set_title(f'V(d*) by model on new data ({title_flavor})', fontsize=11)
     ax.set_ylabel('Mean predicted Y under policy')
     ax.grid(axis='y', alpha=0.3)
     plt.tight_layout()
 
-    out_path = os.path.join(images_dir, f'_vplot_k{k}_{flavor_Y}.jpeg')
+    suffix   = '_bw' if greyscale else ''
+    out_path = os.path.join(images_dir, f'_vplot_k{k}_{flavor_Y}{suffix}.jpeg')
     fig.savefig(out_path, dpi=150, bbox_inches='tight')
     plt.close(fig)
-    print(f"  Figure saved: _vplot_k{k}_{flavor_Y}.jpeg")
+    print(f"  Figure saved: _vplot_k{k}_{flavor_Y}{suffix}.jpeg")
     for lbl, val in vals.items():
         print(f"    {lbl}: {val:.4f}")
 
 
 if __name__ == '__main__':
     INCLUDE_DREP  = True    # set False to omit DRE-Param bar
-    INCLUDE_NAIVE = False    # set False to omit Naive bar
+    INCLUDE_NAIVE = False   # set False to omit Naive bar
     INCLUDE_OBS_Y = True    # set False to omit observed Y bar
+    GREYSCALE     = True    # set True for grey shades (DRE-ML darkest, Obs Y lightest)
     K_FILTER      = None    # set to 2, 3, or 5; None = all
 
     os.makedirs(images_dir, exist_ok=True)
@@ -115,6 +125,7 @@ if __name__ == '__main__':
         make_vplot(k=k, flavor_Y=flavor,
                    include_drep=INCLUDE_DREP,
                    include_naive=INCLUDE_NAIVE,
-                   include_obs_y=INCLUDE_OBS_Y)
+                   include_obs_y=INCLUDE_OBS_Y,
+                   greyscale=GREYSCALE)
 
     print('\nDone.')

@@ -31,6 +31,9 @@ from ate_two_stage_simple import true_ate_simple
 
 C_DREP = '#FFB74D'   # yellow — matches OLS color in boxplots.py
 
+# Greyscale palette — same shades across all stages, matching boxplots.py (single_stage)
+C_BW = {'naive': '0.82', 'dre': '0.20', 'drep': '0.42'}
+
 
 def _drop_extreme(arr, k=3.0):
     """Remove values beyond k×IQR from Q1/Q3 (extreme outliers, k=3 by default)."""
@@ -109,12 +112,13 @@ def build_records(sub_info):
     return records
 
 
-def make_figure(df, flavor, arms, include_drep=True):
+def make_figure(df, flavor, arms, include_drep=True, greyscale=False):
     """
     k=2 : 1×2 figure (stages side by side).
     k>2 : 2×1 figure (stages stacked vertically).
-    Each subplot: Naive (red) | DRE-ML (blue) [| DRE-Param (yellow)] boxplots.
+    Each subplot: Naive | DRE-ML [| DRE-Param] boxplots.
     Set include_drep=False to omit the DRE-Param boxplot.
+    Set greyscale=True for grey shades (same across stages): Naive lightest, DRE-ML darkest.
     """
     n_arms    = len(arms)
     n_boxes   = 3 if include_drep else 2
@@ -125,7 +129,8 @@ def make_figure(df, flavor, arms, include_drep=True):
         fig, axes = plt.subplots(2, 1, figsize=(subplot_w, 2 * 4))
     else:
         fig, axes = plt.subplots(1, 2, figsize=(2 * subplot_w, 5))
-    fig.suptitle(f'ATE Bias — Two-Stage Simple DGP  ({flavor})', fontsize=12)
+    title_flavor = 'loggamma' if flavor == 'gamma' else flavor
+    fig.suptitle(f'ATE Bias — Two-Stage Simple DGP  ({title_flavor})', fontsize=12)
 
     for col_idx, stage in enumerate([1, 2]):
         ax = axes[col_idx]
@@ -142,20 +147,20 @@ def make_figure(df, flavor, arms, include_drep=True):
         for a in arms:
             sub = df[df['arm'] == a]
             all_data.append(_drop_extreme(sub[bias_naive_col].values))
-            all_colors.append(C[stage]['naive'])
+            all_colors.append(C_BW['naive'] if greyscale else C[stage]['naive'])
             tick_labels.append(f'Naive\n(A{stage}={a} vs 0)')
             positions.append(pos)
             pos += 1
 
             all_data.append(_drop_extreme(sub[bias_dre_col].values))
-            all_colors.append(C[stage]['dre'])
+            all_colors.append(C_BW['dre'] if greyscale else C[stage]['dre'])
             tick_labels.append(f'DRE-ML\n(A{stage}={a} vs 0)')
             positions.append(pos)
             pos += 1
 
             if include_drep:
                 all_data.append(_drop_extreme(sub[bias_drep_col].values))
-                all_colors.append(C_DREP)
+                all_colors.append(C_BW['drep'] if greyscale else C_DREP)
                 tick_labels.append(f'DRE-Param\n(A{stage}={a} vs 0)')
                 positions.append(pos)
                 pos += 1
@@ -179,7 +184,8 @@ def make_figure(df, flavor, arms, include_drep=True):
 
 
 if __name__ == '__main__':
-    INCLUDE_DREP = True   # set to False to omit DRE-Param from boxplots
+    INCLUDE_DREP = True    # set to False to omit DRE-Param from boxplots
+    GREYSCALE    = True   # set to True for grey shades (Naive lightest, DRE-ML darkest)
 
     os.makedirs(tables_dir, exist_ok=True)
     os.makedirs(images_dir, exist_ok=True)
@@ -207,8 +213,10 @@ if __name__ == '__main__':
             all_records.append(df)
 
             # --- Figure ---
-            fig = make_figure(df, flavor, arms, include_drep=INCLUDE_DREP)
-            img_path = os.path.join(images_dir, f'_ate_bias_k{k}_{flavor}.jpeg')
+            fig = make_figure(df, flavor, arms, include_drep=INCLUDE_DREP,
+                              greyscale=GREYSCALE)
+            suffix   = '_bw' if GREYSCALE else ''
+            img_path = os.path.join(images_dir, f'_ate_bias_k{k}_{flavor}{suffix}.jpeg')
             fig.savefig(img_path, dpi=150, bbox_inches='tight')
             plt.close(fig)
             print(f'  Figure saved: _ate_bias_k{k}_{flavor}.jpeg')

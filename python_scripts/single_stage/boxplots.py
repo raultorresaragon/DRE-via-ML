@@ -93,7 +93,7 @@ def create_boxplot_data(df, A_columns, relative_bias=False):
 
 
 def save_boxplots(filepath, save=True, show=True, ncols=None, baseline_only=True,
-                  relative_bias=False):
+                  relative_bias=False, greyscale=False):
     """
     Create and save a single figure with grouped boxplots for all treatment comparisons.
 
@@ -108,6 +108,7 @@ def save_boxplots(filepath, save=True, show=True, ncols=None, baseline_only=True
     - baseline_only: if True (default), show only comparisons vs arm 0 (A_0X);
                      if False, show all pairwise comparisons
     - relative_bias: if True, plot (True - Est) / |True| instead of raw bias
+    - greyscale: if True, use grey shades (NN=darkest, Naive=lightest) instead of colour
 
     Returns:
     - fig: the matplotlib figure object
@@ -132,13 +133,22 @@ def save_boxplots(filepath, save=True, show=True, ncols=None, baseline_only=True
     model_order = [m for m in preferred_order if m in plot_df['model'].unique()]
     plot_df['model'] = pd.Categorical(plot_df['model'], categories=model_order, ordered=True)
 
-    colors = {
-        'Naive':     '#E57373',
-        'OLS':       '#FFB74D',
-        'EXPO':      '#64B5F6',
-        'LOGNORMAL': '#64B5F6',
-        'NN':        '#81C784'
-    }
+    if greyscale:
+        colors = {
+            'Naive':     '0.82',   # lightest
+            'OLS':       '0.62',
+            'EXPO':      '0.42',
+            'LOGNORMAL': '0.42',
+            'NN':        '0.20',   # darkest
+        }
+    else:
+        colors = {
+            'Naive':     '#E57373',
+            'OLS':       '#FFB74D',
+            'EXPO':      '#64B5F6',
+            'LOGNORMAL': '#64B5F6',
+            'NN':        '#81C784',
+        }
 
     if ncols is None:
         if n_comparisons == 1:    ncols = 1
@@ -149,7 +159,7 @@ def save_boxplots(filepath, save=True, show=True, ncols=None, baseline_only=True
 
     nrows = int(np.ceil(n_comparisons / ncols))
     fig, axes = plt.subplots(nrows, ncols,
-                             figsize=(3.5 * ncols, 4 * nrows), squeeze=False)
+                             figsize=(5 * ncols, 5 * nrows), squeeze=False)
     axes = axes.flatten()
 
     for idx, A_col in enumerate(A_columns):
@@ -176,11 +186,13 @@ def save_boxplots(filepath, save=True, show=True, ncols=None, baseline_only=True
 
         ax.axhline(y=0, color='black', linestyle='--', linewidth=0.8, alpha=0.5)
         ax.set_xticks(range(1, len(model_order) + 1))
-        ax.set_xticklabels(model_order, fontsize=9)
-        ax.set_title(f'Estimation errors of {A_col}\nDGP = {A_flavor}_{Y_flavor}, |A|={k}',
-                     fontsize=10, fontweight='bold')
-        ylabel = 'Relative Bias (True - Est) / |True|' if relative_bias else 'Error (True - Est)'
-        ax.set_ylabel(ylabel, fontsize=9)
+        ax.set_xticklabels(model_order, fontsize=13)
+        ax.tick_params(axis='y', labelsize=12)
+        title_flavor = 'loggamma' if Y_flavor == 'gamma' else Y_flavor
+        ax.set_title(f'Estimation errors of {A_col}\nDGP = {A_flavor}_{title_flavor}, |A|={k}',
+                     fontsize=13, fontweight='bold')
+        ylabel = 'Rel. Bias (True - Est) / |True|' if relative_bias else 'Error (True - Est)'
+        ax.set_ylabel(ylabel, fontsize=12)
         ax.grid(axis='y', alpha=0.3)
 
     for idx in range(n_comparisons, len(axes)):
@@ -191,7 +203,7 @@ def save_boxplots(filepath, save=True, show=True, ncols=None, baseline_only=True
     if save:
         images_dir = os.path.dirname(filepath).replace('/tables', '/images')
         os.makedirs(images_dir, exist_ok=True)
-        suffix = '_relbias' if relative_bias else ''
+        suffix = ('_relbias' if relative_bias else '') + ('_bw' if greyscale else '')
         out_path = os.path.join(images_dir, f"boxplot_k{k}_{A_flavor}_{Y_flavor}{suffix}.png")
         plt.savefig(out_path, dpi=150, bbox_inches='tight')
         print(f"Saved: {out_path}")
@@ -205,9 +217,10 @@ def save_boxplots(filepath, save=True, show=True, ncols=None, baseline_only=True
 if __name__ == "__main__":
     import glob
     zero_effect   = False
-    K_FILTER      = 2       # set to 2, 3, or 5 to process only that k; None = all
+    K_FILTER      = 5       # set to 2, 3, or 5 to process only that k; None = all
     BASELINE_ONLY = True    # True = only A_0X comparisons; False = all pairwise
-    RELATIVE_BIAS = True   # True = plot (True - Est) / |True|; False = raw bias
+    RELATIVE_BIAS = True    # True = plot (True - Est) / |True|; False = raw bias
+    GREYSCALE     = True   # True = grey shades (NN darkest, Naive lightest)
 
     root       = f"./_{'0' if zero_effect else '1'}trt_effect"
     tables_dir = f"{root}/tables/Results"
@@ -228,4 +241,4 @@ if __name__ == "__main__":
         for filepath in files:
             print(f"\nProcessing: {os.path.basename(filepath)}")
             save_boxplots(filepath, save=True, show=False, baseline_only=BASELINE_ONLY,
-                          relative_bias=RELATIVE_BIAS)
+                          relative_bias=RELATIVE_BIAS, greyscale=GREYSCALE)

@@ -123,13 +123,10 @@ def make_value_dict(df, k2, include_drep=True):
         d = df[d_col].values.astype(int)
         return float(np.mean(Q2[np.arange(n), d]))
 
-    out = {
-        'True OTR': _v('d2_true'),
-        'DRE-ML':   _v('d2_dre'),
-    }
+    out = {'DRE-ML': _v('d2_dre')}
     if include_drep and df['d2_drep'].notna().any():
         out['DRE-Param'] = _v('d2_drep')
-    out['naive'] = _v('d2_naive')
+    out['Observed Y'] = _v('d2_naive')
     return out
 
 
@@ -186,18 +183,27 @@ def plot_confmats(df, k1, k2, flavor, k, images_dir):
     print(f'  Confusion matrix figure saved: _dstar_confmat_k{k}_{flavor}.jpeg')
 
 
-def plot_value(vals, flavor, k, images_dir):
+def plot_value(vals, flavor, k, images_dir, greyscale=False):
     """Bar chart: pooled V(d*) for True OTR, DRE-ML, DRE-Param, naive."""
     labels = list(vals.keys())
     values = list(vals.values())
-    palette = {
-        'True OTR':  'steelblue',
-        'DRE-ML':    '#64B5F6',
-        'DRE-Param': '#FFB74D',
-        'naive':     '#E57373',
-    }
+    if greyscale:
+        palette = {
+            'True OTR':  '0.50',
+            'DRE-ML':    '0.20',
+            'DRE-Param': '0.42',
+            'naive':     '0.82',
+        }
+    else:
+        palette = {
+            'True OTR':  'steelblue',
+            'DRE-ML':    '#64B5F6',
+            'DRE-Param': '#FFB74D',
+            'naive':     '#E57373',
+        }
     colors = [palette.get(lbl, 'gray') for lbl in labels]
     v_max  = max(values)
+    title_flavor = 'log-gamma' if flavor == 'gamma' else flavor
 
     fig, ax = plt.subplots(figsize=(5, 4))
     bars = ax.bar(labels, values, color=colors, width=0.5, alpha=0.85)
@@ -207,14 +213,15 @@ def plot_value(vals, flavor, k, images_dir):
             bar.get_height() + 0.005 * abs(v_max),
             f'{val:.4f}', ha='center', va='bottom', fontsize=9
         )
-    ax.set_title(f'V(d*) by OTR Type — Two-Stage k={k}  ({flavor})', fontsize=11)
+    ax.set_title(f'V(d*) by model ({title_flavor})', fontsize=11)
     ax.set_ylabel('Pooled mean  E[Y]  under policy')
     ax.grid(axis='y', alpha=0.3)
     plt.tight_layout()
-    path = os.path.join(images_dir, f'_dstar_value_k{k}_{flavor}.jpeg')
+    suffix = '_bw' if greyscale else ''
+    path = os.path.join(images_dir, f'_dstar_value_k{k}_{flavor}{suffix}.jpeg')
     fig.savefig(path, dpi=150, bbox_inches='tight')
     plt.close(fig)
-    print(f'  Value figure saved: _dstar_value_k{k}_{flavor}.jpeg')
+    print(f'  Value figure saved: _dstar_value_k{k}_{flavor}{suffix}.jpeg')
 
 
 # ============================================================
@@ -222,6 +229,7 @@ def plot_value(vals, flavor, k, images_dir):
 # ============================================================
 if __name__ == '__main__':
     INCLUDE_DREP = True   # set to False to omit DRE-Param from freq table and value chart
+    GREYSCALE    = True   # set to True for grey shades (DRE-ML darkest, naive lightest)
 
     os.makedirs(tables_dir, exist_ok=True)
     os.makedirs(images_dir, exist_ok=True)
@@ -253,7 +261,7 @@ if __name__ == '__main__':
 
             # 3. Value bar chart
             vals = make_value_dict(df, k2, include_drep=INCLUDE_DREP)
-            plot_value(vals, flavor, k, images_dir)
-            print(f'  V: true={vals["True OTR"]:.4f}  DRE={vals["DRE-ML"]:.4f}  naive={vals["naive"]:.4f}')
+            plot_value(vals, flavor, k, images_dir, greyscale=GREYSCALE)
+            print(f'  V: DRE={vals["DRE-ML"]:.4f}  naive={vals["naive"]:.4f}')
 
     print('\nDone.')

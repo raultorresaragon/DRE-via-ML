@@ -17,9 +17,13 @@
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 import math
+import sys
 import numpy as np
 import pandas as pd
 import os
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+sys.modules.pop('sim_params', None)
 from sim_params import make_sim_params
 
 script_dir   = os.path.dirname(os.path.abspath(__file__))
