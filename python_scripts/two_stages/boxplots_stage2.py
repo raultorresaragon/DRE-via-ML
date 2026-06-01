@@ -130,7 +130,7 @@ def make_figure(df, flavor, arms, include_drep=True, greyscale=False):
     else:
         fig, axes = plt.subplots(1, 2, figsize=(2 * subplot_w, 5))
     title_flavor = 'loggamma' if flavor == 'gamma' else flavor
-    fig.suptitle(f'ATE Bias — Two-Stage Simple DGP  ({title_flavor})', fontsize=12)
+    fig.suptitle(f'ATE Bias — Two-Stage DGP  ({title_flavor})', fontsize=12)
 
     for col_idx, stage in enumerate([1, 2]):
         ax = axes[col_idx]
