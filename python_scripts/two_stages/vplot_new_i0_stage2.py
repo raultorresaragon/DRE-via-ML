@@ -15,6 +15,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import os
+from scipy import stats
 
 script_dir   = os.path.dirname(os.path.abspath(__file__))
 datasets_dir = os.path.join(script_dir, '../_1trt_effect/2stages/datasets')
@@ -36,39 +37,49 @@ PALETTE_BW = {
 }
 
 
-def _compute_v(csv_path, k, final_stage=2):
-    """Load a new_i0 prediction CSV and compute V = mean(Y_hat_final[i, d_star[i]])."""
+def _compute_v_arr(csv_path, k, final_stage=2):
+    """Load a new_i0 prediction CSV and return per-subject V_i = Y_hat_final[i, d_star[i]]."""
     df = pd.read_csv(csv_path)
     n  = len(df)
     d  = df[f'd_star_{final_stage}'].values.astype(int)
-    cols = [f'Y_hat_{final_stage}_a{a}' for a in range(k)]
+    cols  = [f'Y_hat_{final_stage}_a{a}' for a in range(k)]
     Y_hat = df[cols].values
-    return float(np.mean(Y_hat[np.arange(n), d]))
+    return Y_hat[np.arange(n), d]
+
+
+def _stars(pval):
+    if pval < 0.01:  return '***'
+    if pval < 0.05:  return '**'
+    if pval < 0.1:   return '*'
+    return ''
 
 
 def make_vplot(k, flavor_Y, include_drep=True, include_naive=True, include_obs_y=True, greyscale=False):
     """Bar chart of V(d*) for one (k, flavor) combination."""
     fname_new = f"s2_k{k}_simple_{flavor_Y}_new_i0"
     vals = {}
+    arrs = {}   # per-subject arrays for t-test
 
-    dre_path  = os.path.join(new_i0_dir, f'{fname_new}_DRE.csv')
-    drep_path = os.path.join(new_i0_dir, f'{fname_new}_DREp.csv')
-    naive_path= os.path.join(new_i0_dir, f'{fname_new}_NAIVE.csv')
-    dat_path  = os.path.join(new_i0_dir, f'{fname_new}.csv')
+    dre_path   = os.path.join(new_i0_dir, f'{fname_new}_DRE.csv')
+    drep_path  = os.path.join(new_i0_dir, f'{fname_new}_DREp.csv')
+    naive_path = os.path.join(new_i0_dir, f'{fname_new}_NAIVE.csv')
+    dat_path   = os.path.join(new_i0_dir, f'{fname_new}.csv')
 
     if not os.path.exists(dre_path):
         print(f"  Missing {fname_new}_DRE.csv — skipping.")
         return
-    vals['DRE-ML'] = _compute_v(dre_path,  k)
+    arrs['DRE-ML']  = _compute_v_arr(dre_path, k)
+    vals['DRE-ML']  = float(arrs['DRE-ML'].mean())
 
     if include_drep and os.path.exists(drep_path):
-        vals['DRE-Param'] = _compute_v(drep_path, k)
+        arrs['DRE-Param'] = _compute_v_arr(drep_path, k)
+        vals['DRE-Param'] = float(arrs['DRE-Param'].mean())
 
     if include_naive:
         if not os.path.exists(naive_path):
             print(f"  Missing {fname_new}_NAIVE.csv — skipping Naive bar.")
         else:
-            vals['Naive'] = _compute_v(naive_path, k)
+            vals['Naive'] = float(_compute_v_arr(naive_path, k).mean())
 
     if include_obs_y and os.path.exists(dat_path):
         vals['Obs Y'] = float(pd.read_csv(dat_path)['Y'].mean())
@@ -76,6 +87,13 @@ def make_vplot(k, flavor_Y, include_drep=True, include_naive=True, include_obs_y
     if not vals:
         print(f"  No data for k={k}, flavor={flavor_Y}.")
         return
+
+    # Paired t-test: DRE-ML vs DRE-Param
+    dre_stars = ''
+    if 'DRE-ML' in arrs and 'DRE-Param' in arrs:
+        pval = stats.ttest_rel(arrs['DRE-ML'], arrs['DRE-Param']).pvalue
+        dre_stars = _stars(pval)
+        print(f"  t-test DRE-ML vs DRE-Param: p={pval:.4f}  {dre_stars or 'n.s.'}")
 
     labels = list(vals.keys())
     values = list(vals.values())
@@ -86,10 +104,11 @@ def make_vplot(k, flavor_Y, include_drep=True, include_naive=True, include_obs_y
 
     fig, ax = plt.subplots(figsize=(max(4, len(labels) * 1.2), 4))
     bars = ax.bar(labels, values, color=colors, width=0.5, alpha=0.85)
-    for bar, val in zip(bars, values):
+    for bar, lbl, val in zip(bars, labels, values):
+        annot = f'{val:.4f}{dre_stars if lbl == "DRE-ML" else ""}'
         ax.text(bar.get_x() + bar.get_width() / 2,
                 bar.get_height() + 0.005 * abs(v_max),
-                f'{val:.4f}', ha='center', va='bottom', fontsize=9)
+                annot, ha='center', va='bottom', fontsize=9)
     ax.set_title(f'V(d*) by model on new data ({title_flavor})', fontsize=11)
     ax.set_ylabel('Mean predicted Y under policy')
     ax.grid(axis='y', alpha=0.3)
