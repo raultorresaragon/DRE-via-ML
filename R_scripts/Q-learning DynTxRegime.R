@@ -8,10 +8,6 @@ library(DynTxRegime)
 
 data(bmiData)
 df <- as.data.frame(bmiData)
-
-## Inspect types -- in some versions A1/A2/gender/race are stored
-## as character or factor. Coerce everything to numeric so that
-## predict() with newdata containing -1/1 works correctly.
 str(df)
 
 to_numeric_recode <- function(x) {
@@ -22,9 +18,9 @@ to_numeric_recode <- function(x) {
   ## fallback: map two-level character/factor to -1/1
   lv <- sort(unique(x))
   if (length(lv) == 2) {
-    return(ifelse(x == lv[1], -1, 1))
+    return(ifelse(x == lv[1], 0, 1))
   }
-  stop("Could not coerce variable to numeric -1/1")
+  stop("Could not coerce variable to numeric 0/1")
 }
 
 df$A1 <- to_numeric_recode(df$A1)
@@ -32,20 +28,30 @@ df$A2 <- to_numeric_recode(df$A2)
 df$gender <- to_numeric_recode(df$gender)
 df$race   <- if (is.numeric(df$race)) df$race else as.numeric(as.factor(df$race))
 
-set.seed(123)
-n <- nrow(df)             # should be 210
-n_train <- 190
-n_test  <- 20
+set.seed(617)
+#n <- nrow(df)             # should be 210
+#n_train <- 190
+#n_test  <- 20
 
-train_idx <- sample(seq_len(n), n_train)
-test_idx  <- setdiff(seq_len(n), train_idx)
+#train_idx <- sample(seq_len(n), n_train)
+#test_idx  <- setdiff(seq_len(n), train_idx)
 
-train <- df[train_idx, ]
-test  <- df[test_idx, ]
+#train <- df[train_idx, ]
+#test  <- df[test_idx, ]
+
+# Import train and test from the Python split to ensure
+# we're working with the same split as DRE-ML
+train <- read.csv('/Users/raul_torres_aragon/Library/CloudStorage/GoogleDrive-rdtaragon@gmail.com/My Drive/Dissertation/DRE-via-ML/python_scripts/RWD/train.csv')
+train$A1 <- to_numeric_recode(train$A1)
+train$A2 <- to_numeric_recode(train$A2)
+
+test <- read.csv('/Users/raul_torres_aragon/Library/CloudStorage/GoogleDrive-rdtaragon@gmail.com/My Drive/Dissertation/DRE-via-ML/python_scripts/RWD/test.csv')
+test$A1 <- to_numeric_recode(test$A1)
+test$A2 <- to_numeric_recode(test$A2)
 
 ## ----------------------------------------------------------------
 ## STAGE 2 Q-learning model
-## H2 = (gender, race, parentBMI, baselineBMI, A1, month4BMI)
+## H2 = (gender, race, parentBMI, baselineBMI, A1, month4BMI): S2 covariates
 ## Outcome = month12BMI
 ## Include interactions with A2 so the rule depends on history
 ## ----------------------------------------------------------------
@@ -55,16 +61,16 @@ q2_model <- lm(
   data = train
 )
 
-## Evaluate Q2 at A2 = -1 and A2 = +1 for every TRAINING patient
+## Evaluate Q2 at A2 = 0 and A2 = 1 for every TRAINING patient
 ## (bmiData codes treatments as -1 / 1, not 0/1)
-train_A2_neg <- train; train_A2_neg$A2 <- -1
-train_A2_pos <- train; train_A2_pos$A2 <-  1
+train_A2_neg <- train; train_A2_neg$A2 <- 0
+train_A2_pos <- train; train_A2_pos$A2 <- 1
 
 Q2_neg <- predict(q2_model, newdata = train_A2_neg)
 Q2_pos <- predict(q2_model, newdata = train_A2_pos)
 
 ## We are MINIMIZING BMI -> optimal A2 is the one with LOWER predicted Q
-d2_star_train <- ifelse(Q2_pos < Q2_neg, 1, -1)
+d2_star_train <- ifelse(Q2_pos < Q2_neg, 1, 0)
 
 ## Pseudo-outcome: minimized Q2 for each training patient
 Y2_tilde <- pmin(Q2_neg, Q2_pos)
@@ -83,26 +89,26 @@ q1_model <- lm(
   data = train
 )
 
-train_A1_neg <- train; train_A1_neg$A1 <- -1
-train_A1_pos <- train; train_A1_pos$A1 <-  1
+train_A1_neg <- train; train_A1_neg$A1 <- 0
+train_A1_pos <- train; train_A1_pos$A1 <- 1
 
 Q1_neg <- predict(q1_model, newdata = train_A1_neg)
 Q1_pos <- predict(q1_model, newdata = train_A1_pos)
 
-d1_star_train <- ifelse(Q1_pos < Q1_neg, 1, -1)
+d1_star_train <- ifelse(Q1_pos < Q1_neg, 1, 0)
 
 ## ----------------------------------------------------------------
 ## APPLY LEARNED RULES TO THE TEST SET
 ## ----------------------------------------------------------------
 
 ## --- Stage 1 decision for test patients ---
-test_A1_neg <- test; test_A1_neg$A1 <- -1
+test_A1_neg <- test; test_A1_neg$A1 <-  0
 test_A1_pos <- test; test_A1_pos$A1 <-  1
 
 Q1_neg_test <- predict(q1_model, newdata = test_A1_neg)
 Q1_pos_test <- predict(q1_model, newdata = test_A1_pos)
 
-d1_star_test <- ifelse(Q1_pos_test < Q1_neg_test, 1, -1)
+d1_star_test <- ifelse(Q1_pos_test < Q1_neg_test, 1, 0)
 
 ## --- Stage 2 decision for test patients ---
 ## NOTE: we use the OBSERVED A1 and month4BMI from the test data,
@@ -111,13 +117,13 @@ d1_star_test <- ifelse(Q1_pos_test < Q1_neg_test, 1, -1)
 ## not on the recommended A1). This is standard practice when
 ## evaluating a learned regime on held-out trajectories that were
 ## not generated under the new regime.
-test_A2_neg <- test; test_A2_neg$A2 <- -1
-test_A2_pos <- test; test_A2_pos$A2 <-  1
+test_A2_neg <- test; test_A2_neg$A2 <- 0
+test_A2_pos <- test; test_A2_pos$A2 <- 1
 
 Q2_neg_test <- predict(q2_model, newdata = test_A2_neg)
 Q2_pos_test <- predict(q2_model, newdata = test_A2_pos)
 
-d2_star_test <- ifelse(Q2_pos_test < Q2_neg_test, 1, -1)
+d2_star_test <- ifelse(Q2_pos_test < Q2_neg_test, 1, 0)
 
 ## ----------------------------------------------------------------
 ## VALUE FUNCTION FOR THE TEST SET
@@ -150,7 +156,7 @@ cat("Difference (observed - OTR value):                 ",
 ## ----------------------------------------------------------------
 
 results <- data.frame(
-  id          = test_idx,
+  #id          = test_idx,
   A1_observed = test$A1,
   A1_optimal  = d1_star_test,
   A2_observed = test$A2,
@@ -160,3 +166,5 @@ results <- data.frame(
 )
 
 print(results)
+print(paste0("V(d*)=", round(value_function,4)))
+      

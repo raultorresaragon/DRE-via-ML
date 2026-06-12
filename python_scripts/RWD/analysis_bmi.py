@@ -38,9 +38,9 @@ images_dir = os.path.join(script_dir, 'images')
 os.makedirs(images_dir, exist_ok=True)
 
 # ── Tuning parameters (same as two_stages/ A_nn_tuning / Y_nn_tuning) ───────
-HIDUNITS = [15, 18, 20, 22, 30, 34] #[38, 39, 85, 107, 109, 115]
-EPS      = [80]
-PENALS   = [0.00002, 0.00003, 0.04, 0.2, 0.3, 0.4]
+HIDUNITS = [10,20,30,40,50,60,70,80,90,100,115] #[38, 39, 85, 107, 109, 115]
+EPS      = [40,50,60,70,80,90,100,110,120,130,140,150]
+PENALS   = [0.0001, 0.0002, 0.0003, 0.0004, 0.0005, 0.0006]
 CV_FOLDS = 4    # number of cross-validation folds (default in tuning scripts is 6)
 K        = 2    # binary treatments
 
@@ -219,13 +219,12 @@ print(f"\n  Saved: dstar_freq_test.csv")
 vn_arr  = Y2_hat_te[np.arange(n_te), d_star_2_te]   # predicted Y under d_star
 obs_arr = test['month12BMI'].values
 
-tstat, pval = stats.ttest_rel(vn_arr, obs_arr)
+tstat_dre, pval_dre = stats.ttest_rel(vn_arr, obs_arr)
 
 def _stars(p):
-    if p < 0.01: return '***'
-    if p < 0.05: return '**'
-    if p < 0.1:  return '*'
-    return 'n.s.'
+    #if p < 0.01:  return '***'
+    if p <= 0.05: return '*'
+    return ''
 
 print(f"\n{'='*55}")
 print(f"Paired t-test: DRE-ML V_n vs Observed month12BMI  (n={n_te})")
@@ -233,26 +232,48 @@ print(f"{'='*55}")
 print(f"  Mean DRE-ML  : {vn_arr.mean():.4f}")
 print(f"  Mean Obs Y   : {obs_arr.mean():.4f}")
 print(f"  Difference   : {vn_arr.mean() - obs_arr.mean():.4f}")
-print(f"  t-statistic  : {tstat:.4f}")
-print(f"  p-value      : {pval:.4f}  {_stars(pval)}")
+print(f"  t-statistic  : {tstat_dre:.4f}")
+print(f"  p-value      : {pval_dre:.4f}  {_stars(pval_dre) or ''}")
+
+# ── Q-learning: load values and t-test vs Obs Y ───────────────────────────────
+ql_df  = pd.read_csv(os.path.join(script_dir, 'q_learning.csv'))
+ql_arr = ql_df['Q_under_OTR'].values
+Vn_ql  = float(ql_arr.mean())
+
+tstat_ql, pval_ql = stats.ttest_rel(ql_arr, obs_arr)
+
+print(f"\n{'='*55}")
+print(f"Paired t-test: Q-learning vs Observed month12BMI  (n={len(ql_arr)})")
+print(f"{'='*55}")
+print(f"  Mean Q-learning : {Vn_ql:.4f}")
+print(f"  Mean Obs Y      : {obs_arr.mean():.4f}")
+print(f"  Difference      : {Vn_ql - obs_arr.mean():.4f}")
+print(f"  t-statistic     : {tstat_ql:.4f}")
+print(f"  p-value         : {pval_ql:.4f}  {_stars(pval_ql) or ''}")
 
 # ── Bar plot ─────────────────────────────────────────────────────────────────
-vals   = {'DRE-ML': Vn_dre, 'Obs Y': Vn_obs}
+vals   = {'DRE-ML': Vn_dre, 'Q-learning': Vn_ql, 'Obs Y': Vn_obs}
 labels = list(vals.keys())
 values = list(vals.values())
-colors = ['0.20', '0.82']
+colors = ['0.20', '0.50', '0.82']
 v_max  = max(values)
 
-fig, ax = plt.subplots(figsize=(4, 4))
+stars_map = {
+    'DRE-ML':     _stars(pval_dre),
+    'Q-learning': _stars(pval_ql),
+    'Obs Y':      '',
+}
+
+fig, ax = plt.subplots(figsize=(5, 4))
 bars = ax.bar(labels, values, color=colors, width=0.5, alpha=0.85,
               edgecolor='black', linewidth=0.8)
 for bar, lbl, val in zip(bars, labels, values):
-    annot = f'{val:.4f}{_stars(pval) if lbl == "DRE-ML" and _stars(pval) != "n.s." else ""}'
+    annot = f'{val:.1f}{stars_map[lbl]}'
     ax.text(bar.get_x() + bar.get_width() / 2,
             bar.get_height() + 0.005 * abs(v_max),
             annot, ha='center', va='bottom', fontsize=9)
 ax.set_title('V(d*) by model on test data (BMI)', fontsize=11)
-ax.set_ylabel('Mean predicted month 12 BMI under policy', fontsize=9)
+ax.set_ylabel('Mean predicted month 12 BMI d*', fontsize=9)
 ax.grid(axis='y', alpha=0.3)
 plt.tight_layout()
 out_path = os.path.join(images_dir, 'vplot_bmi_dre.jpeg')
