@@ -178,7 +178,7 @@ if __name__ == '__main__':
     if os.path.exists(info_path):
         os.remove(info_path)
 
-    N_DATASETS = 1   # number of replications per (k, flavor) combination
+    N_DATASETS = 30   # number of replications per (k, flavor) combination
     N_NEW_I0   = 400  # size of new_i0 evaluation datasets (match two-stage k=2)
 
     for k in [2, 3, 5]:
@@ -193,6 +193,6 @@ if __name__ == '__main__':
                 gen_single_stage_data(n=n, p1=p1, k=k, flavor_Y=flavor_Y, i=i)
 
             # ── new_i0 evaluation dataset ────────────────────────────────────
-            gen_new_i0(n_new=N_NEW_I0, p1=p1, k=k, flavor_Y=flavor_Y)
+            #gen_new_i0(n_new=N_NEW_I0, p1=p1, k=k, flavor_Y=flavor_Y)
 
     print('\nDone.')
