@@ -3,13 +3,19 @@
 # ATE bias boxplots for the single-stage simple DGP.
 #
 # For each Y flavor, produces:
-#   - One table : bias_naive, bias_DRE-ML, bias_DRE-Param per dataset i
-#                 Saved to: _1trt_effect/1stages/tables/_ate_bias_{flavor}.csv
-#   - One figure: Naive | DRE-ML | DRE-Param boxplots (per arm contrast)
+#   - One table : relative bias for all estimators, one row per dataset i
+#                 Saved to: _1trt_effect/1stages/tables/_ate_bias_summary.csv
+#   - One figure: Naive | DRE-ML [| DREp(OLS)] [| DREp(EXPO)] boxplots per arm contrast
 #                 Saved to: _1trt_effect/1stages/images/_ate_bias_k{k}_{flavor}.jpeg
 #
-# Bias = estimated ATE - true ATE   (positive = overestimate)
-# True ATE is computed analytically via ate_single_stage_simple.true_ate_simple.
+# DREp options (set in __main__):
+#   INCLUDE_DREP_OLS  : include DRE-Param (OLS)  — reads {filename}_DREp.csv
+#   INCLUDE_DREP_EXPO : include DRE-Param (EXPO)  — reads {filename}_DREp_expo.csv
+#   Default: EXPO only
+#
+# Bias = estimated ATE - true ATE.  Reported as relative bias × 100:
+#   [(Est − True) / |True|] × 100
+# True ATE computed analytically via ate_single_stage_simple.true_ate_simple.
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 import sys
@@ -27,11 +33,21 @@ info_path    = os.path.join(datasets_dir, '_info_simple.csv')
 sys.path.insert(0, script_dir)
 from ate_single_stage_simple import true_ate_simple
 
-# Greyscale palette — Naive lightest, DRE-ML darkest, DRE-Param mid
-C_BW = {'naive': '0.82', 'dre': '0.20', 'drep': '0.42'}
+# Greyscale palette
+C_BW = {
+    'naive':      '0.82',
+    'dre':        '0.20',
+    'drep_ols':   '0.55',
+    'drep_expo':  '0.38',
+}
 
-# Color palette (used when greyscale=False)
-C_COLOR = {'naive': '#E57373', 'dre': '#64B5F6', 'drep': '#FFB74D'}
+# Color palette
+C_COLOR = {
+    'naive':      '#E57373',
+    'dre':        '#64B5F6',
+    'drep_ols':   '#FFB74D',
+    'drep_expo':  '#81C784',
+}
 
 
 def _drop_extreme(arr, k=3.0):
@@ -45,9 +61,11 @@ def _drop_extreme(arr, k=3.0):
 
 
 def _ate_from_file(filename, suffix, k):
-    """Compute per-arm ATE from mu_hat columns in a _DRE, _DREp, or _NAIVE csv."""
+    """Compute per-arm ATE from mu_hat columns. Returns NaN dict if file missing."""
     path = os.path.join(datasets_dir, f'{filename}{suffix}.csv')
-    df   = pd.read_csv(path)
+    if not os.path.exists(path):
+        return {a: np.nan for a in range(1, k)}
+    df = pd.read_csv(path)
     return {a: float(np.mean(df[f'mu_hat_1_a{a}'] - df['mu_hat_1_a0']))
             for a in range(1, k)}
 
@@ -61,49 +79,56 @@ def build_records(sub_info):
         i_val = int(row['i'])
         try:
             true  = true_ate_simple(fname, verbose=False)
-            naive = _ate_from_file(fname, '_NAIVE', k)
-            dre   = _ate_from_file(fname, '_DRE',   k)
+            naive = _ate_from_file(fname, '_NAIVE',      k)
+            dre   = _ate_from_file(fname, '_DRE',        k)
         except FileNotFoundError as exc:
             print(f'  Skipping {fname}: {exc}')
             continue
 
-        try:
-            drep = _ate_from_file(fname, '_DREp', k)
-        except FileNotFoundError:
-            drep = {a: np.nan for a in range(1, k)}
+        drep_ols  = _ate_from_file(fname, '_DREp',      k)
+        drep_expo = _ate_from_file(fname, '_DREp_expo', k)
 
         for a in sorted(true['ATE_1'].keys()):
-            t   = true['ATE_1'][a]
-            n_  = naive.get(a, np.nan)
-            d   = dre.get(a,   np.nan)
-            dp  = drep.get(a,  np.nan)
+            t        = true['ATE_1'][a]
+            n_       = naive.get(a,     np.nan)
+            d        = dre.get(a,       np.nan)
+            dp_ols   = drep_ols.get(a,  np.nan)
+            dp_expo  = drep_expo.get(a, np.nan)
+
+            def _rb(est):
+                return (est - t) / abs(t) * 100 if t != 0 else np.nan
+
             records.append({
-                'i':               i_val,
-                'k':               k,
-                'arm':             a,
-                'ATE_true':        t,
-                'ATE_naive':       n_,
-                'ATE_dre':         d,
-                'ATE_drep':        dp,
-                'rel_bias_naive':  (n_  - t) / abs(t) * 100 if t != 0 else np.nan,
-                'rel_bias_dre':    (d   - t) / abs(t) * 100 if t != 0 else np.nan,
-                'rel_bias_drep':   (dp  - t) / abs(t) * 100 if t != 0 else np.nan,
+                'i':                  i_val,
+                'k':                  k,
+                'arm':                a,
+                'ATE_true':           t,
+                'ATE_naive':          n_,
+                'ATE_dre':            d,
+                'ATE_drep_ols':       dp_ols,
+                'ATE_drep_expo':      dp_expo,
+                'rel_bias_naive':     _rb(n_),
+                'rel_bias_dre':       _rb(d),
+                'rel_bias_drep_ols':  _rb(dp_ols),
+                'rel_bias_drep_expo': _rb(dp_expo),
             })
     return records
 
 
-def make_figure(df, flavor, arms, include_drep=True, greyscale=False):
+def make_figure(df, flavor, arms,
+                include_drep_ols=False, include_drep_expo=True,
+                greyscale=False):
     """
-    One figure per (k, flavor): one set of boxplots (Naive | DRE-ML [| DRE-Param])
-    per arm contrast.
+    One figure per (k, flavor): boxplots per arm contrast.
+    Order: Naive | DRE-ML [| DREp(OLS)] [| DREp(EXPO)]
     """
+    n_boxes  = 2 + int(include_drep_ols) + int(include_drep_expo)
     n_arms   = len(arms)
-    n_boxes  = 3 if include_drep else 2
     fig_w    = max(5, n_arms * n_boxes * 1.5)
     fig, ax  = plt.subplots(figsize=(fig_w, 5))
 
     title_flavor = 'loggamma' if flavor == 'gamma' else flavor
-    ax.set_title(f'ATE Bias — Single-Stage DGP  ({title_flavor})', fontsize=12)
+    ax.set_title(f'ATE Relative Bias — Single-Stage DGP  ({title_flavor})', fontsize=12)
 
     palette     = C_BW if greyscale else C_COLOR
     all_data    = []
@@ -125,10 +150,16 @@ def make_figure(df, flavor, arms, include_drep=True, greyscale=False):
         tick_labels.append(f'DRE-ML\n(a={a} vs 0)')
         positions.append(pos); pos += 1
 
-        if include_drep:
-            all_data.append(_drop_extreme(sub['rel_bias_drep'].values))
-            all_colors.append(palette['drep'])
-            tick_labels.append(f'DRE-Param\n(a={a} vs 0)')
+        if include_drep_ols:
+            all_data.append(_drop_extreme(sub['rel_bias_drep_ols'].values))
+            all_colors.append(palette['drep_ols'])
+            tick_labels.append(f'DREp(OLS)\n(a={a} vs 0)')
+            positions.append(pos); pos += 1
+
+        if include_drep_expo:
+            all_data.append(_drop_extreme(sub['rel_bias_drep_expo'].values))
+            all_colors.append(palette['drep_expo'])
+            tick_labels.append(f'DREp(EXPO)\n(a={a} vs 0)')
             positions.append(pos); pos += 1
 
         pos += 1   # gap between arm groups
@@ -150,15 +181,20 @@ def make_figure(df, flavor, arms, include_drep=True, greyscale=False):
 
 
 if __name__ == '__main__':
-    INCLUDE_DREP = True    # set False to omit DRE-Param from boxplots
-    GREYSCALE    = True    # set True for grey shades
+    INCLUDE_DREP_OLS  = False   # include DRE-Param (OLS)
+    INCLUDE_DREP_EXPO = True    # include DRE-Param (EXPO)  ← default
+    GREYSCALE         = True
+    K_FILTER          = None    # set to 2, 3, or 5; None = all
 
     os.makedirs(tables_dir, exist_ok=True)
     os.makedirs(images_dir, exist_ok=True)
 
-    info        = pd.read_csv(info_path)
-    k_vals      = sorted(info['k1'].unique())
-    flavors     = sorted(info['flavor_Y'].unique())
+    info    = pd.read_csv(info_path)
+    k_vals  = sorted(info['k1'].unique())
+    flavors = sorted(info['flavor_Y'].unique())
+    if K_FILTER is not None:
+        k_vals = [k for k in k_vals if k == K_FILTER]
+
     all_records = []
 
     for k in k_vals:
@@ -176,8 +212,10 @@ if __name__ == '__main__':
             df['flavor_Y'] = flavor
             all_records.append(df)
 
-            fig    = make_figure(df, flavor, arms, include_drep=INCLUDE_DREP,
-                                 greyscale=GREYSCALE)
+            fig = make_figure(df, flavor, arms,
+                              include_drep_ols=INCLUDE_DREP_OLS,
+                              include_drep_expo=INCLUDE_DREP_EXPO,
+                              greyscale=GREYSCALE)
             suffix   = '_bw' if GREYSCALE else ''
             img_path = os.path.join(images_dir, f'_ate_bias_k{k}_{flavor}{suffix}.jpeg')
             fig.savefig(img_path, dpi=150, bbox_inches='tight')
@@ -187,14 +225,16 @@ if __name__ == '__main__':
     if all_records:
         all_df = pd.concat(all_records, ignore_index=True)
 
+        agg_cols = {
+            'n_datasets':           ('i',                   'nunique'),
+            'rel_bias_naive':       ('rel_bias_naive',       'mean'),
+            'rel_bias_dre':         ('rel_bias_dre',         'mean'),
+            'rel_bias_drep_ols':    ('rel_bias_drep_ols',    'mean'),
+            'rel_bias_drep_expo':   ('rel_bias_drep_expo',   'mean'),
+        }
         summary = (
             all_df.groupby(['k', 'flavor_Y'])
-            .agg(
-                n_datasets        =('i',              'nunique'),
-                rel_bias_naive    =('rel_bias_naive',  'mean'),
-                rel_bias_dre      =('rel_bias_dre',    'mean'),
-                rel_bias_drep     =('rel_bias_drep',   'mean'),
-            )
+            .agg(**agg_cols)
             .reset_index()
             .rename(columns={'flavor_Y': 'DGP'})
             .round(4)
