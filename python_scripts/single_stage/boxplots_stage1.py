@@ -115,54 +115,107 @@ def build_records(sub_info):
     return records
 
 
-def make_figure(df, flavor, arms,
-                include_drep_ols=False, include_drep_expo=True,
-                greyscale=False):
-    """
-    One figure per (k, flavor): boxplots per arm contrast.
-    Order: Naive | DRE-ML [| DREp(OLS)] [| DREp(EXPO)]
-    """
-    n_boxes  = 2 + int(include_drep_ols) + int(include_drep_expo)
-    n_arms   = len(arms)
-    fig_w    = max(5, n_arms * n_boxes * 1.5)
-    fig, ax  = plt.subplots(figsize=(fig_w, 5))
-
-    title_flavor = 'loggamma' if flavor == 'gamma' else flavor
-    ax.set_title(f'ATE Relative Bias — Single-Stage DGP  ({title_flavor})', fontsize=12)
-
-    palette     = C_BW if greyscale else C_COLOR
+def _draw_arm_boxplot(ax, df, a, include_drep_ols, include_drep_expo, palette):
+    """Draw boxplots for one arm contrast onto ax. Returns the axis."""
     all_data    = []
     all_colors  = []
     tick_labels = []
     positions   = []
     pos         = 1
 
-    for a in arms:
+    sub = df[df['arm'] == a]
+
+    all_data.append(_drop_extreme(sub['rel_bias_naive'].values))
+    all_colors.append(palette['naive'])
+    tick_labels.append('Naive'); positions.append(pos); pos += 1
+
+    all_data.append(_drop_extreme(sub['rel_bias_dre'].values))
+    all_colors.append(palette['dre'])
+    tick_labels.append('DRE-ML'); positions.append(pos); pos += 1
+
+    if include_drep_ols:
+        all_data.append(_drop_extreme(sub['rel_bias_drep_ols'].values))
+        all_colors.append(palette['drep_ols'])
+        tick_labels.append('DREp(OLS)'); positions.append(pos); pos += 1
+
+    if include_drep_expo:
+        all_data.append(_drop_extreme(sub['rel_bias_drep_expo'].values))
+        all_colors.append(palette['drep_expo'])
+        tick_labels.append('DREp(EXPO)'); positions.append(pos); pos += 1
+
+    bp = ax.boxplot(all_data, positions=positions, patch_artist=True, widths=0.6)
+    for patch, color in zip(bp['boxes'], all_colors):
+        patch.set_facecolor(color)
+        patch.set_alpha(0.8)
+
+    ax.axhline(0, color='black', linestyle='--', linewidth=0.8, alpha=0.5)
+    ax.set_xticks(positions)
+    ax.set_xticklabels(tick_labels, fontsize=9)
+    ax.set_title(f'a={a} vs 0', fontsize=10)
+    ax.set_ylabel('Rel. Bias × 100', fontsize=8)
+    ax.grid(axis='y', alpha=0.3)
+    ax.set_xlim(0, pos)
+
+
+def make_figure(df, flavor, arms,
+                include_drep_ols=False, include_drep_expo=True,
+                greyscale=False):
+    """
+    One figure per (k, flavor).
+    k=5 (4 arm contrasts): 2×2 subplot grid, one panel per contrast.
+    Otherwise          : single panel, all contrasts side by side.
+    Order within each panel: Naive | DRE-ML [| DREp(OLS)] [| DREp(EXPO)]
+    """
+    title_flavor = 'loggamma' if flavor == 'gamma' else flavor
+    palette      = C_BW if greyscale else C_COLOR
+    n_boxes      = 2 + int(include_drep_ols) + int(include_drep_expo)
+    n_arms       = len(arms)
+
+    # ── 2×2 layout for k=5 (4 contrasts) ────────────────────────────────────
+    if n_arms == 4:
+        fig, axes = plt.subplots(2, 2, figsize=(n_boxes * 3, 10))
+        fig.suptitle(f'ATE Relative Bias — Single-Stage DGP  ({title_flavor})',
+                     fontsize=12)
+        for idx, a in enumerate(arms):
+            ax = axes[idx // 2][idx % 2]
+            _draw_arm_boxplot(ax, df, a, include_drep_ols, include_drep_expo, palette)
+        plt.tight_layout()
+        return fig
+
+    # ── Single-panel layout for k=2 (1 contrast) and k=3 (2 contrasts) ──────
+    fig_w = max(5, n_arms * n_boxes * 1.5)
+    fig, ax = plt.subplots(figsize=(fig_w, 5))
+    ax.set_title(f'ATE Relative Bias — Single-Stage DGP  ({title_flavor})', fontsize=12)
+
+    all_data    = []
+    all_colors  = []
+    tick_labels = []
+    positions   = []
+    pos         = 1
+
+    for i_arm, a in enumerate(arms):
         sub = df[df['arm'] == a]
 
         all_data.append(_drop_extreme(sub['rel_bias_naive'].values))
         all_colors.append(palette['naive'])
-        tick_labels.append(f'Naive\n(a={a} vs 0)')
-        positions.append(pos); pos += 1
+        tick_labels.append(f'Naive\n(a={a} vs 0)'); positions.append(pos); pos += 1
 
         all_data.append(_drop_extreme(sub['rel_bias_dre'].values))
         all_colors.append(palette['dre'])
-        tick_labels.append(f'DRE-ML\n(a={a} vs 0)')
-        positions.append(pos); pos += 1
+        tick_labels.append(f'DRE-ML\n(a={a} vs 0)'); positions.append(pos); pos += 1
 
         if include_drep_ols:
             all_data.append(_drop_extreme(sub['rel_bias_drep_ols'].values))
             all_colors.append(palette['drep_ols'])
-            tick_labels.append(f'DREp(OLS)\n(a={a} vs 0)')
-            positions.append(pos); pos += 1
+            tick_labels.append(f'DREp(OLS)\n(a={a} vs 0)'); positions.append(pos); pos += 1
 
         if include_drep_expo:
             all_data.append(_drop_extreme(sub['rel_bias_drep_expo'].values))
             all_colors.append(palette['drep_expo'])
-            tick_labels.append(f'DREp(EXPO)\n(a={a} vs 0)')
-            positions.append(pos); pos += 1
+            tick_labels.append(f'DREp(EXPO)\n(a={a} vs 0)'); positions.append(pos); pos += 1
 
-        pos += 1   # gap between arm groups
+        if i_arm < n_arms - 1:
+            pos += 1   # gap between arm groups, not after the last one
 
     bp = ax.boxplot(all_data, positions=positions, patch_artist=True, widths=0.6)
     for patch, color in zip(bp['boxes'], all_colors):
@@ -174,14 +227,14 @@ def make_figure(df, flavor, arms,
     ax.set_xticklabels(tick_labels, fontsize=9)
     ax.set_ylabel('Relative Bias × 100  [(Est − True) / |True| × 100]', fontsize=9)
     ax.grid(axis='y', alpha=0.3)
-    ax.set_xlim(0, pos)
+    ax.set_xlim(positions[0] - 0.5, positions[-1] + 0.5)
 
     plt.tight_layout()
     return fig
 
 
 if __name__ == '__main__':
-    INCLUDE_DREP_OLS  = False   # include DRE-Param (OLS)
+    INCLUDE_DREP_OLS  = True   # include DRE-Param (OLS)
     INCLUDE_DREP_EXPO = True    # include DRE-Param (EXPO)  ← default
     GREYSCALE         = True
     K_FILTER          = None    # set to 2, 3, or 5; None = all
@@ -218,6 +271,7 @@ if __name__ == '__main__':
                               greyscale=GREYSCALE)
             suffix   = '_bw' if GREYSCALE else ''
             img_path = os.path.join(images_dir, f'_ate_bias_k{k}_{flavor}{suffix}.jpeg')
+            img_path = os.path.join(images_dir, f'boxplot_k{k}_{flavor}_relbias{suffix}.jpeg')
             fig.savefig(img_path, dpi=150, bbox_inches='tight')
             plt.close(fig)
             print(f'  Figure saved: _ate_bias_k{k}_{flavor}{suffix}.jpeg')
