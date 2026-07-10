@@ -9,7 +9,7 @@
 #
 # The self-normalized AIPW (Hajek) formula for mu_hat is unchanged.
 # Output saved as:
-#   OLS  → {filename}_DREp.csv          (backward compat)
+#   OLS  → {filename}_DREp_ols.csv
 #   EXPO → {filename}_DREp_expo.csv
 #
 # Models saved as:
@@ -213,10 +213,10 @@ def estimate_drep(filename, dgp='simple', outcome_model='OLS'):
 
     # ==================================================================
     # Save output CSV
-    # OLS  → _DREp.csv (backward compat with boxplots_stage2.py)
+    # OLS  → _DREp_ols.csv
     # EXPO → _DREp_expo.csv
     # ==================================================================
-    csv_suffix = '_DREp' if outcome_model == 'OLS' else '_DREp_expo'
+    csv_suffix = '_DREp_ols' if outcome_model == 'OLS' else '_DREp_expo'
     out = pd.DataFrame({'d_star_1': d_star_1, 'd_star_2': d_star_2})
     for a in range(k1):
         out[f'mu_hat_1_a{a}'] = mu_hat_1[:, a]

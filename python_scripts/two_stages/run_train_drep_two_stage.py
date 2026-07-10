@@ -10,7 +10,7 @@
 #         datasets/models/{filename}_DREp_expo_models.pkl  (EXPO)
 #         datasets/{filename}.csv  (training data)
 # Output:
-#   OLS  → datasets/{filename}_DREp.csv       (backward compat with boxplots_stage2.py)
+#   OLS  → datasets/{filename}_DREp_ols.csv
 #   EXPO → datasets/{filename}_DREp_expo.csv
 #
 # Optional filters in __main__:
@@ -89,7 +89,7 @@ def run_train_drep(filename, outcome_model='OLS'):
         raise ValueError(f"outcome_model must be 'OLS' or 'EXPO', got '{outcome_model}'")
 
     pkl_suffix = 'DREp_expo' if outcome_model == 'EXPO' else 'DREp_ols'
-    csv_suffix = '_DREp_expo' if outcome_model == 'EXPO' else '_DREp'
+    csv_suffix = '_DREp_expo' if outcome_model == 'EXPO' else '_DREp_ols'
 
     pkl_path = os.path.join(models_dir,   f'{filename}_{pkl_suffix}_models.pkl')
     csv_path = os.path.join(datasets_dir, f'{filename}.csv')
