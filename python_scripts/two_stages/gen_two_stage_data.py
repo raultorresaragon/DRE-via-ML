@@ -15,7 +15,7 @@ def gen_2stage_data(s, n, p1, p2, k1, k2, flavor_Y, i=1, seed=None):
     if seed is None:
         seed = 1810 + i
 
-    params = make_sim_params(p1=p1, p2=p2, k1=k1, k2=k2, seed=seed)
+    params = make_sim_params(p1=p1, p2=p2, k1=k1, k2=k2, seed=seed, flavor_Y=flavor_Y)
 
     beta_A1    = params['beta_A1']    # stage1 covariates (+ intercept) effects on pscore stage1
     beta_A2    = params['beta_A2']    # stage1, stage2, A1 covariates effects on pscore stage2
@@ -152,7 +152,7 @@ def gen_2stage_data_simple(s, n, p1, k1, k2, flavor_Y, i=1, seed=None):
         seed = 1810 + i
 
     p2 = p1 + 1  # Y_1 + p1 duplicated X1 columns (mirrors original structure)
-    params = make_sim_params(p1=p1, p2=p2, k1=k1, k2=k2, seed=seed)
+    params = make_sim_params(p1=p1, p2=p2, k1=k1, k2=k2, seed=seed, flavor_Y=flavor_Y)
 
     beta_A1 = params['beta_A1']
     beta_Y1 = params['beta_Y1']

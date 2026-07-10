@@ -8,7 +8,7 @@
 import numpy as np
 
 
-def make_sim_params(p1, p2, k1, k2, seed=None):
+def make_sim_params(p1, p2, k1, k2, seed=None, flavor_Y=None):
     """
     Generate correctly-sized simulation parameters for a two-stage DTR.
 
@@ -41,6 +41,9 @@ def make_sim_params(p1, p2, k1, k2, seed=None):
     else:
         rng = np.random.default_rng()
 
+    # Delta range: narrower for expo to avoid extreme Y values under exponential link
+    _lo, _hi = (0.3, 1.0) if flavor_Y == 'expo' else (0.5, 2.5)
+
     params = {
         # Treatment models
         'beta_A1':    rng.uniform(-0.5,  0.5,  size=(p1 + 1,          k1 - 1)),
@@ -48,14 +51,14 @@ def make_sim_params(p1, p2, k1, k2, seed=None):
         'gamma_stay': 0.5,
 
         # Intermediate outcome (Y_1) model: Y_1 = g(X1 @ beta_Y1 + delta1*A1 + Delta1*(A1*X_p))
-        'delta1':  rng.uniform(0.5, 2.5, size=(k1 - 1,)),          # positive
-        'beta_Y1': rng.uniform(-1.0,  1.0,  size=(p1 + 1,)),
-        'Delta1':  -rng.uniform(0.5, 2.5, size=(k1 - 1,)),         # negative
+        'delta1':  rng.uniform(_lo, _hi, size=(k1 - 1,)),          # positive
+        'beta_Y1': rng.uniform(-1/np.sqrt(p1),  1/np.sqrt(p1),  size=(p1 + 1,)),
+        'Delta1':  -rng.uniform(_lo, _hi, size=(k1 - 1,)),         # negative
 
         # Final outcome (Y) model: Y = g([X1,A1,Y_1,X2] @ beta_Y2 + delta2*A2 + Delta2*(A2*X_p))
-        'delta2':  rng.uniform(0.5, 2.5, size=(k2 - 1,)),          # positive
-        'beta_Y2': rng.uniform(-0.5,  0.5,  size=(1 + p1 + 1 + p2,)),
-        'Delta2':  -rng.uniform(0.5, 2.5, size=(k2 - 1,)),         # negative
+        'delta2':  rng.uniform(_lo, _hi, size=(k2 - 1,)),          # positive
+        'beta_Y2': rng.uniform(-0.5/np.sqrt(p1),  0.5/np.sqrt(p1),  size=(1 + p1 + 1 + p2,)),
+        'Delta2':  -rng.uniform(_lo, _hi, size=(k2 - 1,)),         # negative
     }
 
     # A1 main effect on Y is zero by default (index p1+1 in beta_Y2)
