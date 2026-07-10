@@ -39,8 +39,8 @@ models_dir   = os.path.join(datasets_dir, 'models')
 info_path    = os.path.join(datasets_dir, '_info.csv')
 info_path_simple = os.path.join(datasets_dir, '_info_simple.csv')
 
-DEFAULT_HIDUNITS = [random.randint(10, 115) for _ in range(10)]
-DEFAULT_EPS      = [random.randint(40, 150) for _ in range(10)]
+DEFAULT_HIDUNITS = [random.randint(10, 115) for _ in range(20)]
+DEFAULT_EPS      = [random.randint(40, 150) for _ in range(20)]
 DEFAULT_PENALS   = [0.001, 0.005, 0.01]
 
 

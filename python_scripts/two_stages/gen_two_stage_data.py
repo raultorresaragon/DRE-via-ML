@@ -119,10 +119,10 @@ def gen_2stage_data(s, n, p1, p2, k1, k2, flavor_Y, i=1, seed=None):
         'flavor_Y': flavor_Y,
         'seed':     seed,
         'filename': filename,
-        'delta1':   str(delta1.tolist()),
-        'Delta1':   str(Delta1.tolist()),
-        'delta2':   str(delta2.tolist()),
-        'Delta2':   str(Delta2.tolist()),
+        'delta1':   str([round(float(x), 2) for x in delta1]),
+        'Delta1':   str([round(float(x), 2) for x in Delta1]),
+        'delta2':   str([round(float(x), 2) for x in delta2]),
+        'Delta2':   str([round(float(x), 2) for x in Delta2]),
     }])
     write_header = not os.path.exists(info_path)
     row.to_csv(info_path, mode='a', header=write_header, index=False)
@@ -262,10 +262,10 @@ def gen_2stage_data_simple(s, n, p1, k1, k2, flavor_Y, i=1, seed=None):
         'flavor_Y': flavor_Y,
         'seed':     seed,
         'filename': filename,
-        'delta1':   str(delta1.tolist()),
-        'Delta1':   str(Delta1.tolist()),
-        'delta2':   str([float(delta2[0])]),
-        'Delta2':   str([float(Delta2[0])]),
+        'delta1':   str([round(float(x), 2) for x in delta1]),
+        'Delta1':   str([round(float(x), 2) for x in Delta1]),
+        'delta2':   str([round(float(x), 2) for x in delta2]),
+        'Delta2':   str([round(float(x), 2) for x in Delta2]),
     }])
     write_header = not os.path.exists(info_path)
     row.to_csv(info_path, mode='a', header=write_header, index=False)
@@ -291,7 +291,7 @@ if __name__ == '__main__': # <- so this doesn't run when importing it
             p1 = 12
         n = k * 200
         p2 = p1 + 1
-        for fY in ['expo', 'lognormal', 'gamma', 'sigmoid']:
+        for fY in ['expo', 'gamma']: #, 'lognormal', 'sigmoid']:
             for i in range(20):
                 #gen_2stage_data(s=s, n=n, p1=p1, p2=p2, k1=k, k2=k, flavor_Y=fY, i=i)
                 gen_2stage_data_simple(s=s, n=n, p1=p1, k1=k, k2=k, flavor_Y=fY, i=i)

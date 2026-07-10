@@ -116,6 +116,10 @@ def gen_eval_dataset(row, data_seed_offset=DATA_SEED_OFFSET):
         'data_seed':   data_seed,
         'filename':    eval_filename,
         'train_file':  filename,
+        'delta1':      str([round(float(x), 2) for x in delta1]),
+        'Delta1':      str([round(float(x), 2) for x in Delta1]),
+        'delta2':      str([round(float(x), 2) for x in delta2]),
+        'Delta2':      str([round(float(x), 2) for x in Delta2]),
     }])
     write_header = not os.path.exists(info_out)
     info_row.to_csv(info_out, mode='a', header=write_header, index=False)

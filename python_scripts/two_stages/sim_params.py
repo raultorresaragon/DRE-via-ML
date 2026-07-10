@@ -48,14 +48,14 @@ def make_sim_params(p1, p2, k1, k2, seed=None):
         'gamma_stay': 0.5,
 
         # Intermediate outcome (Y_1) model: Y_1 = g(X1 @ beta_Y1 + delta1*A1 + Delta1*(A1*X_p))
-        'delta1':  np.array([0.6, 0.4, 0.75, 0.17])[:k1 - 1],
+        'delta1':  rng.uniform(0.5, 2.5, size=(k1 - 1,)),          # positive
         'beta_Y1': rng.uniform(-1.0,  1.0,  size=(p1 + 1,)),
-        'Delta1':  np.array([-1.2, -1.0, -1.0,  0.8])[:k1 - 1],
+        'Delta1':  -rng.uniform(0.5, 2.5, size=(k1 - 1,)),         # negative
 
         # Final outcome (Y) model: Y = g([X1,A1,Y_1,X2] @ beta_Y2 + delta2*A2 + Delta2*(A2*X_p))
-        'delta2':  np.array([0.5, 0.3, 0.50, 0.19])[:k2 - 1],
+        'delta2':  rng.uniform(0.5, 2.5, size=(k2 - 1,)),          # positive
         'beta_Y2': rng.uniform(-0.5,  0.5,  size=(1 + p1 + 1 + p2,)),
-        'Delta2':  np.array([-0.8, -0.7, -0.6,  0.3])[:k2 - 1],
+        'Delta2':  -rng.uniform(0.5, 2.5, size=(k2 - 1,)),         # negative
     }
 
     # A1 main effect on Y is zero by default (index p1+1 in beta_Y2)
