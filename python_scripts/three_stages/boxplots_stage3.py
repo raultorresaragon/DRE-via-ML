@@ -158,7 +158,7 @@ def make_figure(df, flavor, arms, include_drep=True, greyscale=False):
         positions   = []
         pos         = 1
 
-        for a in arms:
+        for i_arm, a in enumerate(arms):
             sub = df[df['arm'] == a]
             all_data.append(_drop_extreme(sub[bias_naive_col].values))
             all_colors.append(C_BW['naive'] if greyscale else C[stage]['naive'])
@@ -178,7 +178,9 @@ def make_figure(df, flavor, arms, include_drep=True, greyscale=False):
                 tick_labels.append(f'DRE-Param\n(A{stage}={a} vs 0)')
                 positions.append(pos)
                 pos += 1
-            pos += 1   # gap between arm groups
+
+            if i_arm < len(arms) - 1:
+                pos += 1   # gap between arm groups, not after the last one
 
         bp = ax.boxplot(all_data, positions=positions, patch_artist=True, widths=0.6)
         for patch, color in zip(bp['boxes'], all_colors):
@@ -191,7 +193,7 @@ def make_figure(df, flavor, arms, include_drep=True, greyscale=False):
         ax.set_title(f'Stage {stage}', fontsize=11)
         ax.set_ylabel('Relative Bias × 100  [(Est − True) / |True| × 100]', fontsize=9)
         ax.grid(axis='y', alpha=0.3)
-        ax.set_xlim(0, pos)
+        ax.set_xlim(positions[0] - 0.5, positions[-1] + 0.5)
 
     plt.tight_layout()
     return fig

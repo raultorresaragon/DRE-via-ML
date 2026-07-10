@@ -35,7 +35,7 @@ C_DREP = '#FFB74D'   # yellow — matches OLS color in boxplots.py
 C_BW = {'naive': '0.82', 'dre': '0.20', 'drep': '0.42'}
 
 
-def _drop_extreme(arr, k=3.0):
+def _drop_extreme(arr, k=3):
     """Remove values beyond k×IQR from Q1/Q3 (extreme outliers, k=3 by default)."""
     arr = arr[~np.isnan(arr)]
     if len(arr) == 0:
@@ -144,9 +144,9 @@ def make_figure(df, flavor, arms, include_drep=True, greyscale=False):
         positions   = []
         pos         = 1
 
-        for a in arms:
+        for i_arm, a in enumerate(arms):
             sub = df[df['arm'] == a]
-            all_data.append(_drop_extreme(sub[bias_naive_col].values))
+            all_data.append(_drop_extreme(sub[bias_naive_col].values, k=1))
             all_colors.append(C_BW['naive'] if greyscale else C[stage]['naive'])
             tick_labels.append(f'Naive\n(A{stage}={a} vs 0)')
             positions.append(pos)
@@ -164,7 +164,9 @@ def make_figure(df, flavor, arms, include_drep=True, greyscale=False):
                 tick_labels.append(f'DRE-Param\n(A{stage}={a} vs 0)')
                 positions.append(pos)
                 pos += 1
-            pos += 1   # gap between arm groups
+
+            if i_arm < len(arms) - 1:
+                pos += 1   # gap between arm groups, not after the last one
 
         bp = ax.boxplot(all_data, positions=positions, patch_artist=True, widths=0.6)
         for patch, color in zip(bp['boxes'], all_colors):
@@ -173,11 +175,11 @@ def make_figure(df, flavor, arms, include_drep=True, greyscale=False):
 
         ax.axhline(0, color='black', linestyle='--', linewidth=0.8, alpha=0.5)
         ax.set_xticks(positions)
-        ax.set_xticklabels(tick_labels, fontsize=9)
+        ax.set_xticklabels(tick_labels, fontsize=7)
         ax.set_title(f'Stage {stage}', fontsize=11)
-        ax.set_ylabel('Relative Bias × 100  [(Est − True) / |True| × 100]', fontsize=9)
+        ax.set_ylabel('Relative Bias', fontsize=9)
         ax.grid(axis='y', alpha=0.3)
-        ax.set_xlim(0, pos)
+        ax.set_xlim(positions[0] - 0.5, positions[-1] + 0.5)
 
     plt.tight_layout()
     return fig

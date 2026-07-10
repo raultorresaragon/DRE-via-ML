@@ -26,18 +26,22 @@
 
 import numpy as np
 import pandas as pd
+import random
 import os
+import pickle
+import sys
 from Y_nn_tuning import Y_model_nn
 from A_nn_tuning import A_model_nn
 
 script_dir   = os.path.dirname(os.path.abspath(__file__))
 datasets_dir = os.path.join(script_dir, '../_1trt_effect/2stages/datasets')
+models_dir   = os.path.join(datasets_dir, 'models')
 info_path    = os.path.join(datasets_dir, '_info.csv')
 info_path_simple = os.path.join(datasets_dir, '_info_simple.csv')
 
-DEFAULT_HIDUNITS = [5, 20]
-DEFAULT_EPS      = [100, 250]
-DEFAULT_PENALS   = [0.001, 0.01]
+DEFAULT_HIDUNITS = [random.randint(10, 115) for _ in range(10)]
+DEFAULT_EPS      = [random.randint(40, 150) for _ in range(10)]
+DEFAULT_PENALS   = [0.001, 0.005, 0.01]
 
 
 # ============================================================
@@ -158,11 +162,13 @@ def estimate_dre(filename,
     # The fitted model is then used to predict Yhat_1_a for all individuals.
     print("\n[Stage 1 — outcome models]")
 
+    models_Y1  = {}
     Y1_hat_all = np.zeros((n, k1))
     for a in range(k1):
         mask    = (A1 == a)
         model_a = _fit_outcome_nn(X1[mask].reset_index(drop=True),
                                   Y1[mask], hidunits, eps, penals, tag=f'Y1 a={a} ')
+        models_Y1[a]     = model_a
         Y1_hat_all[:, a] = model_a.predict(X1)
 
     # ------------------------------------------------------------------
@@ -185,6 +191,7 @@ def estimate_dre(filename,
     # A1 and Y_1 are excluded for now (may be added in future iterations).
     print("\n[Stage 2 — outcome models]")
 
+    models_Y2  = {}
     Y2_hat_all = np.zeros((n, k2))
     for a in range(k2):
         resid_a = Y1 - Y1_hat_all[:, a]
@@ -196,6 +203,7 @@ def estimate_dre(filename,
         mask    = (A2 == a)
         model_a = _fit_outcome_nn(feat_2_a[mask].reset_index(drop=True),
                                   Y[mask], hidunits, eps, penals, tag=f'Y2 a={a} ')
+        models_Y2[a]     = model_a
         Y2_hat_all[:, a] = model_a.predict(feat_2_a)
 
     # ------------------------------------------------------------------
@@ -214,7 +222,25 @@ def estimate_dre(filename,
     print(f"\n  d_star_2 distribution: {np.bincount(d_star_2)}")
 
     # ==================================================================
-    # Save output
+    # Save models (pkl)
+    # ==================================================================
+    os.makedirs(models_dir, exist_ok=True)
+    models_path = os.path.join(models_dir, f'{filename}_DRE_models.pkl')
+    with open(models_path, 'wb') as f:
+        pickle.dump({
+            'models_Y1':  models_Y1,
+            'models_Y2':  models_Y2,
+            'pscore_A1':  pscore_A1,
+            'pscore_A2':  pscore_A2,
+            'Y1_hat_all': Y1_hat_all,
+            'X1_cols':    X1_cols,
+            'X2_cols':    X2_cols,
+            'k1': k1, 'k2': k2,
+        }, f)
+    print(f"  ✓ Models saved: {filename}_DRE_models.pkl")
+
+    # ==================================================================
+    # Save output CSV (backward compatible)
     # ==================================================================
     out = pd.DataFrame({'d_star_1': d_star_1, 'd_star_2': d_star_2})
     for a in range(k1):
@@ -234,7 +260,7 @@ def estimate_dre(filename,
 # Run over all datasets in _info.csv
 # ============================================================
 if __name__ == '__main__': # <- so this doesn't run when importing it
-    K_FILTER = 5   # set to 2, 3, or 5 to run only that k; None = run all
+    K_FILTER = 3   # set to 2, 3, or 5 to run only that k; None = run all
     info = pd.read_csv(info_path_simple)
     if K_FILTER is not None:
         info = info[info['k1'] == K_FILTER]

@@ -17,6 +17,7 @@ import numpy as np
 import pandas as pd
 import os
 import sys
+import random
 import pickle
 
 script_dir   = os.path.dirname(os.path.abspath(__file__))
@@ -29,9 +30,9 @@ sys.path.insert(0, script_dir)
 from Y_nn_tuning import Y_model_nn
 from A_nn_tuning import A_model_nn
 
-DEFAULT_HIDUNITS = [5, 20]
-DEFAULT_EPS      = [100, 250]
-DEFAULT_PENALS   = [0.001, 0.01]
+DEFAULT_HIDUNITS = [random.randint(10, 115) for _ in range(12)]
+DEFAULT_EPS      = [random.randint(40, 150) for _ in range(12)]
+DEFAULT_PENALS   = [0.001, 0.005, 0.01]
 
 
 def _fit_outcome_nn(features_df, y_values, hidunits, eps, penals, tag=''):
