@@ -5,8 +5,8 @@
 # For each row i, uses the SAME DGP parameters (same make_sim_params seed) as the
 # training dataset but a fresh random draw (data_seed = row seed + DATA_SEED_OFFSET).
 #
-# Saved to: _1trt_effect/2stages/datasets/eval_per_i/{filename}_eval.csv
-# Info file: _1trt_effect/2stages/datasets/eval_per_i/_info_eval.csv
+# Saved to: _1trt_effect/2stages/datasets/eval_sets/{filename}_eval.csv
+# Info file: _1trt_effect/2stages/datasets/eval_sets/_info_eval.csv
 #
 # Optional filters (set in __main__):
 #   K_FILTER      : int or None  — only generate for k = K_FILTER
@@ -25,7 +25,7 @@ from YAX_funs   import gen_X, gen_A, gen_A2_simple, gen_X2, gen_Y_simple
 from sim_params import make_sim_params
 
 datasets_dir = os.path.join(script_dir, '../_1trt_effect/2stages/datasets')
-eval_dir     = os.path.join(datasets_dir, 'eval_per_i')
+eval_dir     = os.path.join(datasets_dir, 'eval_sets')
 info_path    = os.path.join(datasets_dir, '_info_simple.csv')
 info_out     = os.path.join(eval_dir,     '_info_eval.csv')
 

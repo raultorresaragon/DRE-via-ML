@@ -1,37 +1,37 @@
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-# run_eval_dre_two_stage.py
+# run_eval_dre_single_stage.py
 # Load DRE-ML pkl, apply outcome models to eval data, save per-replication predictions.
 #
 # This script does NOT re-train models. It loads the pkl produced by
-# estimate_dre_two_stage.py and applies the stored outcome models to the
+# estimate_dre_single_stage.py and applies the stored outcome models to the
 # evaluation dataset to compute d_star and V(DRE-ML).
 #
 # No AIPW is applied — only outcome model predictions are used for decision-making.
+# V(d*) = mean(Y_hat[i, d_star[i]])   (single-stage)
 #
 # Input:  datasets/models/{filename}_DRE_models.pkl
 #         eval_sets/{filename}_eval.csv
 # Output: eval_sets/{filename}_eval_DRE.csv
-#   columns: d_star_1, d_star_2,
-#            Y_hat_1_a0..Y_hat_1_a{k1-1},
-#            Y_hat_2_a0..Y_hat_2_a{k2-1}
-#
-# V(DRE-ML) = mean(Y_hat_2[i, d_star_2[i]])  — summarised by vplot_eval_two_stage.py
+#   columns: d_star, Y_hat_a0, ..., Y_hat_a{k-1}
 #
 # Optional filters in __main__:
-#   K_FILTER      : int or None  — only run for k = K_FILTER
-#   FLAVOR_FILTER : str or None  — only run for a specific flavor
+#   K_FILTER      : int or None
+#   FLAVOR_FILTER : str or None
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 import numpy as np
 import pandas as pd
 import os
+import sys
 import pickle
 
 script_dir   = os.path.dirname(os.path.abspath(__file__))
-datasets_dir = os.path.join(script_dir, '../_1trt_effect/2stages/datasets')
+sys.path.insert(0, script_dir)
+
+datasets_dir = os.path.join(script_dir, '../_1trt_effect/1stage/datasets')
 models_dir   = os.path.join(datasets_dir, 'models')
 eval_dir     = os.path.join(datasets_dir, 'eval_sets')
-info_path    = os.path.join(datasets_dir, '_info_simple.csv')
+info_path    = os.path.join(datasets_dir, '_info_single.csv')
 
 
 # ============================================================
@@ -44,7 +44,7 @@ def run_eval_dre(filename):
 
     Parameters
     ----------
-    filename : str   Base filename without extension (e.g. 's2_k2_simple_expo_0')
+    filename : str   Base filename without extension (e.g. 's1_k2_expo_0')
     """
     pkl_path  = os.path.join(models_dir, f'{filename}_DRE_models.pkl')
     eval_path = os.path.join(eval_dir,   f'{filename}_eval.csv')
@@ -65,77 +65,56 @@ def run_eval_dre(filename):
     with open(pkl_path, 'rb') as f:
         pkg = pickle.load(f)
 
-    models_Y1 = pkg['models_Y1']   # dict: arm → fitted NN outcome model
-    models_Y2 = pkg['models_Y2']   # dict: arm → fitted NN outcome model
-    X1_cols   = pkg['X1_cols']
-    X2_cols   = pkg['X2_cols']
-    k1        = pkg['k1']
-    k2        = pkg['k2']
+    models_Y = pkg['models_Y']   # dict: arm → fitted NN outcome model
+    X_cols   = pkg['X_cols']
+    k        = pkg['k']
 
     # ---- Load eval data ----
     dat_ev = pd.read_csv(eval_path)
     n_ev   = len(dat_ev)
 
-    # DRE NNs were fitted on DataFrames — predict with DataFrames
-    X1_ev_df = dat_ev[X1_cols].reset_index(drop=True)
-    X2_ev_df = dat_ev[X2_cols].reset_index(drop=True)
-    Y1_ev    = dat_ev['Y_1'].values
+    # DRE NNs were fitted on DataFrames — predict with DataFrame
+    X_ev = dat_ev[X_cols].reset_index(drop=True)
 
-    print(f"  n_ev={n_ev}, k1={k1}, k2={k2}")
+    print(f"  n_ev={n_ev}, k={k}")
 
-    # ---- Stage 1: apply outcome models to eval X1 ----
-    print("\n  [Stage 1 — applying outcome models to eval data]")
-    Y1_hat_ev = np.zeros((n_ev, k1))
-    for a in range(k1):
-        Y1_hat_ev[:, a] = models_Y1[a].predict(X1_ev_df)
-    d_star_1 = np.argmax(Y1_hat_ev, axis=1)
-    print(f"  d_star_1: {np.bincount(d_star_1)}")
+    # ---- Apply outcome models to eval data ----
+    print("\n  [Outcome models — predicting on eval data]")
+    Y_hat_ev = np.zeros((n_ev, k))
+    for a in range(k):
+        Y_hat_ev[:, a] = models_Y[a].predict(X_ev)
+    d_star = np.argmax(Y_hat_ev, axis=1)
+    print(f"  d_star: {np.bincount(d_star)}")
 
-    # ---- Stage 2: apply outcome models to eval data ----
-    # Residuals are computed from eval predictions (not training Y1_hat_all).
-    # feat_2_a for eval: [X1_ev, X2_ev, Y1_ev - Y1_hat_ev[:, a]]
-    print("\n  [Stage 2 — applying outcome models to eval data]")
-    Y2_hat_ev = np.zeros((n_ev, k2))
-    for a in range(k2):
-        resid_a  = Y1_ev - Y1_hat_ev[:, a]
-        feat_2_a = pd.concat([X1_ev_df,
-                               X2_ev_df,
-                               pd.Series(resid_a, name='Y1_resid')], axis=1)
-        Y2_hat_ev[:, a] = models_Y2[a].predict(feat_2_a)
-    d_star_2 = np.argmax(Y2_hat_ev, axis=1)
-    print(f"  d_star_2: {np.bincount(d_star_2)}")
-
-    V = float(np.mean(Y2_hat_ev[np.arange(n_ev), d_star_2]))
+    V = float(np.mean(Y_hat_ev[np.arange(n_ev), d_star]))
     print(f"\n  V(DRE-ML) = {V:.4f}")
 
     # ---- Save predictions ----
-    out = pd.DataFrame({'d_star_1': d_star_1, 'd_star_2': d_star_2})
-    for a in range(k1):
-        out[f'Y_hat_1_a{a}'] = Y1_hat_ev[:, a]
-    for a in range(k2):
-        out[f'Y_hat_2_a{a}'] = Y2_hat_ev[:, a]
+    out = pd.DataFrame({'d_star': d_star})
+    for a in range(k):
+        out[f'Y_hat_a{a}'] = Y_hat_ev[:, a]
     out.to_csv(out_path, index=False)
     print(f"  ✓ Predictions saved: {filename}_eval_DRE.csv")
     return V
 
 
 # ============================================================
-# Run over all datasets in _info_simple.csv
+# Run over all datasets in _info_single.csv
 # ============================================================
 if __name__ == '__main__':
     K_FILTER      = None   # set to 2, 3, or 5; None = all k values
-    FLAVOR_FILTER = None   # set to 'expo', 'lognormal', 'sigmoid', 'gamma'; None = all
+    FLAVOR_FILTER = None   # set to 'expo', 'gamma', etc.; None = all
 
     os.makedirs(eval_dir, exist_ok=True)
 
     info = pd.read_csv(info_path)
     if K_FILTER is not None:
-        info = info[info['k1'] == K_FILTER]
+        info = info[info['k'] == K_FILTER]
     if FLAVOR_FILTER is not None:
         info = info[info['flavor_Y'] == FLAVOR_FILTER]
 
     for _, row in info.iterrows():
-        k        = int(row['k1'])
+        k        = int(row['k'])
         flavor   = row['flavor_Y']
         filename = row['filename']
         print(f'\n{"="*60}\ni={row["i"]}  k={k}  flavor={flavor}\n{"="*60}')

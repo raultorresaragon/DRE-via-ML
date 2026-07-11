@@ -39,8 +39,8 @@ models_dir   = os.path.join(datasets_dir, 'models')
 info_path    = os.path.join(datasets_dir, '_info.csv')
 info_path_simple = os.path.join(datasets_dir, '_info_simple.csv')
 
-DEFAULT_HIDUNITS = [random.randint(10, 115) for _ in range(20)]
-DEFAULT_EPS      = [random.randint(40, 150) for _ in range(20)]
+DEFAULT_HIDUNITS = [random.randint(10, 115) for _ in range(15)]
+DEFAULT_EPS      = [random.randint(40, 150) for _ in range(10)]
 DEFAULT_PENALS   = [0.001, 0.005, 0.01]
 
 
@@ -260,7 +260,7 @@ def estimate_dre(filename,
 # Run over all datasets in _info.csv
 # ============================================================
 if __name__ == '__main__': # <- so this doesn't run when importing it
-    K_FILTER = 3   # set to 2, 3, or 5 to run only that k; None = run all
+    K_FILTER = None   # set to 2, 3, or 5 to run only that k; None = run all
     info = pd.read_csv(info_path_simple)
     if K_FILTER is not None:
         info = info[info['k1'] == K_FILTER]

@@ -153,7 +153,7 @@ def build_records(sub_info, drep_variant='EXPO'):
     return records
 
 
-def make_figure(df, flavor, arms, drep_variant='EXPO', greyscale=False):
+def make_figure(df, flavor, arms, drep_variant='BOTH', greyscale=False):
     """
     k=2 : 1×2 figure (stages side by side).
     k>2 : 2×1 figure (stages stacked vertically).
@@ -179,7 +179,7 @@ def make_figure(df, flavor, arms, drep_variant='EXPO', greyscale=False):
     else:
         fig, axes = plt.subplots(1, 2, figsize=(2 * subplot_w, 5))
     title_flavor = 'loggamma' if flavor == 'gamma' else flavor
-    fig.suptitle(f'ATE Bias — Two-Stage DGP  ({title_flavor})', fontsize=12)
+    fig.suptitle(f'ATE Rel Bias — Two-Stage DGP  ({title_flavor})', fontsize=12)
 
     for col_idx, stage in enumerate([1, 2]):
         ax = axes[col_idx]
@@ -202,21 +202,21 @@ def make_figure(df, flavor, arms, drep_variant='EXPO', greyscale=False):
             # DRE-ML
             all_data.append(_drop_extreme(sub[f'rel_bias_dre_{stage}'].values))
             all_colors.append(C_BW['dre'] if greyscale else C[stage]['dre'])
-            tick_labels.append(f'DRE-ML\n(A{stage}={a} vs 0)')
+            tick_labels.append(f'DRE-ML')#\n(A{stage}={a} vs 0)')
             positions.append(pos); pos += 1
 
             # DRE-Param (expo)
             if show_expo and f'rel_bias_drep_expo_{stage}' in sub.columns:
                 all_data.append(_drop_extreme(sub[f'rel_bias_drep_expo_{stage}'].values))
                 all_colors.append(C_BW['drep_expo'] if greyscale else C_DREP_EXPO)
-                tick_labels.append(f'DRE-Param(expo)\n(A{stage}={a} vs 0)')
+                tick_labels.append(f'DRE-(expo)') #\n(A{stage}={a} vs 0)')
                 positions.append(pos); pos += 1
 
             # DRE-Param (ols)
             if show_ols and f'rel_bias_drep_ols_{stage}' in sub.columns:
                 all_data.append(_drop_extreme(sub[f'rel_bias_drep_ols_{stage}'].values))
                 all_colors.append(C_BW['drep_ols'] if greyscale else C_DREP_OLS)
-                tick_labels.append(f'DRE-Param(ols)\n(A{stage}={a} vs 0)')
+                tick_labels.append(f'DRE-(ols)')#\n(A{stage}={a} vs 0)')
                 positions.append(pos); pos += 1
 
             if i_arm < len(arms) - 1:
@@ -244,7 +244,7 @@ if __name__ == '__main__':
     #                'OLS'            — DRE-Param with OLS
     #                'BOTH'           — include both DRE-Param variants side by side
     #                None             — omit DRE-Param entirely
-    DREP_VARIANT = 'EXPO'
+    DREP_VARIANT = 'BOTH'
     GREYSCALE    = True
 
     os.makedirs(tables_dir, exist_ok=True)
