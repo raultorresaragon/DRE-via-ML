@@ -110,7 +110,7 @@ def make_dist_table(filename, include_drep_expo=True, include_drep_ols=True):
 if __name__ == '__main__':
     # Set FILENAME to the base training name (without '_eval') to inspect one dataset.
     # Set to None to loop over all rows in _info_single.csv (filtered by K/FLAVOR below).
-    FILENAME      = 's1_k2_expo_0'   # e.g. 's1_k3_gamma_5' or None
+    FILENAME      = 's1_k2_gamma_0'   # e.g. 's1_k3_gamma_5' or None
     K_FILTER      = None    # used only when FILENAME is None; set to 2, 3, or 5
     FLAVOR_FILTER = None    # used only when FILENAME is None; e.g. 'expo', 'gamma'
 

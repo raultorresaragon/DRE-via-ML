@@ -93,7 +93,7 @@ def true_ate_single(filename, verbose=True):
     delta  = params['delta']    # (k-1,)  positive
     Delta  = params['Delta']    # (k-1,)  negative
 
-    X_cols     = [c for c in dat.columns if c.startswith('X_')]
+    X_cols     = [c for c in dat.columns if c.startswith('X')]
     X          = dat[X_cols].values          # (n, p)
     n          = len(dat)
 
