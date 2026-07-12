@@ -33,6 +33,7 @@ import numpy as np
 import pandas as pd
 import os
 import pickle
+import random
 from Y_nn_tuning import Y_model_nn
 from A_nn_tuning import A_model_nn
 
@@ -42,9 +43,9 @@ models_dir   = os.path.join(datasets_dir, 'models')
 info_path    = os.path.join(datasets_dir, '_info.csv')
 info_path_simple = os.path.join(datasets_dir, '_info_simple.csv')
 
-DEFAULT_HIDUNITS = [5, 20]
-DEFAULT_EPS      = [100, 250]
-DEFAULT_PENALS   = [0.001, 0.01]
+DEFAULT_HIDUNITS = [random.randint(10, 115) for _ in range(10)]
+DEFAULT_EPS      = [random.randint(40, 150) for _ in range(10)]
+DEFAULT_PENALS   = [0.001, 0.01, 0.1]
 
 
 # ============================================================

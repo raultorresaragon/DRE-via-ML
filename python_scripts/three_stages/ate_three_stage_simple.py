@@ -78,7 +78,7 @@ def true_ate_simple(filename, verbose=True):
     flavor_Y = row['flavor_Y']
     seed     = int(row['seed'])
 
-    params  = make_sim_params(p1=p1, p2=p2, k1=k1, k2=k2, k3=k3, seed=seed)
+    params  = make_sim_params(p1=p1, p2=p2, k1=k1, k2=k2, k3=k3, seed=seed, flavor_Y=flavor_Y)
     beta_Y1 = params['beta_Y1']
     delta1  = params['delta1']
     Delta1  = params['Delta1']

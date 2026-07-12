@@ -59,7 +59,7 @@ def gen_eval_dataset(row, data_seed_offset=DATA_SEED_OFFSET):
     filename  = row['filename']
     data_seed = seed_p + data_seed_offset
 
-    params = make_sim_params(p1=p1, p2=p2, k1=k, k2=k, k3=k, seed=seed_p)
+    params = make_sim_params(p1=p1, p2=p2, k1=k, k2=k, k3=k, seed=seed_p, flavor_Y=flavor_Y)
 
     beta_A1 = params['beta_A1']
     beta_Y1 = params['beta_Y1']

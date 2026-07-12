@@ -49,7 +49,7 @@ def gen_3stage_data_simple(s, n, p1, k1, k2, k3, flavor_Y, i=1, seed=None):
         seed = 1810 + i
 
     p2 = p1 + 1  # Y_1 column + p1 duplicated X1 columns (mirrors two-stage structure)
-    params = make_sim_params(p1=p1, p2=p2, k1=k1, k2=k2, k3=k3, seed=seed)
+    params = make_sim_params(p1=p1, p2=p2, k1=k1, k2=k2, k3=k3, seed=seed, flavor_Y=flavor_Y)
 
     beta_A1 = params['beta_A1']
     beta_Y1 = params['beta_Y1']
@@ -194,7 +194,7 @@ if __name__ == '__main__':
         os.remove(info_path)
 
     s = 3
-    for k in [2, 3, 5]:
+    for k in [2, 3]:
         if k == 2:
             p1 = 3
         if k == 3:
@@ -202,7 +202,7 @@ if __name__ == '__main__':
         if k == 5:
             p1 = 12
         n  = k * 200
-        for fY in ['expo', 'lognormal', 'gamma', 'sigmoid']:
+        for fY in ['expo','gamma']: #'lognormal', 'sigmoid']:
             for i in range(30):
                 gen_3stage_data_simple(s=s, n=n, p1=p1, k1=k, k2=k, k3=k,
                                        flavor_Y=fY, i=i)
