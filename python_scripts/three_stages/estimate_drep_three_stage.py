@@ -14,10 +14,12 @@
 import numpy as np
 import pandas as pd
 import os
+import pickle
 from sklearn.linear_model import LinearRegression, LogisticRegression
 
 script_dir       = os.path.dirname(os.path.abspath(__file__))
 datasets_dir     = os.path.join(script_dir, '../_1trt_effect/3stages/datasets')
+models_dir       = os.path.join(datasets_dir, 'models')
 info_path_simple = os.path.join(datasets_dir, '_info_simple.csv')
 
 
@@ -106,11 +108,13 @@ def estimate_drep(filename, dgp='simple'):
     # STAGE 1 — outcome models (X1 features, T-learner)
     # ==================================================================
     print("\n[Stage 1 — outcome models]")
+    models_Y1  = {}
     Y1_hat_all = np.zeros((n, k1))
     for a in range(k1):
-        mask    = (A1 == a)
-        model_a = _fit_outcome(X1[mask], Y1[mask], tag=f'Y1 a={a} ')
+        mask             = (A1 == a)
+        model_a          = _fit_outcome(X1[mask], Y1[mask], tag=f'Y1 a={a} ')
         Y1_hat_all[:, a] = model_a.predict(X1)
+        models_Y1[a]     = model_a
 
     print("\n[Stage 1 — propensity score]")
     ps1     = _fit_pscore(X1, A1, k1, tag='A1 ')
@@ -124,13 +128,15 @@ def estimate_drep(filename, dgp='simple'):
     # STAGE 2 — outcome models ([X1, Y1_resid] features)
     # ==================================================================
     print("\n[Stage 2 — outcome models]")
+    models_Y2  = {}
     Y2_hat_all = np.zeros((n, k2))
     for a in range(k2):
-        resid_a  = (Y1 - Y1_hat_all[:, a]).reshape(-1, 1)
-        feat_2_a = np.hstack([X1, resid_a])
-        mask     = (A2 == a)
-        model_a  = _fit_outcome(feat_2_a[mask], Y2[mask], tag=f'Y2 a={a} ')
+        resid_a          = (Y1 - Y1_hat_all[:, a]).reshape(-1, 1)
+        feat_2_a         = np.hstack([X1, resid_a])
+        mask             = (A2 == a)
+        model_a          = _fit_outcome(feat_2_a[mask], Y2[mask], tag=f'Y2 a={a} ')
         Y2_hat_all[:, a] = model_a.predict(feat_2_a)
+        models_Y2[a]     = model_a
 
     print("\n[Stage 2 — propensity score]")
     feat_ps2 = np.hstack([X1, A1.reshape(-1, 1), Y1.reshape(-1, 1)])
@@ -145,16 +151,18 @@ def estimate_drep(filename, dgp='simple'):
     # STAGE 3 — outcome models ([X1, Y1_resid, Y2_resid] features)
     # ==================================================================
     print("\n[Stage 3 — outcome models]")
+    models_Y3  = {}
     Y3_hat_all = np.zeros((n, k3))
     for a in range(k3):
-        a1_idx   = min(a, k1 - 1)
-        a2_idx   = min(a, k2 - 1)
-        resid1_a = (Y1 - Y1_hat_all[:, a1_idx]).reshape(-1, 1)
-        resid2_a = (Y2 - Y2_hat_all[:, a2_idx]).reshape(-1, 1)
-        feat_3_a = np.hstack([X1, resid1_a, resid2_a])
-        mask     = (A3 == a)
-        model_a  = _fit_outcome(feat_3_a[mask], Y[mask], tag=f'Y3 a={a} ')
+        a1_idx           = min(a, k1 - 1)
+        a2_idx           = min(a, k2 - 1)
+        resid1_a         = (Y1 - Y1_hat_all[:, a1_idx]).reshape(-1, 1)
+        resid2_a         = (Y2 - Y2_hat_all[:, a2_idx]).reshape(-1, 1)
+        feat_3_a         = np.hstack([X1, resid1_a, resid2_a])
+        mask             = (A3 == a)
+        model_a          = _fit_outcome(feat_3_a[mask], Y[mask], tag=f'Y3 a={a} ')
         Y3_hat_all[:, a] = model_a.predict(feat_3_a)
+        models_Y3[a]     = model_a
 
     print("\n[Stage 3 — propensity score]")
     feat_ps3 = np.hstack([X1,
@@ -166,6 +174,28 @@ def estimate_drep(filename, dgp='simple'):
     mu_hat_3 = compute_mu_hat(A3, Y, Y3_hat_all, pi3_hat, k3)
     d_star_3 = np.argmax(mu_hat_3, axis=1)
     print(f"\n  d_star_3 distribution: {np.bincount(d_star_3)}")
+
+    # ==================================================================
+    # Save models (pkl)
+    # ==================================================================
+    os.makedirs(models_dir, exist_ok=True)
+    models_path = os.path.join(models_dir, f'{filename}_DREp_models.pkl')
+    with open(models_path, 'wb') as f:
+        pickle.dump({
+            'models_Y1':  models_Y1,
+            'models_Y2':  models_Y2,
+            'models_Y3':  models_Y3,
+            'ps1':        ps1,
+            'ps2':        ps2,
+            'ps3':        ps3,
+            'Y1_hat_all': Y1_hat_all,
+            'Y2_hat_all': Y2_hat_all,
+            'X1_cols':    X1_cols,
+            'k1':         k1,
+            'k2':         k2,
+            'k3':         k3,
+        }, f)
+    print(f"  ✓ Models saved: {filename}_DREp_models.pkl")
 
     # ==================================================================
     # Save output

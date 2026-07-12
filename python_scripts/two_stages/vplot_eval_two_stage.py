@@ -167,7 +167,7 @@ def make_figure(sub_df, k, flavor, greyscale=False):
 
     for x, mean, pv in zip(xs, means, pvals):
         stars = '' if np.isnan(pv) else _stars(pv)
-        label = f'{mean:.2f}{stars}'
+        label = f'{mean:.3f}{stars}'
         ax.text(x, mean + offset, label, ha='center', va='bottom', fontsize=9,
                 fontweight='normal' if stars else 'normal')
 

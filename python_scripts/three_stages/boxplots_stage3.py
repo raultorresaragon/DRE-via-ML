@@ -78,11 +78,10 @@ def build_records(sub_info):
             true  = true_ate_simple(fname, verbose=False)
             naive = _ate_from_file(fname, '_NAIVE', k1, k2, k3)
             dre   = _ate_from_file(fname, '_DRE',   k1, k2, k3)
+            drep  = _ate_from_file(fname, '_DREp',  k1, k2, k3)
         except FileNotFoundError as exc:
             print(f'  Skipping {fname}: {exc}')
             continue
-
-        drep = _ate_from_file(fname, '_DREp', k1, k2, k3)
 
         for a in sorted(true['ATE_1'].keys()):
             t1  = true['ATE_1'][a]

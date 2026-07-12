@@ -32,11 +32,13 @@
 import numpy as np
 import pandas as pd
 import os
+import pickle
 from Y_nn_tuning import Y_model_nn
 from A_nn_tuning import A_model_nn
 
 script_dir   = os.path.dirname(os.path.abspath(__file__))
 datasets_dir = os.path.join(script_dir, '../_1trt_effect/3stages/datasets')
+models_dir   = os.path.join(datasets_dir, 'models')
 info_path    = os.path.join(datasets_dir, '_info.csv')
 info_path_simple = os.path.join(datasets_dir, '_info_simple.csv')
 
@@ -153,12 +155,14 @@ def estimate_dre(filename,
     # ==================================================================
     print("\n[Stage 1 — outcome models]")
 
+    models_Y1  = {}
     Y1_hat_all = np.zeros((n, k1))
     for a in range(k1):
-        mask    = (A1 == a)
-        model_a = _fit_outcome_nn(X1[mask].reset_index(drop=True),
-                                  Y1[mask], hidunits, eps, penals, tag=f'Y1 a={a} ')
+        mask       = (A1 == a)
+        model_a    = _fit_outcome_nn(X1[mask].reset_index(drop=True),
+                                     Y1[mask], hidunits, eps, penals, tag=f'Y1 a={a} ')
         Y1_hat_all[:, a] = model_a.predict(X1)
+        models_Y1[a]     = model_a
 
     # Stage 1 — propensity scores
     print("\n[Stage 1 — propensity score]")
@@ -175,15 +179,17 @@ def estimate_dre(filename,
     # ==================================================================
     print("\n[Stage 2 — outcome models]")
 
+    models_Y2  = {}
     Y2_hat_all = np.zeros((n, k2))
     for a in range(k2):
         resid_a  = Y1 - Y1_hat_all[:, a]
         feat_2_a = pd.concat([X1,
                                pd.Series(resid_a, name='Y1_resid')], axis=1)
-        mask    = (A2 == a)
-        model_a = _fit_outcome_nn(feat_2_a[mask].reset_index(drop=True),
-                                  Y2[mask], hidunits, eps, penals, tag=f'Y2 a={a} ')
+        mask       = (A2 == a)
+        model_a    = _fit_outcome_nn(feat_2_a[mask].reset_index(drop=True),
+                                     Y2[mask], hidunits, eps, penals, tag=f'Y2 a={a} ')
         Y2_hat_all[:, a] = model_a.predict(feat_2_a)
+        models_Y2[a]     = model_a
 
     # Stage 2 — propensity scores
     # Features: [X1, A1, Y1]
@@ -208,6 +214,7 @@ def estimate_dre(filename,
     # ==================================================================
     print("\n[Stage 3 — outcome models]")
 
+    models_Y3  = {}
     Y3_hat_all = np.zeros((n, k3))
     for a in range(k3):
         a1_idx   = min(a, k1 - 1)   # clamp if k3 > k1
@@ -217,10 +224,11 @@ def estimate_dre(filename,
         feat_3_a = pd.concat([X1,
                                pd.Series(resid1_a, name='Y1_resid'),
                                pd.Series(resid2_a, name='Y2_resid')], axis=1)
-        mask    = (A3 == a)
-        model_a = _fit_outcome_nn(feat_3_a[mask].reset_index(drop=True),
-                                  Y[mask], hidunits, eps, penals, tag=f'Y3 a={a} ')
+        mask       = (A3 == a)
+        model_a    = _fit_outcome_nn(feat_3_a[mask].reset_index(drop=True),
+                                     Y[mask], hidunits, eps, penals, tag=f'Y3 a={a} ')
         Y3_hat_all[:, a] = model_a.predict(feat_3_a)
+        models_Y3[a]     = model_a
 
     # Stage 3 — propensity scores
     # Features: [X1, A1, Y1, A2, Y2]
@@ -236,6 +244,28 @@ def estimate_dre(filename,
     mu_hat_3 = compute_mu_hat(A3, Y, Y3_hat_all, pi3_hat, k3)
     d_star_3 = np.argmax(mu_hat_3, axis=1)
     print(f"\n  d_star_3 distribution: {np.bincount(d_star_3)}")
+
+    # ==================================================================
+    # Save models (pkl)
+    # ==================================================================
+    os.makedirs(models_dir, exist_ok=True)
+    models_path = os.path.join(models_dir, f'{filename}_DRE_models.pkl')
+    with open(models_path, 'wb') as f:
+        pickle.dump({
+            'models_Y1':  models_Y1,
+            'models_Y2':  models_Y2,
+            'models_Y3':  models_Y3,
+            'pscore_A1':  pscore_A1,
+            'pscore_A2':  pscore_A2,
+            'pscore_A3':  pscore_A3,
+            'Y1_hat_all': Y1_hat_all,
+            'Y2_hat_all': Y2_hat_all,
+            'X1_cols':    X1_cols,
+            'k1':         k1,
+            'k2':         k2,
+            'k3':         k3,
+        }, f)
+    print(f"  ✓ Models saved: {filename}_DRE_models.pkl")
 
     # ==================================================================
     # Save output
