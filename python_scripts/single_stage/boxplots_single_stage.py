@@ -135,7 +135,7 @@ def build_records(sub_info, drep_variant='EXPO'):
 
 def make_figure(df, flavor, arms, drep_variant='EXPO', greyscale=False):
     """
-    Single subplot — one boxplot group per arm.
+    Single subplot (k≤3) or one subplot per arm stacked vertically (k=5).
 
     Boxes per arm group: Naive | DRE-ML [| DRE-Param(expo)] [| DRE-Param(ols)]
 
@@ -149,22 +149,39 @@ def make_figure(df, flavor, arms, drep_variant='EXPO', greyscale=False):
     show_expo = drep_variant in ('EXPO', 'BOTH')
     show_ols  = drep_variant in ('OLS',  'BOTH')
 
-    n_arms    = len(arms)
-    n_boxes   = 2 + int(show_expo) + int(show_ols)
-    fig_w     = max(5, n_arms * n_boxes * 1.5)
-
+    n_arms       = len(arms)
+    n_boxes      = 2 + int(show_expo) + int(show_ols)
     title_flavor = 'loggamma' if flavor == 'gamma' else flavor
-    fig, ax   = plt.subplots(figsize=(fig_w, 5))
+
+    # k=5 (4 arms): arrange in a 2×2 grid
+    grid2x2 = n_arms > 2
+
+    if grid2x2:
+        fig_w = max(5, n_boxes * 1.5) * 2
+        fig, ax_grid = plt.subplots(2, 2, figsize=(fig_w, 8))
+        axes = ax_grid.flatten()
+    else:
+        fig_w = max(5, n_arms * n_boxes * 1.5)
+        fig, ax_single = plt.subplots(figsize=(fig_w, 5))
+        axes = [ax_single] * n_arms   # same ax for all arms
+
     fig.suptitle(f'ATE Bias — Single-Stage DGP  ({title_flavor})', fontsize=12)
 
-    all_data    = []
-    all_colors  = []
-    tick_labels = []
-    positions   = []
-    pos         = 1
+    # Accumulate data across arms (used only in the non-vertical path)
+    all_data_global    = []
+    all_colors_global  = []
+    tick_labels_global = []
+    positions_global   = []
+    pos_global         = 1
 
     for i_arm, a in enumerate(arms):
         sub = df[df['arm'] == a]
+
+        all_data   = []
+        all_colors = []
+        tick_labels = []
+        positions  = []
+        pos        = 1
 
         # Naive
         all_data.append(_drop_extreme(sub['rel_bias_naive'].values, k=1))
@@ -192,21 +209,44 @@ def make_figure(df, flavor, arms, drep_variant='EXPO', greyscale=False):
             tick_labels.append('DRE-(ols)')
             positions.append(pos); pos += 1
 
-        if i_arm < len(arms) - 1:
-            pos += 1   # gap between arm groups
+        if grid2x2:
+            ax = axes[i_arm]
+            bp = ax.boxplot(all_data, positions=positions, patch_artist=True, widths=0.6)
+            for patch, color in zip(bp['boxes'], all_colors):
+                patch.set_facecolor(color)
+                patch.set_alpha(0.8)
+            ax.axhline(0, color='black', linestyle='--', linewidth=0.8, alpha=0.5)
+            ax.set_xticks(positions)
+            ax.set_xticklabels(tick_labels, fontsize=10)
+            ax.set_title(f'A={a} vs 0', fontsize=11)
+            ax.set_ylabel('Relative Bias (%)', fontsize=10)
+            ax.grid(axis='y', alpha=0.3)
+            ax.set_xlim(positions[0] - 0.5, positions[-1] + 0.5)
+        else:
+            # Collect into global lists for the single-subplot path
+            for d, c, lbl, p in zip(all_data, all_colors, tick_labels, positions):
+                all_data_global.append(d)
+                all_colors_global.append(c)
+                tick_labels_global.append(lbl)
+                positions_global.append(pos_global)
+                pos_global += 1
+            if i_arm < n_arms - 1:
+                pos_global += 1   # gap between arm groups
 
-    bp = ax.boxplot(all_data, positions=positions, patch_artist=True, widths=0.6)
-    for patch, color in zip(bp['boxes'], all_colors):
-        patch.set_facecolor(color)
-        patch.set_alpha(0.8)
-
-    ax.axhline(0, color='black', linestyle='--', linewidth=0.8, alpha=0.5)
-    ax.set_xticks(positions)
-    ax.set_xticklabels(tick_labels, fontsize=7)
-    ax.set_title('Single Stage', fontsize=11)
-    ax.set_ylabel('Relative Bias (%)', fontsize=9)
-    ax.grid(axis='y', alpha=0.3)
-    ax.set_xlim(positions[0] - 0.5, positions[-1] + 0.5)
+    if not grid2x2:
+        ax = axes[0]
+        bp = ax.boxplot(all_data_global, positions=positions_global,
+                        patch_artist=True, widths=0.6)
+        for patch, color in zip(bp['boxes'], all_colors_global):
+            patch.set_facecolor(color)
+            patch.set_alpha(0.8)
+        ax.axhline(0, color='black', linestyle='--', linewidth=0.8, alpha=0.5)
+        ax.set_xticks(positions_global)
+        ax.set_xticklabels(tick_labels_global, fontsize=10)
+        ax.set_title('Single Stage', fontsize=11)
+        ax.set_ylabel('Relative Bias (%)', fontsize=10)
+        ax.grid(axis='y', alpha=0.3)
+        ax.set_xlim(positions_global[0] - 0.5, positions_global[-1] + 0.5)
 
     plt.tight_layout()
     return fig
