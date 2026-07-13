@@ -3,18 +3,23 @@
 # Three-stage forward DRE estimator — PARAMETRIC version.
 #
 # Identical algorithm to estimate_dre_three_stage.py but replaces neural-network
-# outcome and propensity models with:
-#   Outcome  : sklearn LinearRegression   (one model per arm, T-learner)
-#   Propensity: sklearn LogisticRegression
+# outcome and propensity models with parametric alternatives:
+#   OLS  : sklearn LinearRegression   (one model per arm, T-learner)
+#   EXPO : statsmodels GLM Gaussian + log link  (one model per arm, T-learner)
+#   Propensity: sklearn LogisticRegression (both variants)
 #
 # The self-normalized AIPW (Hajek) formula for mu_hat is unchanged.
-# Output saved as {filename}_DREp.csv — same column layout as _DRE.csv.
+# Output saved as:
+#   OLS  → {filename}_DREp_ols.csv    pkl → {filename}_DREp_ols_models.pkl
+#   EXPO → {filename}_DREp_expo.csv   pkl → {filename}_DREp_expo_models.pkl
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 import numpy as np
 import pandas as pd
 import os
 import pickle
+import warnings
+import statsmodels.api as sm
 from sklearn.linear_model import LinearRegression, LogisticRegression
 
 script_dir       = os.path.dirname(os.path.abspath(__file__))
@@ -27,12 +32,30 @@ info_path_simple = os.path.join(datasets_dir, '_info_simple.csv')
 # Helpers
 # ============================================================
 
-def _fit_outcome(X, y, tag=''):
+def _fit_outcome_ols(X, y, tag=''):
     """Fit LinearRegression; return fitted model."""
     print(f"    fitting outcome OLS {tag}(n={len(y)})...")
     model = LinearRegression()
     model.fit(X, y)
     return model
+
+
+def _fit_outcome_expo(X, y, tag=''):
+    """GLM Gaussian + log link: E[Y|X] = exp(X @ beta)."""
+    print(f"    fitting outcome GLM-expo {tag}(n={len(y)})...")
+    X_sm = sm.add_constant(X, has_constant='add')
+    with warnings.catch_warnings():
+        warnings.simplefilter('ignore')
+        result = sm.GLM(y, X_sm,
+                        family=sm.families.Gaussian(
+                            link=sm.families.links.Log())).fit(maxiter=200, method='irls')
+    return result
+
+
+def _predict_expo(result, X):
+    """Predict from a fitted GLM-expo (statsmodels); adds constant internally."""
+    X_sm = sm.add_constant(X, has_constant='add')
+    return result.predict(X_sm)
 
 
 def _fit_pscore(X, a, k, tag=''):
@@ -68,19 +91,24 @@ def compute_mu_hat(A_obs, Y_obs, Y_hat_all, pi_hat_all, k):
 # Main estimator
 # ============================================================
 
-def estimate_drep(filename, dgp='simple'):
+def estimate_drep(filename, dgp='simple', outcome_model='OLS'):
     """
     Forward three-stage parametric DRE estimator.
 
     Parameters
     ----------
-    filename : str   Base filename without extension (e.g. 's3_k2_simple_expo_0')
-    dgp      : str   'simple' reads _info_simple.csv; 'standard' reads _info.csv
+    filename      : str   Base filename without extension (e.g. 's3_k2_simple_expo_0')
+    dgp           : str   'simple' reads _info_simple.csv; 'standard' reads _info.csv
+    outcome_model : str   'OLS' (LinearRegression) or 'EXPO' (GLM Gaussian+log link)
 
     Returns
     -------
     DataFrame with columns: d_star_1..3, mu_hat_1_a0..., mu_hat_2_a0..., mu_hat_3_a0...
     """
+    outcome_model = outcome_model.upper()
+    if outcome_model not in ('OLS', 'EXPO'):
+        raise ValueError(f"outcome_model must be 'OLS' or 'EXPO', got '{outcome_model}'")
+
     info_fname = '_info_simple.csv' if dgp == 'simple' else '_info.csv'
     dat  = pd.read_csv(os.path.join(datasets_dir, f'{filename}.csv'))
     info = pd.read_csv(os.path.join(datasets_dir, info_fname))
@@ -99,21 +127,32 @@ def estimate_drep(filename, dgp='simple'):
     Y  = dat['Y'].values
     n  = len(dat)
 
+    model_tag = 'GLM-expo' if outcome_model == 'EXPO' else 'OLS'
     print(f"\n{'='*60}")
-    print(f"DRE-Param estimation (3-stage): {filename}")
+    print(f"DRE-Param ({model_tag}) estimation (3-stage): {filename}")
     print(f"  n={n}, k1={k1}, k2={k2}, k3={k3}, flavor_Y={flavor_Y}")
     print(f"{'='*60}")
+
+    def _fit(X, y, tag):
+        if outcome_model == 'EXPO':
+            return _fit_outcome_expo(X, y, tag)
+        return _fit_outcome_ols(X, y, tag)
+
+    def _predict(model, X):
+        if outcome_model == 'EXPO':
+            return _predict_expo(model, X)
+        return model.predict(X)
 
     # ==================================================================
     # STAGE 1 — outcome models (X1 features, T-learner)
     # ==================================================================
-    print("\n[Stage 1 — outcome models]")
+    print(f"\n[Stage 1 — {model_tag} outcome models]")
     models_Y1  = {}
     Y1_hat_all = np.zeros((n, k1))
     for a in range(k1):
         mask             = (A1 == a)
-        model_a          = _fit_outcome(X1[mask], Y1[mask], tag=f'Y1 a={a} ')
-        Y1_hat_all[:, a] = model_a.predict(X1)
+        model_a          = _fit(X1[mask], Y1[mask], tag=f'Y1 a={a} ')
+        Y1_hat_all[:, a] = _predict(model_a, X1)
         models_Y1[a]     = model_a
 
     print("\n[Stage 1 — propensity score]")
@@ -127,15 +166,15 @@ def estimate_drep(filename, dgp='simple'):
     # ==================================================================
     # STAGE 2 — outcome models ([X1, Y1_resid] features)
     # ==================================================================
-    print("\n[Stage 2 — outcome models]")
+    print(f"\n[Stage 2 — {model_tag} outcome models]")
     models_Y2  = {}
     Y2_hat_all = np.zeros((n, k2))
     for a in range(k2):
         resid_a          = (Y1 - Y1_hat_all[:, a]).reshape(-1, 1)
         feat_2_a         = np.hstack([X1, resid_a])
         mask             = (A2 == a)
-        model_a          = _fit_outcome(feat_2_a[mask], Y2[mask], tag=f'Y2 a={a} ')
-        Y2_hat_all[:, a] = model_a.predict(feat_2_a)
+        model_a          = _fit(feat_2_a[mask], Y2[mask], tag=f'Y2 a={a} ')
+        Y2_hat_all[:, a] = _predict(model_a, feat_2_a)
         models_Y2[a]     = model_a
 
     print("\n[Stage 2 — propensity score]")
@@ -150,7 +189,7 @@ def estimate_drep(filename, dgp='simple'):
     # ==================================================================
     # STAGE 3 — outcome models ([X1, Y1_resid, Y2_resid] features)
     # ==================================================================
-    print("\n[Stage 3 — outcome models]")
+    print(f"\n[Stage 3 — {model_tag} outcome models]")
     models_Y3  = {}
     Y3_hat_all = np.zeros((n, k3))
     for a in range(k3):
@@ -160,8 +199,8 @@ def estimate_drep(filename, dgp='simple'):
         resid2_a         = (Y2 - Y2_hat_all[:, a2_idx]).reshape(-1, 1)
         feat_3_a         = np.hstack([X1, resid1_a, resid2_a])
         mask             = (A3 == a)
-        model_a          = _fit_outcome(feat_3_a[mask], Y[mask], tag=f'Y3 a={a} ')
-        Y3_hat_all[:, a] = model_a.predict(feat_3_a)
+        model_a          = _fit(feat_3_a[mask], Y[mask], tag=f'Y3 a={a} ')
+        Y3_hat_all[:, a] = _predict(model_a, feat_3_a)
         models_Y3[a]     = model_a
 
     print("\n[Stage 3 — propensity score]")
@@ -178,33 +217,32 @@ def estimate_drep(filename, dgp='simple'):
     # ==================================================================
     # Save models (pkl)
     # ==================================================================
+    pkl_suffix = 'DREp_expo' if outcome_model == 'EXPO' else 'DREp_ols'
     os.makedirs(models_dir, exist_ok=True)
-    models_path = os.path.join(models_dir, f'{filename}_DREp_models.pkl')
+    models_path = os.path.join(models_dir, f'{filename}_{pkl_suffix}_models.pkl')
     with open(models_path, 'wb') as f:
         pickle.dump({
-            'models_Y1':  models_Y1,
-            'models_Y2':  models_Y2,
-            'models_Y3':  models_Y3,
-            'ps1':        ps1,
-            'ps2':        ps2,
-            'ps3':        ps3,
-            'Y1_hat_all': Y1_hat_all,
-            'Y2_hat_all': Y2_hat_all,
-            'X1_cols':    X1_cols,
-            'k1':         k1,
-            'k2':         k2,
-            'k3':         k3,
+            'models_Y1':    models_Y1,
+            'models_Y2':    models_Y2,
+            'models_Y3':    models_Y3,
+            'ps1':          ps1,
+            'ps2':          ps2,
+            'ps3':          ps3,
+            'Y1_hat_all':   Y1_hat_all,
+            'Y2_hat_all':   Y2_hat_all,
+            'X1_cols':      X1_cols,
+            'k1':           k1,
+            'k2':           k2,
+            'k3':           k3,
+            'outcome_model': outcome_model,
         }, f)
-    print(f"  ✓ Models saved: {filename}_DREp_models.pkl")
+    print(f"  ✓ Models saved: {filename}_{pkl_suffix}_models.pkl")
 
     # ==================================================================
-    # Save output
+    # Save output CSV
     # ==================================================================
-    out = pd.DataFrame({
-        'd_star_1': d_star_1,
-        'd_star_2': d_star_2,
-        'd_star_3': d_star_3,
-    })
+    csv_suffix = '_DREp_expo' if outcome_model == 'EXPO' else '_DREp_ols'
+    out = pd.DataFrame({'d_star_1': d_star_1, 'd_star_2': d_star_2, 'd_star_3': d_star_3})
     for a in range(k1):
         out[f'mu_hat_1_a{a}'] = mu_hat_1[:, a]
     for a in range(k2):
@@ -212,9 +250,9 @@ def estimate_drep(filename, dgp='simple'):
     for a in range(k3):
         out[f'mu_hat_3_a{a}'] = mu_hat_3[:, a]
 
-    out_path = os.path.join(datasets_dir, f'{filename}_DREp.csv')
+    out_path = os.path.join(datasets_dir, f'{filename}{csv_suffix}.csv')
     out.to_csv(out_path, index=False)
-    print(f"\n✓ Saved: {filename}_DREp.csv")
+    print(f"\n✓ Saved: {filename}{csv_suffix}.csv")
     return out
 
 
@@ -222,9 +260,18 @@ def estimate_drep(filename, dgp='simple'):
 # Run over all datasets in _info_simple.csv
 # ============================================================
 if __name__ == '__main__':
-    K_FILTER = None   # set to 2, 3, or 5 to run only that k; None = run all
+    K_FILTER      = None    # set to 2, 3, or 5; None = all k values
+    FLAVOR_FILTER = None    # set to 'expo', 'lognormal', 'sigmoid', 'gamma'; None = all
+    DREP_MODEL    = 'BOTH'  # 'OLS', 'EXPO', or 'BOTH'
+
+    models_to_run = ['OLS', 'EXPO'] if DREP_MODEL == 'BOTH' else [DREP_MODEL.upper()]
+
     info = pd.read_csv(info_path_simple)
     if K_FILTER is not None:
         info = info[info['k1'] == K_FILTER]
+    if FLAVOR_FILTER is not None:
+        info = info[info['flavor_Y'] == FLAVOR_FILTER]
+
     for _, row in info.iterrows():
-        estimate_drep(row['filename'], dgp='simple')
+        for model in models_to_run:
+            estimate_drep(row['filename'], dgp='simple', outcome_model=model)

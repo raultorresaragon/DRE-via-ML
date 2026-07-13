@@ -4,14 +4,15 @@
 #
 # For each Y flavor, produces:
 #   - One table: bias_naive and bias_DRE at stages 1, 2, and 3, one row per dataset i
-#     Saved to: _1trt_effect/3stages/tables/_ate_bias_{flavor}.csv
-#   - One figure: 1x3 subplot — stage 1 (light) | stage 2 (medium) | stage 3 (dark)
-#     Each subplot has two boxplots side by side: Naive (red shade) and DRE-ML (blue shade)
-#     Saved to: _1trt_effect/3stages/images/_ate_bias_{flavor}.jpeg
+#     Saved to: _1trt_effect/3stages/tables/_ate_bias_summary_{VARIANT}.csv
+#   - One figure: 1x3 subplot (k=2) or 3x1 subplot (k>2) — stage 1 | stage 2 | stage 3
+#     Each subplot has boxplots: Naive | DRE-ML [| DRE-Param(expo)] [| DRE-Param(ols)]
+#     Saved to: _1trt_effect/3stages/images/_ate_bias_k{k}_{flavor}_with{VARIANT}{suffix}.jpeg
 #
 # Bias = estimated ATE - true ATE   (positive = overestimate)
 # True ATE is computed analytically via ate_three_stage_simple.true_ate_simple.
 # Naive ATE and DRE ATE are computed from mu_hat columns in _NAIVE.csv / _DRE.csv.
+# DRE-Param reads from _DREp_expo.csv (EXPO), _DREp_ols.csv (OLS), or both (BOTH).
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 import sys
@@ -29,28 +30,29 @@ info_path    = os.path.join(datasets_dir, '_info_simple.csv')
 sys.path.insert(0, script_dir)
 from ate_three_stage_simple import true_ate_simple
 
-C_DREP = '#FFB74D'   # yellow — matches OLS color in boxplots.py
+# Color palette
+C_DREP_EXPO = '#FF8A65'   # orange — DRE-Param (expo)
+C_DREP_OLS  = '#FFB74D'   # yellow — DRE-Param (OLS)
 
-# Greyscale palette — same shades across all stages, matching boxplots.py (single_stage)
-C_BW = {'naive': '0.82', 'dre': '0.20', 'drep': '0.42'}
+# Greyscale: Naive lightest, DRE-ML darkest, expo/ols in between
+C_BW = {'naive': '0.82', 'dre': '0.20', 'drep_expo': '0.42', 'drep_ols': '0.60'}
+
+# Colors — progressively darken across stages
+C = {
+    1: {'naive': '#E57373', 'dre': '#64B5F6'},   # stage 1: light
+    2: {'naive': '#C62828', 'dre': '#1565C0'},   # stage 2: medium
+    3: {'naive': '#7F0000', 'dre': '#0D47A1'},   # stage 3: dark
+}
 
 
 def _drop_extreme(arr, k=3.0):
-    """Remove values beyond k×IQR from Q1/Q3 (extreme outliers, k=3 by default)."""
+    """Remove values beyond k×IQR from Q1/Q3 (extreme outliers)."""
     arr = arr[~np.isnan(arr)]
     if len(arr) == 0:
         return arr
     q1, q3 = np.percentile(arr, 25), np.percentile(arr, 75)
     iqr = q3 - q1
     return arr[(arr >= q1 - k * iqr) & (arr <= q3 + k * iqr)]
-
-
-# Colors — match boxplots.py shades; progressively darken across stages
-C = {
-    1: {'naive': '#E57373', 'dre': '#64B5F6'},   # stage 1: light red  / light blue
-    2: {'naive': '#C62828', 'dre': '#1565C0'},   # stage 2: medium red / medium blue
-    3: {'naive': '#7F0000', 'dre': '#0D47A1'},   # stage 3: dark red   / dark blue
-}
 
 
 def _ate_from_file(filename, suffix, k1, k2, k3):
@@ -66,75 +68,113 @@ def _ate_from_file(filename, suffix, k1, k2, k3):
     return {'ATE_1': ATE_1, 'ATE_2': ATE_2, 'ATE_3': ATE_3}
 
 
-def build_records(sub_info):
-    """Loop over rows in sub_info DataFrame; return list of bias records."""
+def build_records(sub_info, drep_variant='EXPO'):
+    """
+    Loop over rows in sub_info; return list of bias records.
+
+    drep_variant : 'EXPO' reads _DREp_expo.csv
+                   'OLS'  reads _DREp_ols.csv
+                   'BOTH' reads both
+                   None   skips DRE-Param
+    """
+    drep_variant = drep_variant.upper() if drep_variant else None
+    load_expo = drep_variant in ('EXPO', 'BOTH')
+    load_ols  = drep_variant in ('OLS',  'BOTH')
+
     records = []
     for _, row in sub_info.iterrows():
         fname       = row['filename']
         k1, k2, k3 = int(row['k1']), int(row['k2']), int(row['k3'])
         i_val       = int(row['i'])
-        k_val       = k1   # k1 == k2 == k3 for simple DGP
+        k_val       = k1
+
         try:
             true  = true_ate_simple(fname, verbose=False)
             naive = _ate_from_file(fname, '_NAIVE', k1, k2, k3)
             dre   = _ate_from_file(fname, '_DRE',   k1, k2, k3)
-            drep  = _ate_from_file(fname, '_DREp',  k1, k2, k3)
         except FileNotFoundError as exc:
             print(f'  Skipping {fname}: {exc}')
             continue
 
+        drep_expo = None
+        drep_ols  = None
+        if load_expo:
+            try:
+                drep_expo = _ate_from_file(fname, '_DREp_expo', k1, k2, k3)
+            except FileNotFoundError as exc:
+                print(f'  Warning — expo file missing for {fname}: {exc}')
+        if load_ols:
+            try:
+                drep_ols = _ate_from_file(fname, '_DREp_ols', k1, k2, k3)
+            except FileNotFoundError as exc:
+                print(f'  Warning — OLS file missing for {fname}: {exc}')
+
         for a in sorted(true['ATE_1'].keys()):
-            t1  = true['ATE_1'][a]
-            n1  = naive['ATE_1'].get(a, np.nan)
-            d1  = dre['ATE_1'].get(a, np.nan)
-            dp1 = drep['ATE_1'].get(a, np.nan)
-            t2  = true['ATE_2'].get(a, np.nan)
-            n2  = naive['ATE_2'].get(a, np.nan)
-            d2  = dre['ATE_2'].get(a, np.nan)
-            dp2 = drep['ATE_2'].get(a, np.nan)
-            t3  = true['ATE_3'].get(a, np.nan)
-            n3  = naive['ATE_3'].get(a, np.nan)
-            d3  = dre['ATE_3'].get(a, np.nan)
-            dp3 = drep['ATE_3'].get(a, np.nan)
-            records.append({
+            t1 = true['ATE_1'][a]
+            t2 = true['ATE_2'].get(a, np.nan)
+            t3 = true['ATE_3'].get(a, np.nan)
+            n1 = naive['ATE_1'].get(a, np.nan)
+            n2 = naive['ATE_2'].get(a, np.nan)
+            n3 = naive['ATE_3'].get(a, np.nan)
+            d1 = dre['ATE_1'].get(a, np.nan)
+            d2 = dre['ATE_2'].get(a, np.nan)
+            d3 = dre['ATE_3'].get(a, np.nan)
+
+            rec = {
                 'i':                i_val,
                 'k':                k_val,
                 'arm':              a,
                 'ATE_true_1':       t1,
                 'ATE_naive_1':      n1,
                 'ATE_dre_1':        d1,
-                'ATE_drep_1':       dp1,
-                'rel_bias_naive_1': (n1  - t1) / abs(t1) * 100 if t1 != 0 else np.nan,
-                'rel_bias_dre_1':   (d1  - t1) / abs(t1) * 100 if t1 != 0 else np.nan,
-                'rel_bias_drep_1':  (dp1 - t1) / abs(t1) * 100 if t1 != 0 else np.nan,
+                'rel_bias_naive_1': (n1 - t1) / abs(t1) * 100 if t1 != 0 else np.nan,
+                'rel_bias_dre_1':   (d1 - t1) / abs(t1) * 100 if t1 != 0 else np.nan,
                 'ATE_true_2':       t2,
                 'ATE_naive_2':      n2,
                 'ATE_dre_2':        d2,
-                'ATE_drep_2':       dp2,
-                'rel_bias_naive_2': (n2  - t2) / abs(t2) * 100 if t2 != 0 else np.nan,
-                'rel_bias_dre_2':   (d2  - t2) / abs(t2) * 100 if t2 != 0 else np.nan,
-                'rel_bias_drep_2':  (dp2 - t2) / abs(t2) * 100 if t2 != 0 else np.nan,
+                'rel_bias_naive_2': (n2 - t2) / abs(t2) * 100 if t2 != 0 else np.nan,
+                'rel_bias_dre_2':   (d2 - t2) / abs(t2) * 100 if t2 != 0 else np.nan,
                 'ATE_true_3':       t3,
                 'ATE_naive_3':      n3,
                 'ATE_dre_3':        d3,
-                'ATE_drep_3':       dp3,
-                'rel_bias_naive_3': (n3  - t3) / abs(t3) * 100 if t3 != 0 else np.nan,
-                'rel_bias_dre_3':   (d3  - t3) / abs(t3) * 100 if t3 != 0 else np.nan,
-                'rel_bias_drep_3':  (dp3 - t3) / abs(t3) * 100 if t3 != 0 else np.nan,
-            })
+                'rel_bias_naive_3': (n3 - t3) / abs(t3) * 100 if t3 != 0 else np.nan,
+                'rel_bias_dre_3':   (d3 - t3) / abs(t3) * 100 if t3 != 0 else np.nan,
+            }
+
+            if drep_expo is not None:
+                for s, ts in [(1, t1), (2, t2), (3, t3)]:
+                    dp = drep_expo[f'ATE_{s}'].get(a, np.nan)
+                    rec[f'ATE_drep_expo_{s}']      = dp
+                    rec[f'rel_bias_drep_expo_{s}'] = (dp - ts) / abs(ts) * 100 if ts != 0 else np.nan
+
+            if drep_ols is not None:
+                for s, ts in [(1, t1), (2, t2), (3, t3)]:
+                    dp = drep_ols[f'ATE_{s}'].get(a, np.nan)
+                    rec[f'ATE_drep_ols_{s}']      = dp
+                    rec[f'rel_bias_drep_ols_{s}'] = (dp - ts) / abs(ts) * 100 if ts != 0 else np.nan
+
+            records.append(rec)
     return records
 
 
-def make_figure(df, flavor, arms, include_drep=True, greyscale=False):
+def make_figure(df, flavor, arms, drep_variant='BOTH', greyscale=False):
     """
     k=2 : 1×3 figure (stages side by side).
     k>2 : 3×1 figure (stages stacked vertically).
-    Each subplot: Naive | DRE-ML [| DRE-Param] boxplots.
-    Set include_drep=False to omit the DRE-Param boxplot.
-    Set greyscale=True for grey shades (same across stages): Naive lightest, DRE-ML darkest.
+
+    Boxes per arm group: Naive | DRE-ML [| DRE-Param(expo)] [| DRE-Param(ols)]
+
+    drep_variant : 'EXPO'  — include DRE-Param(expo) only
+                   'OLS'   — include DRE-Param(ols) only
+                   'BOTH'  — include both DRE-Param variants
+                   None    — omit DRE-Param entirely
     """
+    drep_variant = drep_variant.upper() if drep_variant else None
+    show_expo = drep_variant in ('EXPO', 'BOTH')
+    show_ols  = drep_variant in ('OLS',  'BOTH')
+
     n_arms    = len(arms)
-    n_boxes   = 3 if include_drep else 2
+    n_boxes   = 2 + int(show_expo) + int(show_ols)
     subplot_w = max(5, n_arms * n_boxes * 1.5)
     vertical  = n_arms > 1
 
@@ -143,13 +183,10 @@ def make_figure(df, flavor, arms, include_drep=True, greyscale=False):
     else:
         fig, axes = plt.subplots(1, 3, figsize=(3 * subplot_w, 5))
     title_flavor = 'loggamma' if flavor == 'gamma' else flavor
-    fig.suptitle(f'ATE Bias — Three-Stage DGP  ({title_flavor})', fontsize=12)
+    fig.suptitle(f'ATE Rel Bias — Three-Stage DGP  ({title_flavor})', fontsize=12)
 
     for col_idx, stage in enumerate([1, 2, 3]):
         ax = axes[col_idx]
-        bias_naive_col = f'rel_bias_naive_{stage}'
-        bias_dre_col   = f'rel_bias_dre_{stage}'
-        bias_drep_col  = f'rel_bias_drep_{stage}'
 
         all_data    = []
         all_colors  = []
@@ -159,27 +196,35 @@ def make_figure(df, flavor, arms, include_drep=True, greyscale=False):
 
         for i_arm, a in enumerate(arms):
             sub = df[df['arm'] == a]
-            all_data.append(_drop_extreme(sub[bias_naive_col].values))
+
+            # Naive
+            all_data.append(_drop_extreme(sub[f'rel_bias_naive_{stage}'].values, k=1))
             all_colors.append(C_BW['naive'] if greyscale else C[stage]['naive'])
             tick_labels.append(f'Naive\n(A{stage}={a} vs 0)')
-            positions.append(pos)
-            pos += 1
+            positions.append(pos); pos += 1
 
-            all_data.append(_drop_extreme(sub[bias_dre_col].values))
+            # DRE-ML
+            all_data.append(_drop_extreme(sub[f'rel_bias_dre_{stage}'].values))
             all_colors.append(C_BW['dre'] if greyscale else C[stage]['dre'])
-            tick_labels.append(f'DRE-ML\n(A{stage}={a} vs 0)')
-            positions.append(pos)
-            pos += 1
+            tick_labels.append('DRE-ML')
+            positions.append(pos); pos += 1
 
-            if include_drep:
-                all_data.append(_drop_extreme(sub[bias_drep_col].values))
-                all_colors.append(C_BW['drep'] if greyscale else C_DREP)
-                tick_labels.append(f'DRE-Param\n(A{stage}={a} vs 0)')
-                positions.append(pos)
-                pos += 1
+            # DRE-Param (expo)
+            if show_expo and f'rel_bias_drep_expo_{stage}' in sub.columns:
+                all_data.append(_drop_extreme(sub[f'rel_bias_drep_expo_{stage}'].values))
+                all_colors.append(C_BW['drep_expo'] if greyscale else C_DREP_EXPO)
+                tick_labels.append('DRE-(expo)')
+                positions.append(pos); pos += 1
+
+            # DRE-Param (ols)
+            if show_ols and f'rel_bias_drep_ols_{stage}' in sub.columns:
+                all_data.append(_drop_extreme(sub[f'rel_bias_drep_ols_{stage}'].values))
+                all_colors.append(C_BW['drep_ols'] if greyscale else C_DREP_OLS)
+                tick_labels.append('DRE-(ols)')
+                positions.append(pos); pos += 1
 
             if i_arm < len(arms) - 1:
-                pos += 1   # gap between arm groups, not after the last one
+                pos += 1   # gap between arm groups
 
         bp = ax.boxplot(all_data, positions=positions, patch_artist=True, widths=0.6)
         for patch, color in zip(bp['boxes'], all_colors):
@@ -188,9 +233,9 @@ def make_figure(df, flavor, arms, include_drep=True, greyscale=False):
 
         ax.axhline(0, color='black', linestyle='--', linewidth=0.8, alpha=0.5)
         ax.set_xticks(positions)
-        ax.set_xticklabels(tick_labels, fontsize=9)
+        ax.set_xticklabels(tick_labels, fontsize=7)
         ax.set_title(f'Stage {stage}', fontsize=11)
-        ax.set_ylabel('Relative Bias × 100  [(Est − True) / |True| × 100]', fontsize=9)
+        ax.set_ylabel('Relative Bias (%)', fontsize=9)
         ax.grid(axis='y', alpha=0.3)
         ax.set_xlim(positions[0] - 0.5, positions[-1] + 0.5)
 
@@ -199,22 +244,34 @@ def make_figure(df, flavor, arms, include_drep=True, greyscale=False):
 
 
 if __name__ == '__main__':
-    INCLUDE_DREP = True   # set to False to omit DRE-Param from boxplots
-    GREYSCALE    = True   # set to True for grey shades (Naive lightest, DRE-ML darkest)
+    # DREP_VARIANT : 'EXPO' — DRE-Param with GLM expo link
+    #                'OLS'  — DRE-Param with OLS
+    #                'BOTH' — include both DRE-Param variants side by side
+    #                None   — omit DRE-Param entirely
+    DREP_VARIANT = 'BOTH'
+    GREYSCALE    = True
 
     os.makedirs(tables_dir, exist_ok=True)
     os.makedirs(images_dir, exist_ok=True)
 
+    _variant_tag = {
+        'EXPO': 'withEXPO',
+        'OLS':  'withOLS',
+        'BOTH': 'withBOTH',
+        None:   'noParam',
+    }.get(DREP_VARIANT.upper() if DREP_VARIANT else None, 'withEXPO')
+    _bw_suffix = '_bw' if GREYSCALE else ''
+
     info        = pd.read_csv(info_path)
     k_vals      = sorted(info['k1'].unique())
     flavors     = sorted(info['flavor_Y'].unique())
-    all_records = []   # accumulate across (k, flavor) for summary table
+    all_records = []
 
     for k in k_vals:
         for flavor in flavors:
             print(f'\n{"="*55}\nk={k}  Flavor: {flavor}\n{"="*55}')
-            sub = info[(info['k1'] == k) & (info['flavor_Y'] == flavor)].copy()
-            records = build_records(sub)
+            sub     = info[(info['k1'] == k) & (info['flavor_Y'] == flavor)].copy()
+            records = build_records(sub, drep_variant=DREP_VARIANT)
 
             if not records:
                 print(f'  No data for k={k}, flavor={flavor}, skipping.')
@@ -222,45 +279,52 @@ if __name__ == '__main__':
 
             df   = pd.DataFrame(records)
             arms = sorted(df['arm'].unique())
-
-            # Tag each record then accumulate
             df['flavor_Y'] = flavor
             all_records.append(df)
 
-            # --- Figure ---
-            fig = make_figure(df, flavor, arms, include_drep=INCLUDE_DREP,
-                              greyscale=GREYSCALE)
-            suffix   = '_bw' if GREYSCALE else ''
-            img_path = os.path.join(images_dir, f'_ate_bias_k{k}_{flavor}{suffix}.jpeg')
+            fig = make_figure(df, flavor, arms,
+                              drep_variant=DREP_VARIANT, greyscale=GREYSCALE)
+            img_name = f'_ate_bias_k{k}_{flavor}_{_variant_tag}{_bw_suffix}.jpeg'
+            img_path = os.path.join(images_dir, img_name)
             fig.savefig(img_path, dpi=150, bbox_inches='tight')
             plt.close(fig)
-            print(f'  Figure saved: _ate_bias_k{k}_{flavor}.jpeg')
+            print(f'  Figure saved: {img_name}')
 
     if all_records:
         all_df = pd.concat(all_records, ignore_index=True)
 
+        agg_dict = {
+            'n_datasets':            ('i',                'nunique'),
+            'rel_bias_naive_stage1': ('rel_bias_naive_1', 'mean'),
+            'rel_bias_dre_stage1':   ('rel_bias_dre_1',   'mean'),
+            'rel_bias_naive_stage2': ('rel_bias_naive_2', 'mean'),
+            'rel_bias_dre_stage2':   ('rel_bias_dre_2',   'mean'),
+            'rel_bias_naive_stage3': ('rel_bias_naive_3', 'mean'),
+            'rel_bias_dre_stage3':   ('rel_bias_dre_3',   'mean'),
+        }
+        for col, label in [
+            ('rel_bias_drep_expo_1', 'rel_bias_drep_expo_stage1'),
+            ('rel_bias_drep_expo_2', 'rel_bias_drep_expo_stage2'),
+            ('rel_bias_drep_expo_3', 'rel_bias_drep_expo_stage3'),
+            ('rel_bias_drep_ols_1',  'rel_bias_drep_ols_stage1'),
+            ('rel_bias_drep_ols_2',  'rel_bias_drep_ols_stage2'),
+            ('rel_bias_drep_ols_3',  'rel_bias_drep_ols_stage3'),
+        ]:
+            if col in all_df.columns:
+                agg_dict[label] = (col, 'mean')
+
         summary = (
             all_df.groupby(['k', 'flavor_Y'])
-            .agg(
-                n_datasets             =('i', 'nunique'),
-                rel_bias_naive_stage1  =('rel_bias_naive_1', 'mean'),
-                rel_bias_dre_stage1    =('rel_bias_dre_1',   'mean'),
-                rel_bias_drep_stage1   =('rel_bias_drep_1',  'mean'),
-                rel_bias_naive_stage2  =('rel_bias_naive_2', 'mean'),
-                rel_bias_dre_stage2    =('rel_bias_dre_2',   'mean'),
-                rel_bias_drep_stage2   =('rel_bias_drep_2',  'mean'),
-                rel_bias_naive_stage3  =('rel_bias_naive_3', 'mean'),
-                rel_bias_dre_stage3    =('rel_bias_dre_3',   'mean'),
-                rel_bias_drep_stage3   =('rel_bias_drep_3',  'mean'),
-            )
+            .agg(**agg_dict)
             .reset_index()
             .rename(columns={'flavor_Y': 'DGP'})
             .round(4)
         )
 
-        tbl_path = os.path.join(tables_dir, '_ate_bias_summary.csv')
+        tbl_name = f'_ate_bias_summary_{_variant_tag}.csv'
+        tbl_path = os.path.join(tables_dir, tbl_name)
         summary.to_csv(tbl_path, index=False)
-        print(f'\n✓ Summary table saved: _ate_bias_summary.csv')
+        print(f'\n✓ Summary table saved: {tbl_name}')
         print(summary.to_string(index=False))
 
     print('\nDone.')

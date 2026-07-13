@@ -3,16 +3,18 @@
 # Collect V(d*) values across all replications i and compare estimators.
 #
 # For each row i in _info_simple.csv:
-#   V(DRE-ML)   = mean(Y_hat_3[j, d_star_3[j]])  from {filename}_eval_DRE.csv
-#   V(DREp-ols) = mean(Y_hat_3[j, d_star_3[j]])  from {filename}_eval_DREp.csv
-#   Obs Y       = mean(Y)                          from {filename}_eval.csv  (no t-test)
+#   V(DRE-ML)    = mean(Y_hat_3[j, d_star_3[j]])  from {filename}_eval_DRE.csv
+#   V(DREp-expo) = mean(Y_hat_3[j, d_star_3[j]])  from {filename}_eval_DREp_expo.csv
+#   V(DREp-ols)  = mean(Y_hat_3[j, d_star_3[j]])  from {filename}_eval_DREp_ols.csv
+#   Obs Y        = mean(Y)                          from {filename}_eval.csv  (no t-test)
 #
 # Paired t-test (DRE-ML as reference):
+#   DRE-ML vs DREp-expo
 #   DRE-ML vs DREp-ols
 #
 # Output (per k × flavor group):
 #   Bar plot: _1trt_effect/3stages/images/eval_sets/_vplot_eval_k{k}_{flavor}[_bw].jpeg
-#     3 bars: DRE-ML | DREp-ols | Obs Y
+#     4 bars: DRE-ML | DREp-expo | DREp-ols | Obs Y
 #     Bar tops show mean V (3 d.p.) + significance stars vs DRE-ML:
 #       *** p < 0.01 | ** p < 0.05 | * p < 0.10  (DRE-ML and Obs Y show no stars)
 #   Tables: _1trt_effect/3stages/tables/eval_sets/_v_summary.csv
@@ -37,14 +39,16 @@ tables_dir   = os.path.join(script_dir,   '../_1trt_effect/3stages/tables/eval_s
 images_dir   = os.path.join(script_dir,   '../_1trt_effect/3stages/images/eval_sets')
 
 C_BW = {
-    'DRE-ML':   '0.20',
-    'DREp-ols': '0.50',
-    'Obs Y':    '0.82',
+    'DRE-ML':    '0.20',
+    'DREp-expo': '0.38',
+    'DREp-ols':  '0.56',
+    'Obs Y':     '0.82',
 }
 C_COLOR = {
-    'DRE-ML':   '#64B5F6',
-    'DREp-ols': '#81C784',
-    'Obs Y':    '#E57373',
+    'DRE-ML':    '#64B5F6',
+    'DREp-expo': '#FF8A65',
+    'DREp-ols':  '#81C784',
+    'Obs Y':     '#E57373',
 }
 
 
@@ -73,7 +77,7 @@ def collect_v_values(info, eval_dir):
 
     Returns
     -------
-    pd.DataFrame with columns: i, k, flavor_Y, V_dre, V_drep_ols, V_obs
+    pd.DataFrame with columns: i, k, flavor_Y, V_dre, V_drep_expo, V_drep_ols, V_obs
     """
     records = []
     for _, row in info.iterrows():
@@ -82,54 +86,63 @@ def collect_v_values(info, eval_dir):
         filename = row['filename']
         i_val    = int(row['i'])
 
-        dre_path      = os.path.join(eval_dir, f'{filename}_eval_DRE.csv')
-        drep_ols_path = os.path.join(eval_dir, f'{filename}_eval_DREp.csv')
-        obs_path      = os.path.join(eval_dir, f'{filename}_eval.csv')
+        dre_path       = os.path.join(eval_dir, f'{filename}_eval_DRE.csv')
+        drep_expo_path = os.path.join(eval_dir, f'{filename}_eval_DREp_expo.csv')
+        drep_ols_path  = os.path.join(eval_dir, f'{filename}_eval_DREp_ols.csv')
+        obs_path       = os.path.join(eval_dir, f'{filename}_eval.csv')
 
-        v_dre     = _compute_v(dre_path,      k)
-        v_drep_ols = _compute_v(drep_ols_path, k)
-        v_obs     = (float(pd.read_csv(obs_path)['Y'].mean())
-                     if os.path.exists(obs_path) else np.nan)
+        v_dre      = _compute_v(dre_path,       k)
+        v_drep_expo = _compute_v(drep_expo_path, k)
+        v_drep_ols  = _compute_v(drep_ols_path,  k)
+        v_obs      = (float(pd.read_csv(obs_path)['Y'].mean())
+                      if os.path.exists(obs_path) else np.nan)
 
-        if np.isnan(v_dre) and np.isnan(v_drep_ols):
+        if np.isnan(v_dre) and np.isnan(v_drep_expo) and np.isnan(v_drep_ols):
             print(f'  Skipping i={i_val} k={k} {flavor}: no eval predictions found.')
             continue
 
         records.append({
-            'i':          i_val,
-            'k':          k,
-            'flavor_Y':   flavor,
-            'V_dre':      v_dre,
-            'V_drep_ols': v_drep_ols,
-            'V_obs':      v_obs,
+            'i':           i_val,
+            'k':           k,
+            'flavor_Y':    flavor,
+            'V_dre':       v_dre,
+            'V_drep_expo': v_drep_expo,
+            'V_drep_ols':  v_drep_ols,
+            'V_obs':       v_obs,
         })
     return pd.DataFrame(records)
 
 
 def make_figure(sub_df, k, flavor, greyscale=False):
     """
-    Bar plot of mean V(d*) for one (k, flavor) group — three bars:
-      DRE-ML | DREp-ols | Obs Y
+    Bar plot of mean V(d*) for one (k, flavor) group — four bars:
+      DRE-ML | DREp-expo | DREp-ols | Obs Y
 
     Bar tops show mean V to 3 d.p. + significance stars vs DRE-ML.
     DRE-ML and Obs Y show no stars.
     """
-    v_dre     = sub_df['V_dre'].dropna().values
-    v_drep_ols = sub_df['V_drep_ols'].dropna().values
-    v_obs     = sub_df['V_obs'].dropna().values
+    v_dre      = sub_df['V_dre'].dropna().values
+    v_drep_expo = sub_df['V_drep_expo'].dropna().values
+    v_drep_ols  = sub_df['V_drep_ols'].dropna().values
+    v_obs      = sub_df['V_obs'].dropna().values
 
     palette      = C_BW if greyscale else C_COLOR
     title_flavor = 'log-gamma' if flavor == 'gamma' else flavor
 
-    # Paired t-test: DRE-ML vs DREp-ols
+    # Paired t-tests vs DRE-ML
+    pval_expo = np.nan
+    if len(v_dre) > 0 and len(v_drep_expo) == len(v_dre):
+        _, pval_expo = stats.ttest_rel(v_dre, v_drep_expo)
+
     pval_ols = np.nan
     if len(v_dre) > 0 and len(v_drep_ols) == len(v_dre):
         _, pval_ols = stats.ttest_rel(v_dre, v_drep_ols)
 
     entries = [
-        ('DRE-ML',   v_dre,      np.nan),
-        ('DREp-ols', v_drep_ols, pval_ols),
-        ('Obs Y',    v_obs,      np.nan),
+        ('DRE-ML',    v_dre,       np.nan),
+        ('DREp-expo', v_drep_expo, pval_expo),
+        ('DREp-ols',  v_drep_ols,  pval_ols),
+        ('Obs Y',     v_obs,       np.nan),
     ]
     entries = [(lbl, arr, pv) for lbl, arr, pv in entries if len(arr) > 0]
 
@@ -141,14 +154,13 @@ def make_figure(sub_df, k, flavor, greyscale=False):
     pvals  = [e[2] for e in entries]
     colors = [palette[lbl] for lbl in labels]
 
-    fig_w = max(4, len(entries) * 1.6)
+    fig_w = max(5, len(entries) * 1.6)
     fig, ax = plt.subplots(figsize=(fig_w, 4.5))
 
-    xs   = list(range(len(entries)))
+    xs = list(range(len(entries)))
     ax.bar(xs, means, color=colors, alpha=0.85, width=0.55, edgecolor='grey',
            linewidth=0.6)
 
-    # Annotate bar tops: mean + stars
     y_range = max(means) - min(means) if len(means) > 1 else abs(means[0])
     offset  = y_range * 0.03 + abs(max(means)) * 0.01
 
@@ -193,44 +205,50 @@ if __name__ == '__main__':
         summary_rows = []
 
         for (k, flavor), sub in df_all.groupby(['k', 'flavor_Y']):
-            v_dre     = sub['V_dre'].dropna().values
-            v_drep_ols = sub['V_drep_ols'].dropna().values
-            v_obs     = sub['V_obs'].dropna().values
-            n_rep     = len(sub)
+            v_dre      = sub['V_dre'].dropna().values
+            v_drep_expo = sub['V_drep_expo'].dropna().values
+            v_drep_ols  = sub['V_drep_ols'].dropna().values
+            v_obs      = sub['V_obs'].dropna().values
+            n_rep      = len(sub)
 
             row = {
-                'k':              k,
-                'flavor_Y':       flavor,
-                'n_replications': n_rep,
-                'mean_V_dre':     float(np.mean(v_dre))      if len(v_dre)      > 0 else np.nan,
-                'mean_V_drep_ols': float(np.mean(v_drep_ols)) if len(v_drep_ols) > 0 else np.nan,
-                'mean_V_obs':     float(np.mean(v_obs))      if len(v_obs)      > 0 else np.nan,
-                'sd_V_dre':       float(np.std(v_dre))       if len(v_dre)      > 1 else np.nan,
-                'sd_V_drep_ols':  float(np.std(v_drep_ols))  if len(v_drep_ols) > 1 else np.nan,
-                'sd_V_obs':       float(np.std(v_obs))       if len(v_obs)      > 1 else np.nan,
+                'k':               k,
+                'flavor_Y':        flavor,
+                'n_replications':  n_rep,
+                'mean_V_dre':      float(np.mean(v_dre))       if len(v_dre)       > 0 else np.nan,
+                'mean_V_drep_expo': float(np.mean(v_drep_expo)) if len(v_drep_expo) > 0 else np.nan,
+                'mean_V_drep_ols':  float(np.mean(v_drep_ols))  if len(v_drep_ols)  > 0 else np.nan,
+                'mean_V_obs':      float(np.mean(v_obs))        if len(v_obs)       > 0 else np.nan,
+                'sd_V_dre':        float(np.std(v_dre))         if len(v_dre)       > 1 else np.nan,
+                'sd_V_drep_expo':  float(np.std(v_drep_expo))   if len(v_drep_expo) > 1 else np.nan,
+                'sd_V_drep_ols':   float(np.std(v_drep_ols))    if len(v_drep_ols)  > 1 else np.nan,
+                'sd_V_obs':        float(np.std(v_obs))         if len(v_obs)       > 1 else np.nan,
             }
 
-            # t-test: DRE-ML vs DREp-ols
-            if len(v_dre) > 0 and len(v_drep_ols) > 0 and len(v_dre) == len(v_drep_ols):
-                t, p = stats.ttest_rel(v_dre, v_drep_ols)
-                row['tstat_vs_ols'] = round(float(t), 4)
-                row['pval_vs_ols']  = round(float(p), 4)
-                row['sig_vs_ols']   = _stars(p) or 'n.s.'
-            else:
-                row['tstat_vs_ols'] = np.nan
-                row['pval_vs_ols']  = np.nan
-                row['sig_vs_ols']   = ''
+            # t-tests vs DRE-ML
+            for tag, v_comp in [('expo', v_drep_expo), ('ols', v_drep_ols)]:
+                if len(v_dre) > 0 and len(v_comp) > 0 and len(v_dre) == len(v_comp):
+                    t, p = stats.ttest_rel(v_dre, v_comp)
+                    row[f'tstat_vs_{tag}'] = round(float(t), 4)
+                    row[f'pval_vs_{tag}']  = round(float(p), 4)
+                    row[f'sig_vs_{tag}']   = _stars(p) or 'n.s.'
+                else:
+                    row[f'tstat_vs_{tag}'] = np.nan
+                    row[f'pval_vs_{tag}']  = np.nan
+                    row[f'sig_vs_{tag}']   = ''
 
             print(f'\n  k={k}  {flavor:10s}  '
                   f'DRE-ML={row["mean_V_dre"]:.4f}  '
+                  f'DREp-expo={row["mean_V_drep_expo"]:.4f}  '
                   f'DREp-ols={row["mean_V_drep_ols"]:.4f}  '
                   f'Obs Y={row["mean_V_obs"]:.4f}')
-            print(f'    DRE-ML vs DREp-ols: t={row["tstat_vs_ols"]}  '
+            print(f'    DRE-ML vs DREp-expo: t={row["tstat_vs_expo"]}  '
+                  f'p={row["pval_vs_expo"]}  {row["sig_vs_expo"]}')
+            print(f'    DRE-ML vs DREp-ols:  t={row["tstat_vs_ols"]}  '
                   f'p={row["pval_vs_ols"]}  {row["sig_vs_ols"]}')
 
             summary_rows.append(row)
 
-            # ---- Figure ----
             fig = make_figure(sub, k, flavor, greyscale=GREYSCALE)
             if fig is not None:
                 suffix   = '_bw' if GREYSCALE else ''
@@ -245,7 +263,7 @@ if __name__ == '__main__':
         print(f'\n✓ Summary table saved: _v_summary.csv')
         print(summary.to_string(index=False))
 
-        df_all[['i', 'k', 'flavor_Y', 'V_dre', 'V_drep_ols', 'V_obs']].round(4).to_csv(
+        df_all[['i', 'k', 'flavor_Y', 'V_dre', 'V_drep_expo', 'V_drep_ols', 'V_obs']].round(4).to_csv(
             os.path.join(tables_dir, '_v_per_replication.csv'), index=False)
         print(f'✓ Per-replication values saved: _v_per_replication.csv')
 
