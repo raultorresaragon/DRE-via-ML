@@ -260,7 +260,7 @@ def estimate_drep(filename, dgp='simple', outcome_model='OLS'):
 # Run over all datasets in _info_simple.csv
 # ============================================================
 if __name__ == '__main__':
-    K_FILTER      = None    # set to 2, 3, or 5; None = all k values
+    K_FILTER      = 5    # set to 2, 3, or 5; None = all k values
     FLAVOR_FILTER = None    # set to 'expo', 'lognormal', 'sigmoid', 'gamma'; None = all
     DREP_MODEL    = 'BOTH'  # 'OLS', 'EXPO', or 'BOTH'
 

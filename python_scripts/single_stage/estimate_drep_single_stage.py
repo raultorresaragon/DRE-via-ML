@@ -55,6 +55,10 @@ def _fit_outcome_expo(X, y, tag=''):
         result = sm.GLM(y, X_sm,
                         family=sm.families.Gaussian(
                             link=sm.families.links.Log())).fit(maxiter=200, method='irls')
+        #result = sm.GLM(y, X_sm, 
+        #                family=sm.families.Gamma(
+        #                    link=sm.families.links.Log())).fit(maxiter=200, method='irls')
+
     return result
 
 
@@ -67,7 +71,7 @@ def _predict_expo(result, X):
 def _fit_pscore(X, a, k, tag=''):
     """Fit LogisticRegression; return fitted model."""
     print(f"    fitting pscore logistic {tag}...")
-    model = LogisticRegression(max_iter=1000)
+    model = LogisticRegression(max_iter=1000, penalty=None)
     model.fit(X, a.astype(int))
     return model
 
@@ -87,7 +91,8 @@ def compute_mu_hat(A_obs, Y_obs, Y_hat_all, pi_hat_all, k):
     mu_hat = np.zeros((n, k))
     for a in range(k):
         I_a  = (A_obs == a).astype(float)
-        pi_a = np.clip(pi_hat_all[:, a], 1e-6, 1 - 1e-6)
+        pi_a = np.clip(pi_hat_all[:, a], 1e-6, 1 - 1e-6)          # CORRECT
+        #pi_a = np.clip(1 - pi_hat_all[:, a], 1e-6, 1 - 1e-6)      # BUG: uses P(A≠a|X)
         w_a  = np.mean(I_a / pi_a)
         mu_hat[:, a] = Y_hat_all[:, a] + I_a * (Y_obs - Y_hat_all[:, a]) / pi_a / w_a
     return mu_hat
@@ -151,6 +156,30 @@ def estimate_drep(filename, dgp='single', outcome_model='OLS'):
             model_a          = _fit_outcome(X[mask], Y[mask], tag=f'a={a} ')
             Y_hat_all[:, a]  = model_a.predict(X)
         models_Y[a] = model_a
+
+    # ==================================================================
+    # Extract delta_1_hat and Delta_1_hat from outcome model coefficients
+    # ==================================================================
+    print(f"\n[Extracting delta_1 / Delta_1 from outcome models]")
+    delta_rows = []
+    for a in range(1, k):
+        m_a = models_Y[a]
+        m_0 = models_Y[0]
+        if outcome_model == 'EXPO':
+            # params: [const, X1, ..., X_last]; const is prepended by sm.add_constant
+            delta_1_hat = float(m_a.params[0] - m_0.params[0])
+            Delta_1_hat = float(m_a.params[-1] - m_0.params[-1])
+        else:  # OLS
+            delta_1_hat = float(m_a.intercept_ - m_0.intercept_)
+            Delta_1_hat = float(m_a.coef_[-1]  - m_0.coef_[-1])
+        print(f"    a={a}: delta_1_hat={delta_1_hat:.4f}, Delta_1_hat={Delta_1_hat:.4f}")
+        delta_rows.append({'arm': a, 'delta_1_hat': delta_1_hat, 'Delta_1_hat': Delta_1_hat})
+
+    delta_suffix = '_deltas_DREp_expo' if outcome_model == 'EXPO' else '_deltas_DREp_ols'
+    delta_df     = pd.DataFrame(delta_rows)
+    delta_path   = os.path.join(datasets_dir, f'{filename}{delta_suffix}.csv')
+    delta_df.to_csv(delta_path, index=False)
+    print(f"  ✓ Deltas saved: {filename}{delta_suffix}.csv")
 
     # ==================================================================
     # Propensity score model

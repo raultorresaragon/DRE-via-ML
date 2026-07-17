@@ -248,7 +248,7 @@ if __name__ == '__main__':
     #                'OLS'  — DRE-Param with OLS
     #                'BOTH' — include both DRE-Param variants side by side
     #                None   — omit DRE-Param entirely
-    DREP_VARIANT = 'BOTH'
+    DREP_VARIANT = 'EXPO'
     GREYSCALE    = True
 
     os.makedirs(tables_dir, exist_ok=True)

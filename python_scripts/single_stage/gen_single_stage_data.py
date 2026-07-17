@@ -138,10 +138,10 @@ if __name__ == '__main__':
         os.remove(info_path_main)
 
     s = 1
-    for k in [2, 3, 5]:
+    for k in [2,3,5]: #[2, 3, 5]:
         p = {2: 3, 3: 8, 5: 12}[k]
         n = k * 200
-        for fY in ['expo', 'gamma']:
+        for fY in ['expo', 'gamma']: #, 'sigmoid', 'lognormal']:
             for i in range(30):
                 gen_single_stage_data(s=s, n=n, p=p, k=k, flavor_Y=fY, i=i)
 

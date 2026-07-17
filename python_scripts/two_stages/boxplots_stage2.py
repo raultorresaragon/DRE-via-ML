@@ -155,8 +155,9 @@ def build_records(sub_info, drep_variant='EXPO'):
 
 def make_figure(df, flavor, arms, drep_variant='BOTH', greyscale=False):
     """
-    k=2 : 1×2 figure (stages side by side).
-    k>2 : 2×1 figure (stages stacked vertically).
+    k=2  : 1×2 figure (stage 1 | stage 2 side by side).
+    k=3  : 2×1 figure (stage 1 | stage 2 stacked vertically).
+    k=5  : 2×2 grid — one cell per arm (A=a vs 0); both stages shown within each cell.
 
     Boxes per arm group: Naive | DRE-ML [| DRE-Param(expo)] [| DRE-Param(ols)]
 
@@ -169,71 +170,128 @@ def make_figure(df, flavor, arms, drep_variant='BOTH', greyscale=False):
     show_expo = drep_variant in ('EXPO', 'BOTH')
     show_ols  = drep_variant in ('OLS',  'BOTH')
 
-    n_arms    = len(arms)
-    n_boxes   = 2 + int(show_expo) + int(show_ols)
-    subplot_w = max(5, n_arms * n_boxes * 1.5)
-    vertical  = n_arms > 1
-
-    if vertical:
-        fig, axes = plt.subplots(2, 1, figsize=(subplot_w, 2 * 4))
-    else:
-        fig, axes = plt.subplots(1, 2, figsize=(2 * subplot_w, 5))
+    n_arms       = len(arms)
+    n_boxes      = 2 + int(show_expo) + int(show_ols)
     title_flavor = 'loggamma' if flavor == 'gamma' else flavor
+    grid2x2      = n_arms > 2   # k=5 has 4 arms
+
+    if grid2x2:
+        fig, ax_grid = plt.subplots(2, 2, figsize=(max(5, n_boxes * 1.5) * 2, 9))
+        axes = ax_grid.flatten()
+    elif n_arms > 1:   # k=3: 2 arms → 2×1 stacked
+        subplot_w = max(5, n_arms * n_boxes * 1.5)
+        fig, axes = plt.subplots(2, 1, figsize=(subplot_w, 8))
+    else:              # k=2: 1 arm → 1×2 side by side
+        subplot_w = max(5, n_boxes * 1.5)
+        fig, axes = plt.subplots(1, 2, figsize=(2 * subplot_w, 5))
+
     fig.suptitle(f'ATE Rel Bias — Two-Stage DGP  ({title_flavor})', fontsize=12)
 
-    for col_idx, stage in enumerate([1, 2]):
-        ax = axes[col_idx]
-
-        all_data    = []
-        all_colors  = []
-        tick_labels = []
-        positions   = []
-        pos         = 1
-
+    if grid2x2:
+        # One subplot per arm; both stages within each subplot
         for i_arm, a in enumerate(arms):
+            ax  = axes[i_arm]
             sub = df[df['arm'] == a]
 
-            # Naive
-            all_data.append(_drop_extreme(sub[f'rel_bias_naive_{stage}'].values, k=1))
-            all_colors.append(C_BW['naive'] if greyscale else C[stage]['naive'])
-            tick_labels.append(f'Naive\n(A{stage}={a} vs 0)')
-            positions.append(pos); pos += 1
+            all_data    = []
+            all_colors  = []
+            tick_labels = []
+            positions   = []
+            pos         = 1
 
-            # DRE-ML
-            all_data.append(_drop_extreme(sub[f'rel_bias_dre_{stage}'].values))
-            all_colors.append(C_BW['dre'] if greyscale else C[stage]['dre'])
-            tick_labels.append(f'DRE-ML')#\n(A{stage}={a} vs 0)')
-            positions.append(pos); pos += 1
-
-            # DRE-Param (expo)
-            if show_expo and f'rel_bias_drep_expo_{stage}' in sub.columns:
-                all_data.append(_drop_extreme(sub[f'rel_bias_drep_expo_{stage}'].values))
-                all_colors.append(C_BW['drep_expo'] if greyscale else C_DREP_EXPO)
-                tick_labels.append(f'DRE-(expo)') #\n(A{stage}={a} vs 0)')
+            for stage in [1, 2]:
+                all_data.append(_drop_extreme(sub[f'rel_bias_naive_{stage}'].values, k=1))
+                all_colors.append(C_BW['naive'] if greyscale else C[stage]['naive'])
+                tick_labels.append(f'Naive\nS{stage}')
                 positions.append(pos); pos += 1
 
-            # DRE-Param (ols)
-            if show_ols and f'rel_bias_drep_ols_{stage}' in sub.columns:
-                all_data.append(_drop_extreme(sub[f'rel_bias_drep_ols_{stage}'].values))
-                all_colors.append(C_BW['drep_ols'] if greyscale else C_DREP_OLS)
-                tick_labels.append(f'DRE-(ols)')#\n(A{stage}={a} vs 0)')
+                all_data.append(_drop_extreme(sub[f'rel_bias_dre_{stage}'].values))
+                all_colors.append(C_BW['dre'] if greyscale else C[stage]['dre'])
+                tick_labels.append(f'DRE-ML')#\nS{stage}')
                 positions.append(pos); pos += 1
 
-            if i_arm < len(arms) - 1:
-                pos += 1   # gap between arm groups
+                if show_expo and f'rel_bias_drep_expo_{stage}' in sub.columns:
+                    all_data.append(_drop_extreme(sub[f'rel_bias_drep_expo_{stage}'].values))
+                    all_colors.append(C_BW['drep_expo'] if greyscale else C_DREP_EXPO)
+                    tick_labels.append(f'DRE-(expo)')#\nS{stage}')
+                    positions.append(pos); pos += 1
 
-        bp = ax.boxplot(all_data, positions=positions, patch_artist=True, widths=0.6)
-        for patch, color in zip(bp['boxes'], all_colors):
-            patch.set_facecolor(color)
-            patch.set_alpha(0.8)
+                if show_ols and f'rel_bias_drep_ols_{stage}' in sub.columns:
+                    all_data.append(_drop_extreme(sub[f'rel_bias_drep_ols_{stage}'].values))
+                    all_colors.append(C_BW['drep_ols'] if greyscale else C_DREP_OLS)
+                    tick_labels.append(f'DRE-(ols)')#\nS{stage}')
+                    positions.append(pos); pos += 1
 
-        ax.axhline(0, color='black', linestyle='--', linewidth=0.8, alpha=0.5)
-        ax.set_xticks(positions)
-        ax.set_xticklabels(tick_labels, fontsize=7)
-        ax.set_title(f'Stage {stage}', fontsize=11)
-        ax.set_ylabel('Relative Bias (%)', fontsize=9)
-        ax.grid(axis='y', alpha=0.3)
-        ax.set_xlim(positions[0] - 0.5, positions[-1] + 0.5)
+                if stage == 1:
+                    pos += 1   # gap between stage groups
+
+            bp = ax.boxplot(all_data, positions=positions, patch_artist=True, widths=0.6)
+            for patch, color in zip(bp['boxes'], all_colors):
+                patch.set_facecolor(color)
+                patch.set_alpha(0.8)
+
+            ax.axhline(0, color='black', linestyle='--', linewidth=0.8, alpha=0.5)
+            ax.set_xticks(positions)
+            ax.set_xticklabels(tick_labels, fontsize=9)
+            ax.set_title(f'A={a} vs 0', fontsize=11)
+            ax.set_ylabel('Relative Bias (%)', fontsize=9)
+            ax.grid(axis='y', alpha=0.3)
+            ax.set_xlim(positions[0] - 0.5, positions[-1] + 0.5)
+
+        for j in range(n_arms, 4):
+            axes[j].set_visible(False)
+
+    else:
+        # Original layout: one subplot per stage
+        for col_idx, stage in enumerate([1, 2]):
+            ax = axes[col_idx]
+
+            all_data    = []
+            all_colors  = []
+            tick_labels = []
+            positions   = []
+            pos         = 1
+
+            for i_arm, a in enumerate(arms):
+                sub = df[df['arm'] == a]
+
+                all_data.append(_drop_extreme(sub[f'rel_bias_naive_{stage}'].values, k=1))
+                all_colors.append(C_BW['naive'] if greyscale else C[stage]['naive'])
+                tick_labels.append(f'Naive\n(A{stage}={a} vs 0)')
+                positions.append(pos); pos += 1
+
+                all_data.append(_drop_extreme(sub[f'rel_bias_dre_{stage}'].values))
+                all_colors.append(C_BW['dre'] if greyscale else C[stage]['dre'])
+                tick_labels.append(f'DRE-ML')
+                positions.append(pos); pos += 1
+
+                if show_expo and f'rel_bias_drep_expo_{stage}' in sub.columns:
+                    all_data.append(_drop_extreme(sub[f'rel_bias_drep_expo_{stage}'].values))
+                    all_colors.append(C_BW['drep_expo'] if greyscale else C_DREP_EXPO)
+                    tick_labels.append(f'DRE-(expo)')
+                    positions.append(pos); pos += 1
+
+                if show_ols and f'rel_bias_drep_ols_{stage}' in sub.columns:
+                    all_data.append(_drop_extreme(sub[f'rel_bias_drep_ols_{stage}'].values))
+                    all_colors.append(C_BW['drep_ols'] if greyscale else C_DREP_OLS)
+                    tick_labels.append(f'DRE-(ols)')
+                    positions.append(pos); pos += 1
+
+                if i_arm < len(arms) - 1:
+                    pos += 1   # gap between arm groups
+
+            bp = ax.boxplot(all_data, positions=positions, patch_artist=True, widths=0.6)
+            for patch, color in zip(bp['boxes'], all_colors):
+                patch.set_facecolor(color)
+                patch.set_alpha(0.8)
+
+            ax.axhline(0, color='black', linestyle='--', linewidth=0.8, alpha=0.5)
+            ax.set_xticks(positions)
+            ax.set_xticklabels(tick_labels, fontsize=9)
+            ax.set_title(f'Stage {stage}', fontsize=11)
+            ax.set_ylabel('Relative Bias (%)', fontsize=9)
+            ax.grid(axis='y', alpha=0.3)
+            ax.set_xlim(positions[0] - 0.5, positions[-1] + 0.5)
 
     plt.tight_layout()
     return fig
@@ -244,7 +302,7 @@ if __name__ == '__main__':
     #                'OLS'            — DRE-Param with OLS
     #                'BOTH'           — include both DRE-Param variants side by side
     #                None             — omit DRE-Param entirely
-    DREP_VARIANT = 'BOTH'
+    DREP_VARIANT = 'EXPO'
     GREYSCALE    = True
 
     os.makedirs(tables_dir, exist_ok=True)

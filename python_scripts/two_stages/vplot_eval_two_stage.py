@@ -113,10 +113,11 @@ def collect_v_values(info, eval_dir):
     return pd.DataFrame(records)
 
 
-def make_figure(sub_df, k, flavor, greyscale=False):
+def make_figure(sub_df, k, flavor, greyscale=False, include_drep_ols=True):
     """
-    Bar plot of mean V(d*) for one (k, flavor) group — four bars:
-      DRE-ML | DREp-expo | DREp-ols | Obs Y
+    Bar plot of mean V(d*) for one (k, flavor) group.
+      Always: DRE-ML | DREp-expo | Obs Y
+      Optional: DREp-ols (include_drep_ols=True)
 
     Each bar top shows: mean V to 3 d.p. + significance stars vs DRE-ML
       *** p < 0.01 | ** p < 0.05 | * p < 0.10
@@ -135,15 +136,16 @@ def make_figure(sub_df, k, flavor, greyscale=False):
     pval_ols  = np.nan
     if len(v_dre) > 0 and len(v_drep_expo) == len(v_dre):
         _, pval_expo = stats.ttest_rel(v_dre, v_drep_expo)
-    if len(v_dre) > 0 and len(v_drep_ols) == len(v_dre):
+    if include_drep_ols and len(v_dre) > 0 and len(v_drep_ols) == len(v_dre):
         _, pval_ols = stats.ttest_rel(v_dre, v_drep_ols)
 
     entries = [
         ('DRE-ML',    v_dre,       np.nan),
         ('DREp-expo', v_drep_expo, pval_expo),
-        ('DREp-ols',  v_drep_ols,  pval_ols),
-        ('Obs Y',     v_obs,       np.nan),
     ]
+    if include_drep_ols:
+        entries.append(('DREp-ols', v_drep_ols, pval_ols))
+    entries.append(('Obs Y', v_obs, np.nan))
     entries = [(lbl, arr, pv) for lbl, arr, pv in entries if len(arr) > 0]
 
     if not entries:
@@ -184,9 +186,10 @@ def make_figure(sub_df, k, flavor, greyscale=False):
 
 
 if __name__ == '__main__':
-    K_FILTER      = None   # set to 2, 3, or 5; None = all k values
-    FLAVOR_FILTER = None   # set to 'expo', 'lognormal', 'sigmoid', 'gamma'; None = all
-    GREYSCALE     = True
+    K_FILTER          = None   # set to 2, 3, or 5; None = all k values
+    FLAVOR_FILTER     = None   # set to 'expo', 'lognormal', 'sigmoid', 'gamma'; None = all
+    GREYSCALE         = True
+    INCLUDE_DREP_OLS  = True   # True → show DREp-ols bar + withBOTH suffix; False → expo only
 
     os.makedirs(tables_dir, exist_ok=True)
     os.makedirs(images_dir, exist_ok=True)
@@ -262,13 +265,16 @@ if __name__ == '__main__':
             summary_rows.append(row)
 
             # ---- Figure ----
-            fig = make_figure(sub, k, flavor, greyscale=GREYSCALE)
+            fig = make_figure(sub, k, flavor, greyscale=GREYSCALE,
+                              include_drep_ols=INCLUDE_DREP_OLS)
             if fig is not None:
-                suffix   = '_bw' if GREYSCALE else ''
-                img_path = os.path.join(images_dir, f'_vplot_eval_k{k}_{flavor}{suffix}.jpeg')
+                _bw      = '_bw' if GREYSCALE else ''
+                _variant = '_withBOTH' if INCLUDE_DREP_OLS else ''
+                _suffix  = f'{_variant}{_bw}'
+                img_path = os.path.join(images_dir, f'_vplot_eval_k{k}_{flavor}{_suffix}.jpeg')
                 fig.savefig(img_path, dpi=150, bbox_inches='tight')
                 plt.close(fig)
-                print(f'  Figure saved: _vplot_eval_k{k}_{flavor}{suffix}.jpeg')
+                print(f'  Figure saved: _vplot_eval_k{k}_{flavor}{_suffix}.jpeg')
 
         summary = pd.DataFrame(summary_rows).round(4)
         summary.to_csv(os.path.join(tables_dir, '_v_summary.csv'), index=False)

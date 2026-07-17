@@ -139,6 +139,28 @@ def estimate_dre(filename, dgp='single', hidunits=None, eps=None, penals=None):
         models_Y[a]     = model_a
 
     # ==================================================================
+    # Extract delta_1_hat and Delta_1_hat via post-hoc regression on NN predictions
+    # ==================================================================
+    print("\n[Post-hoc regression: delta_1 / Delta_1 from DRE-ML outcome models]")
+    X_np   = X.values          # (n, p)
+    X1_bin = X_np[:, -1]       # last column = tailoring variable
+    X_reg  = np.column_stack([np.ones(n), X1_bin])   # (n, 2) design matrix
+
+    delta_rows = []
+    for a in range(1, k):
+        diff_a      = Y_hat_all[:, a] - Y_hat_all[:, 0]
+        coefs, _, _, _ = np.linalg.lstsq(X_reg, diff_a, rcond=None)
+        delta_1_hat = float(coefs[0])
+        Delta_1_hat = float(coefs[1])
+        print(f"    a={a}: delta_1_hat={delta_1_hat:.4f}, Delta_1_hat={Delta_1_hat:.4f}")
+        delta_rows.append({'arm': a, 'delta_1_hat': delta_1_hat, 'Delta_1_hat': Delta_1_hat})
+
+    delta_df   = pd.DataFrame(delta_rows)
+    delta_path = os.path.join(datasets_dir, f'{filename}_deltas_DRE.csv')
+    delta_df.to_csv(delta_path, index=False)
+    print(f"  ✓ Deltas saved: {filename}_deltas_DRE.csv")
+
+    # ==================================================================
     # Propensity score model
     # ==================================================================
     print("\n[Propensity score model]")
@@ -188,7 +210,7 @@ def estimate_dre(filename, dgp='single', hidunits=None, eps=None, penals=None):
 # Run over all datasets in _info_single.csv
 # ============================================================
 if __name__ == '__main__':
-    K_FILTER      = None   # set to 2, 3, or 5 to run only that k; None = run all
+    K_FILTER      = [3]   # set to 2, 3, or 5 to run only that k; None = run all
     FLAVOR_FILTER = None   # set to 'expo', 'gamma', etc.; None = all
 
     info = pd.read_csv(info_path)

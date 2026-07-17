@@ -84,7 +84,8 @@ def compute_mu_hat(A_obs, Y_obs, Y_hat_all, pi_hat_all, k):
     mu_hat = np.zeros((n, k))
     for a in range(k):
         I_a  = (A_obs == a).astype(float)
-        pi_a = np.clip(pi_hat_all[:, a], 1e-6, 1 - 1e-6)
+        #pi_a = np.clip(pi_hat_all[:, a], 1e-6, 1 - 1e-6)
+        pi_a = np.clip(1 - pi_hat_all[:, a], 1e-6, 1 - 1e-6)      # BUG: uses P(A≠a|X)
         w_a  = np.mean(I_a / pi_a)
         mu_hat[:, a] = Y_hat_all[:, a] + I_a * (Y_obs - Y_hat_all[:, a]) / pi_a / w_a
     return mu_hat

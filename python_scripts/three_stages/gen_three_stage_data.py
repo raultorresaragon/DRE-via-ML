@@ -194,7 +194,7 @@ if __name__ == '__main__':
         os.remove(info_path)
 
     s = 3
-    for k in [2, 3]:
+    for k in [2,3,5]: #[2, 3]:
         if k == 2:
             p1 = 3
         if k == 3:
